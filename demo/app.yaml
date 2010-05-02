@@ -1,0 +1,33 @@
+application: k16-8888
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /favicon.ico
+  static_files: public/images/favicon.ico
+  upload: public/images/favicon.ico
+
+- url: /css
+  static_dir: public/css
+
+- url: /images
+  static_dir: public/images
+
+- url: /js
+  static_dir: public/js
+
+- url: /video
+  script: py/video.py
+
+- url: /profile/.*
+  script: py/user_profile.py
+  login: required
+
+- url: /admin/.*
+  script: py/admin.py
+  login: admin
+
+- url: /.*
+  script: py/welcome.py
+
