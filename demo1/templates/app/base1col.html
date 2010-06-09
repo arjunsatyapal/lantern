@@ -1,0 +1,112 @@
+<!-- Copyright 2010 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+{% extends "app/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_head %}
+{% endblock %}
+
+{% block body_tags %}id="edu-dashboard" class="body" {% endblock %}
+{% block extra_body_tags %}{% endblock %}>
+
+{% block body %}
+ <div class={% block container_class %}"base1col"{% endblock %} id="container">
+  {% block content_header %}
+  <!-- HEADER -->
+   <div class={% block header_class %}"base1col"{% endblock %}>
+    <div id="content-header">
+     <div id="logo">
+      <a href="{{base_url}}/">
+         <img alt="KHAN" src="{{media_url}}images/khan.gif" class="logo">
+      </a>
+     </div>
+     <div id="top-links">
+       {% if not username %}
+         <a href="{{login_url}}">Login</a> |
+        {% else %}
+         <span class="username">
+         {{ username }}
+         </span>
+         | <a href="{{logout_url}}">Sign Out</a> |
+        {% endif %}
+     {% block home %}<a href="{{base_url}}/">Home</a> |
+      {% endblock %}
+      {% block extra_top_links %}
+      {% endblock %}
+     </div>
+     <br /><br />
+     <div id="page-title">
+      <div id="mainmenu">{{ mainmenu|safe }}</div>
+      <div id="confirmation_container">
+        <div id="confirmation" class="confirmation" style="display:none;">
+        </div>
+      </div>
+      <div id="titlebar">
+        <div id="loading" class="loading" style="display:none;">Loading...
+            <span id="loadingCount"></span>
+        </div>
+        <div id="title-name" class="title">{{ page_title }}</div>
+         {% block titlebar %}{% endblock %}
+      </div>
+     </div> <!-- page-title -->
+    </div>
+   </div>
+  {% endblock content_header %}
+
+  {% block extra_header %}{% endblock %}
+
+  <div id="content-container">
+   <div class={% block content_class %}"base1col"{% endblock %}>
+   {% block content %}
+     <!-- BODY -->
+    <div id="content-main">
+     {% block content_main %}{% endblock %}
+    </div>
+   {% endblock content %}
+   </div>
+  </div>
+
+  <!-- FOOTER -->
+  {% block content_footer %}
+  <div class={% block footer_class %}"base1col"{% endblock %}>
+    <div id="content-footer">
+      <div id="footer">
+        {% block extra_footer_links %}{% endblock %}
+
+        {% block extra_footer %}{% endblock %}
+       </div>
+       <div id="copyright-link">
+        Copyright 2010 xxxx. All Rights Reserved.
+     </div>
+    </div>
+  </div>
+  {% endblock content_footer %}
+
+  <div id="debugMsg">
+   {% block debug_msg %}
+   {% endblock %}
+  </div>
+  </div> <!-- container -->
+
+{% endblock body %}
+
+{% block scripts %}
+  <script type="text/javascript" src="{{media_url}}js/edu.js"></script>
+<!--  <script type="text/javascript" src="/js/edu-bundle.js"></script> -->
+ <!-- command-line flags -->
+ {% block end_script %}
+ {% endblock end_script %}
+{% endblock scripts %}

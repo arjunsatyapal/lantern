@@ -1,0 +1,86 @@
+Welcome to Lantern
+-------------------
+
+This project represents a prototype of an education/online text book
+application.  It uses Django on Google App Engine. It requires Django version
+1.0 or newer (developed with 1.1).
+
+The initial application structure and setup is based sustantially on:
+
+  http://code.google.com/p/rietveld
+
+
+Links
+------
+Google App Engine: http://code.google.com/appengine/
+Django: http://djangoproject.com
+Python: http://python.org
+rietveld: http://code.google.com/p/rietveld
+
+License
+-------
+
+The license is Apache 2.0.  See the file, COPYING.
+
+Running
+-------
+
+To run locally: *** YOU MUST INSTALL DJANGO 1.0 OR NEWER. ***
+
+- Download Django-1.1.1.tar.gz (or newer) from www.djangoproject.com and 
+  follow the installation instructions, Typically:
+
+    cd /tmp
+    tar xzf Django-1.1.1.tar.gz
+    cd Django-1.1.1
+    sudo python setup.py install
+
+  This will install into your local machine's site-packages.
+
+  NOTE: On the Mac, if you are using the Google App Engine Launcher, the
+  Python version it uses may differ from the default you have on the
+  command line.  To install Django into the correct Python version, you
+  may have to do the following:
+
+    sudo /usr/bin/python setup.py install
+
+- Download the Google App Engine SDK from
+  http://code.google.com/appengine/downloads.html.
+
+  For convenience, extract it to a local directory (faster if not on NFS mount)
+  and create a symbolic link to it from this directory, e.g.,:
+
+    ln -s /usr/local/apps/google_appengine .google_appengine
+
+  (Dotted files/directories are ignored by svn by default.)
+
+- To run the application from this directory:
+
+  .google_appengine/dev_appserver.py \
+    --port 9090 \
+    --address=<your_hostname> \
+    .
+
+  Access via http://<your_hostname>:9090.
+
+  IMPORTANT: The server in the Google App Engine SDK is not designed for
+  serving real traffic.  The App Engine FAQ at
+  http://code.google.com/appengine/kb/general.html says about this:
+
+   "You can override this using the -a <hostname> flag
+    when running it, but doing so is not recommended because the SDK has
+    not been hardened for security and may contain vulnerabilities."
+
+
+- To deploy your own instance of the app to Google App Engine:
+
+  1. Register your own application ID on the App Engine admin site.
+  2. Edit app.yaml to use this app ID instead of 'codereview'.
+  3. Upload using
+
+    .google_appengine/appcfg.py update .
+
+  *** Don't forget step 2!  If you forget to change the application ID,
+  you'll get a error message from "appcfg.py update" complaining you don't
+  have the right to administer this app.
+
