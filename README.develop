@@ -1,0 +1,111 @@
+Developer Notes for Lantern
+
+SVN is used to upload changes to code.google.com
+
+  https://lantern.googlecode.com/svn/trunk/demo
+  https://lantern.googlecode.com/svn/trunk/demo1
+
+The code project site:
+  http://code.google.com/p/lantern
+
+  Go to the "Sources" tab to locate the SVN password.
+
+AppEngine site:
+
+  app_id: k16-8888
+  http://k16-8888.appspot.com
+
+
+See demo1/README for additional notes.
+
+Use the following header on all source files:
+---------------------------------------------------------------------
+Copyright 2010 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+---------------------------------------------------------------------
+
+COPYING based on:  http://www.apache.org/licenses/LICENSE-2.0.txt
+
+-----------
+2010-05-06  Development setup
+-----------
+Install django-1.1.1 to local machine's Python site-packages
+ - NOTE: you might need to chmod -R a+wX in the extracted directory before
+   running:
+      python setup.py install
+
+Install pymox: http://code.google.com/p/pymox 0.5.3 into site-packages
+ - Need to symlink mox.py and stubout.py into the demo1-test directory or
+   figure out how to add path:
+
+   cd demo1-test
+   ln -s /usr/lib/python2.5/site-packages/mox.py ./site-packages
+   ln -s /usr/lib/python2.5/site-packages/stubout.py ./site-packages
+
+  demo1-test/__init__.py adds ./site-packages to path.  Deployment should
+  probably skip site-packages.
+
+Load and extract appengine SDK.
+ - Create a symlink to the app-engine directory in each "app", e.g.
+
+   cd demo1
+   ln -s /usr/local/apps/google_appengine .google_appengine
+
+   Do the same in demo1-test.
+
+Download and extract GAEunit, coying gaeunit into the test source tree (e.g.,
+  demo1-test).
+
+To run the demo1-test that contains the unit-testing infrastructure:
+
+  cd demo1-test
+  make test
+
+  Then go to http://localhost:9092 in your browser
+
+  Click on the "login" link to log in with a dummy user
+
+  Go to http://localhost:9092/test to run the unit tests
+
+
+-----------
+2010-05-01
+-----------
+
+GIT may be used for local revisions. For example:
+
+- ~/src/lantern may be created for local development
+
+- Use 'git init' to create a .git/ directory to track local development before
+  uploading to SVN.
+
+  - .gitignore contains patterns for ignored files. It may be used to set
+   the svn:ignore property on new directories.
+
+- Directories:
+
+  demo/ is a demo AppEngine/Python application
+  demo1/ is a demo AppEngine/Django/Python application
+  content/ contains course-content repository, but there is a symlink from
+    within the demo1 directory during development.
+
+  To get a copy of demo1:
+
+    svn checkout https://lantern.googlecode.com/svn/trunk/demo1 demo1
+
+  To add ignores to directories:
+
+    svn propset svn:ignore -F ../.gitignore py public/images templates/app
+
+  where .gitignore contains patterns to ignore auto-generated files:
