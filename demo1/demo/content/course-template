@@ -1,0 +1,80 @@
+%YAML 1.2
+---
+doc_type: group
+doc_type_desc: Course
+doc_key: DUdpMQXAZewtzPdkLtwW6K
+doc_title: AP CS Python
+doc_desc: An AP course on Python
+doc_created_on: 2010-05-27 10:15
+doc_creator: mukundjha@google.com
+doc_parents: [p1,p2,p3]
+doc_content:
+  - key: AlRG3wQOBqMc2nIwjoHZZ8
+    title: Overview of AP CS Learning with Python
+    type: g
+  - key: BQYVV1KayQ2xjccQgIXfP+
+    title: The way of the program
+    type: g
+  - key: Des7BVODdcptnOdWhsWXeK
+    title: Variables, Expressions and statements 
+    type: g
+  - key: D3h0ERy2UJ1Q5jkNBJ0/5u
+    title: Functions 
+    type: g
+  - key: BMmhKyLVtK9txtE0Qqpozp
+    title: Conditionals and recursion 
+    type: g
+  - key: CVy8ej1h0dNuBKkGBAZMZj
+    title: Fruitful functions 
+    type: g
+  - key: DFhEBMR70MGedQmfgSzKi2
+    title: Iteration 
+    type: g
+  - key: DdX0Z3e/awuICzxc83MW4P
+    title: Strings 
+    type: g
+  - key: AYWAXImPFercbapxMuTsYQ
+    title: Lists 
+    type: g
+  - key: AUiuMy/tPzOzAVOdRI19o9
+    title: Tuples 
+    type: g
+  - key: AcKuCvd/MJ/wo1bhkyyZKZ
+    title: Dictionaries 
+    type: g
+  - key: BTpugJrP4tOThuvbSROPTS
+    title: Files and exceptions 
+    type: g
+  - key: CpZvVj+Rul2z9VywC2H5RR
+    title: Classes and objects 
+    type: g
+  - key: BwYMVAC9Tn2mTjXtbWZewY
+    title: Classes and functions 
+    type: g
+  - key: Ad0CA+uI8hfzDEsY1sG75W
+    title: Classes and methods 
+    type: g
+  - key: D9FB3lT4EpYUekSra1ClRi
+    title: Sets of objects 
+    type: g
+  - key: DtSf/9GvX1noIl54URTO3z
+    title: Inheritance 
+    type: g
+  - key: Afl93EUgrqeqgExj1Saaep
+    title: Linked lists 
+    type: g
+  - key: AUINRt+PdmDzruYfAWNQpx
+    title: Stacks 
+    type: g
+  - key: Ac1UTMQ8e2UmQdp41r8tSx
+    title: Queues 
+    type: g
+  - key: B69vlFjog2Knw6BYhGTaFi
+    title: Trees 
+    type: g
+  - key: AwXLc1Zw+OT1QDGjIofA/S
+    title: Debugging 
+    type: g
+  - key: DBJ5RBzfvp5GbmuapbS6XE
+    title: Creating a new data type
+    type: g

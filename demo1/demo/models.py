@@ -61,8 +61,8 @@ def gql(cls, clause, *args, **kwds):
   query.bind(*args, **kwds)
   return query
 
-
 ### Pedagogy ###
+
 
 class PedagogyModel(db.Model):
   """Base class of items in a pedagogy hierarchy.
@@ -400,10 +400,6 @@ class LessonRef(PedagogyRef):
 
   reference = db.ReferenceProperty(CourseLesson)
 
-
-### Accounts ###
-
-
 class Account(db.Model):
   """Maps a user or email address to a user-selected nickname, and more.
 
@@ -600,3 +596,26 @@ class Account(db.Model):
     when = int(time.time()) // 3600 + offset
     m.update(str(when))
     return m.hexdigest()
+
+### New Models ## 
+
+
+class DocModel(db.Model):
+  """ Stores various attributes associated with a document.
+ 
+  TODO(mukundjha) : adopt/merge PedagogyModel 
+  """
+
+  docId = db.StringProperty()
+
+
+class StudentState (db.Model):
+  """ Maintains minimal student state.
+ 
+  TODO(mukundjha) : expand the model and use proper references
+  """
+  #student = db.ReferenceProperty(Account)
+  student = db.UserProperty()
+  #doc = db.ReferenceProperty(DocModel)
+  doc = db.StringProperty()
+  status = db.RatingProperty()

@@ -41,6 +41,7 @@ TEMPLATE_DEBUG = DEBUG
 TEMPLATE_DIRS = (
     os.path.join(os.path.dirname(__file__), 'templates'),
     )
+ROOT_PATH = os.path.dirname(__file__)
 TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.load_template_source',
     )

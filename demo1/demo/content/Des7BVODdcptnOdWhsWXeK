@@ -1,0 +1,44 @@
+%YAML 1.2
+---
+doc_type: group
+doc_type_desc: Lesson
+doc_key: Des7BVODdcptnOdWh+WXeK
+doc_title: Variables, expressions and statements
+doc_desc: None 
+doc_created_on: 2010-05-27 10:15
+doc_creator: mukundjha@google.com
+doc_parents: [p1,p2,p3]
+doc_content:
+  - key: BkT/Nqi4HTkpn3qPHeV+Xx
+    title: overview of Variables, expressions and statements
+    type: c
+  - key: CE9inaE8SU6kMS05xno8Qg
+    title: Values and types
+    type: c
+  - key: DOI0PIFb+0qIAdYlswlgX6
+    title: Variables
+    type: c
+  - key: BzRflF1AYK/sV9LI1RxhHF
+    title: Variable names and keywords
+    type: c
+  - key: BnHQmV6Etw6chf9h2waJqw
+    title: Statements
+    type: c
+  - key: C0Mm6XKUVNwJug81ptjqeB
+    title: Evaluating expressions
+    type: c
+  - key: A7pIZe2HDCv4+k9BUJ5M0f
+    title: Operators and operands
+    type: c
+  - key: ASSXIKxAua+NKQhZ0rI464
+    title: Order of operations
+    type: c
+  - key: DIdMOgaPg0KaurhVZ4C/TE
+    title: Operations on strings
+    type: c
+  - key: BU1VuHr3ngzoCAD93fYulu
+    title: Composition
+    type: c
+  - key: Dj29eqtH5ox3JvaP9puF/j
+    title: Comments
+    type: c

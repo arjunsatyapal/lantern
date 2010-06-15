@@ -1,0 +1,17 @@
+%YAML 1.2
+---
+doc_type: group
+doc_type_desc: Course
+doc_key: DUdpMQXAZewtzPdkLtwW6K
+doc_title: AP CS Python
+doc_desc: An AP course on Python
+doc_created_on: 2010-05-27 10:15
+doc_creator: mukundjha@google.com
+doc_parents: [p1,p2,p3]
+doc_content:
+  - key: AlRG3wQOBqMc2nIwjoHZZ8
+    title: Overview of AP CS Learning with Python
+    type: g
+  - key: BQYVV1KayQ2xjccQgIXfP+
+    title: The way of the program
+    type: g

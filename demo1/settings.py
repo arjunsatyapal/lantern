@@ -33,6 +33,7 @@ MIDDLEWARE_CLASSES = (
     'demo.middleware.AddUserToRequestMiddleware',
 )
 ROOT_URLCONF = 'urls'
+ROOT_PATH = os.path.dirname(__file__)
 TEMPLATE_CONTEXT_PROCESSORS = (
     'django.core.context_processors.request',
 )

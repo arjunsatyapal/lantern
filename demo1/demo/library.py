@@ -23,6 +23,7 @@
 
 import cgi
 import logging
+import traceback
 
 from google.appengine.api import memcache
 from google.appengine.api import users
@@ -32,6 +33,8 @@ import django.utils.safestring
 from django.core.urlresolvers import reverse
 
 import models
+import yaml
+import constants
 
 # For registering filter and tag libs.
 register = django.template.Library()
@@ -174,3 +177,87 @@ def nicknames(parser, token):
   node = nickname(parser, token)
   node.is_multi = True
   return node
+
+### functions to parse yaml files ###
+
+
+def parse_yaml(path):
+  """Parses input yaml file and returns a dictionary object with yaml content. 
+  
+  Validation of the content is done by parse_leaf and parse_node functions.
+
+  Args: 
+    path: Path to yaml file.
+
+  Returns: 
+    A dict object with yaml_content mapped with corresponding keys.
+
+  Raises: 
+    IOError:  If file path is not correct.
+    YAMLError: If unable to load yaml file.
+    
+  If an error occours the dictionary object returned will contain 
+  element 'errorMsg' containing the error message.
+  """
+  # Read the yaml file.
+  try:
+    data_file_content = open(path).read()
+  
+  # If file not valid return dictObejct with corresponding error message.
+  except IOError:
+    return {'errorMsg':'ERROR: File path not correct ' + path}
+  
+  try:
+    data_dict = yaml.load(data_file_content)
+  # If file unable to load yaml content return dictObejct with corresponding error message.
+  except yaml.YAMLError, exc:
+    return {'errorMsg':'Error: Unable to load yaml content from %s<br> ' +
+      'Details:<br>\n%s'% (path, str(exc))}
+
+  if not isinstance(data_dict,dict):
+    return {'errorMsg':'ERROR: (DICTIONARY OBJECT EXPECTED) Error loading yaml' +
+      'content from ' + path }
+  
+  return data_dict
+
+
+def parse_node(path):
+  """Parses a yaml file and validates if the file is of type node.
+  
+  Args: 
+    path: Path to yaml file.
+
+  Returns: 
+    A dict object with doc_content mapped with corresponding keys,
+      or with appropriate error message.
+  """
+  data_dict = parse_yaml(path)
+
+  if 'errorMsg' in data_dict:
+    return data_dict
+
+  if data_dict.get(constants.YAML_TYPE_KEY) != "group":
+    return {'errorMsg':'Error loading yaml file ( '+path+' ):  invalid leaf'}
+
+  return data_dict
+
+
+def parse_leaf(path):
+  """Parses a yaml file and validates if the file is of type leaf.
+  
+  Args: 
+    path: Path to yaml file.
+
+  Returns: 
+    A dict object with yaml_content mapped with corresponding keys, 
+      or with appropriate error message,if there is a type mismatch.
+  """ 
+  data_dict = parse_yaml(path)
+  
+  if 'errorMsg' in data_dict:
+    return data_dict
+  
+  if data_dict.get(constants.YAML_TYPE_KEY) != "content":
+    return {'errorMsg':'Error loading yaml file ( '+path+' ):  invalid leaf'}
+  
+  return data_dict

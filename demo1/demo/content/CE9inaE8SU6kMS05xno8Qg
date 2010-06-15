@@ -1,0 +1,43 @@
+%YAML 1.2
+---
+doc_type: content
+doc_type_desc: module
+doc_key: CE9+naE8SU6kMS05xno8Qg
+doc_title: 'Values and types'
+doc_desc: An AP course on Python
+doc_created_on: 2010-05-27 10:15
+doc_creator: mukundjha@google.com
+doc_parents: [p1,p2,p3]
+doc_video_id: SBQwQRwkg6U
+doc_content: "<hr/><H2>Evaluating expressions</H2>\n\n<P>A <B>value</B>
+   is one of the basic things a program works with,\nlike a letter or a number. The
+   values we have seen so far are\n<TT>1</TT>, <TT>2</TT>, and <CODE>'Hello, World!'</CODE>.</P>
+  \n<P>These values belong to different <B>types</B>: <TT>2</TT> is an\ninteger, and
+   <CODE>'Hello, World!'</CODE> is a <B>string</B>,\nso-called because it contains
+   a \"string\" of letters.  You (and the\ninterpreter) can identify strings because
+   they are enclosed in\nquotation marks.</P>\n\n<P>The print statement also works
+   for integers.</P>\n<FONT size=\"4\" color=\"blue\">\n<PRE class=\"verbatim\">&gt;&gt;&gt;
+   print 4\n4\n</PRE></FONT>\n\n<P>If you are not sure what type a value has, the
+   interpreter can tell\nyou.</P>\n\n<PRE class=\"
+  verbatim\">&gt;&gt;&gt; type('Hello, World!')\n\n&lt;type 'str'&gt;\n&gt;&gt;&gt;
+   type(17)\n&lt;type 'int'&gt;\n</PRE>\n\n<P>Not surprisingly, strings belong
+   to the type <TT>str</TT> and\nintegers belong to the type <TT>int</TT>. Less obviously,
+   numbers with\na decimal point belong to a type called <TT>float</TT>, because
+   these\nnumbers are represented in a format called\n<B>floating-point</B>.</P>\n
+  \n<FONT size=\"4\" color=\"blue\">\n<PRE class=\"verbatim\">&gt;&gt;&gt; type(3.2)\n
+  &lt;type 'float'&gt;\n</PRE></FONT>\n\n<P>What about values like <CODE>'17'</CODE>
+   and <CODE>'3.2'</CODE>?\nThey look like numbers, but they are in quotation marks
+   like\nstrings.</P>\n\n<FONT size=\"4\" color=\"blue\">\n<PRE class=\"verbatim\"
+  >&gt;&gt;&gt; type('17')\n&lt;type 'str'&gt;\n&gt;&gt;&gt; type('3.2')\n&lt;type
+   'str'&gt;\n</PRE></FONT>\n\n<P>They're strings.</P>\n\n<br>\n\n<P>When you type
+   a large integer, you might be tempted to use commas\nbetween groups of three digits,
+   as in <TT>1,000,000</TT>. This is not\na legal integer in Python, but it is legal:</P>\n
+  <FONT size=\"4\" color=\"blue\">\n<PRE class=\"verbatim\">&gt;&gt;&gt; print 1,000,000\n
+  1 0 0\n</PRE></FONT>\n\n<P>Well, that's not what we expected at all! Python interprets\n
+  <TT>1,000,000</TT> as a comma-separated sequence of integers, which it\nprints with
+   spaces between.</P>\n\n<P>This is the first example we have seen of a semantic
+   error: the code\nruns without producing an error message, but it doesn't do the\n
+  \"right\" thing.</P>\n\n<HR>\n\n<center>Try it yourself.  Type some of these commands
+   into the\ninterpreter running in this terminal window.</center>\n<br> \n$$PYTHON_INTERPRETER()$$\n
+  \n<HR>\n\n<center>Can you get 10 in a row correct?  You can use the interpreter\n
+  above for help.</center>\n<br>\n$$MULTIPLE_CHOICE_QUIZ('BsQYW+dFAnKxTfyLV9mYtC')$$\n"

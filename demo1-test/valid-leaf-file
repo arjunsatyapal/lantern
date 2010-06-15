@@ -1,0 +1,11 @@
+%YAML 1.2
+---
+doc_type: content
+doc_type_desc: module
+doc_key: CE9+naE8SU6kMS05xno8Qg
+doc_title: 'Values and types'
+doc_desc: An AP course on Python
+doc_created_on: 2010-05-27 10:15
+doc_creator: mukundjha@google.com
+doc_parents: [p1,p2,p3]
+doc_content: This is a message

@@ -22,7 +22,7 @@
 APPENGINE_DIR = .google_appengine
 
 # Address for the server name. Defaults to localhost
-SERVER_ADDRESS = vchen-u.i
+SERVER_ADDRESS = $(shell hostname -f) 
 
 DEV_SERVER = dev_appserver.py
 APP_CFG = appcfg.py
@@ -35,7 +35,7 @@ TEST_PORT = 9092
 
 test: $(DATASTORE_DIR) .STALE
 	$(APPENGINE_DIR)/$(DEV_SERVER) $(TEST_ARGS) \
-	  --address $(SERVER_ADDRESS) --port $(TEST_PORT) .
+         --address $(SERVER_ADDRESS) --port $(TEST_PORT) .
 
 $(DATASTORE_DIR):
 	mkdir -p $@
