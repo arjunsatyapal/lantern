@@ -21,4 +21,8 @@ urlpatterns = defaults.patterns(
     (r'^$', 'index'),
     (r'^video$', 'video'),
     (r'^xsrf_token$', 'xsrf_token'),
+    (r'^create$', 'create'),
+    (r'^view$', 'view_doc'),
+    (r'^edit$', 'edit'),
+    (r'^submitEdits$', 'submit_edits'),
     )

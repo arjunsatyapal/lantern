@@ -20,23 +20,207 @@
 import logging
 import unittest
 import os
+
 # AppEngine imports
 from google.appengine.ext import db
 from google.appengine.api import users
 
 # local imports
 from demo import library
+from demo import models
 import settings
 
 ROOT_PATH = settings.ROOT_PATH
-_INVALID_FILE_PATH = os.path.join(ROOT_PATH, "non-existent-file");
-_INVALID_YAML_FILE = os.path.join(ROOT_PATH, "invalid-yaml-file");
-_INVALID_NODE_FILE = os.path.join(ROOT_PATH, "valid-leaf-file");
-_INVALID_LEAF_FILE = os.path.join(ROOT_PATH, "valid-node-file");
-_VALID_NODE_FILE = os.path.join(ROOT_PATH, "valid-node-file");
-_VALID_LEAF_FILE = os.path.join(ROOT_PATH, "valid-leaf-file");
+_INVALID_FILE_PATH = os.path.join(ROOT_PATH, "non-existent-file")
+_INVALID_YAML_FILE = os.path.join(ROOT_PATH, "invalid-yaml-file")
+_INVALID_NODE_FILE = os.path.join(ROOT_PATH, "valid-leaf-file")
+_INVALID_LEAF_FILE = os.path.join(ROOT_PATH, "valid-node-file")
+_VALID_NODE_FILE = os.path.join(ROOT_PATH, "valid-node-file")
+_VALID_LEAF_FILE = os.path.join(ROOT_PATH, "valid-leaf-file")
 
 
+class InsertWithNewKeyTest(unittest.TestCase):
+  """Test insertion of object with new random key.
+
+  TODO(mukundjha): Add test cases for function insert_with_new_key.
+  """
+
+
+class AppendToTrunkTest(unittest.TestCase):
+  """Test appending document to trunk."""
+
+  def testAppendWithInvalidIds(self):
+    self.assertRaises(TypeError, library.append_to_trunk)
+    self.assertRaises(models.InvalidTrunkError, library.append_to_trunk,
+      'Invalid', 'Invalid')
+
+  def testAppendWithInvalidTrunkId(self):
+    doc = library.insert_with_new_key(models.DocModel)
+    self.assertRaises(models.InvalidTrunkError, library.append_to_trunk,
+      'Invalid', str(doc.key()))
+
+  def testAppendWithInvalidDocId(self):
+    trunk = library.insert_with_new_key(models.TrunkModel)
+    doc = library.insert_with_new_key(models.DocModel)
+    self.assertRaises(TypeError, library.append_to_trunk,
+      str(trunk.key()))
+
+  def testAppendToNewTrunk(self):
+    trunk = library.insert_with_new_key(models.TrunkModel)
+    doc = library.insert_with_new_key(models.DocModel)
+
+    trunk_revisions = models.TrunkRevisionModel.all().ancestor(trunk)
+    self.assertEquals(trunk_revisions.count(), 0)
+
+    returned_trunk = library.append_to_trunk(trunk.key(), str(doc.key()))
+
+    trunk_revision_entry = models.TrunkRevisionModel.all().ancestor(trunk).get()
+    self.assertEquals(str(trunk_revision_entry.parent().key()),
+      str(trunk.key()))
+    self.assertEquals(str(trunk_revision_entry.obj_ref), str(doc.key()))
+
+    updated_trunk = db.get(trunk.key())
+    self.assertEquals(str(updated_trunk.head), str(doc.key()))
+
+  def testAppendToExistingTrunk(self):
+    trunk = library.insert_with_new_key(models.TrunkModel)
+    doc = library.insert_with_new_key(models.DocModel)
+
+    trunk_revision1 = library.insert_with_new_key(models.TrunkRevisionModel,
+      parent=trunk, obj_ref=str(doc.key()), commit_message='Test message')
+    doc2 = library.insert_with_new_key(models.DocModel)
+
+    trunk_revisions = models.TrunkRevisionModel.all().ancestor(trunk)
+    self.assertEquals(trunk_revisions.count(), 1)
+
+    returned_trunk = library.append_to_trunk(trunk.key(), str(doc2.key()))
+
+    trunk_revision_entry = models.TrunkRevisionModel.all().ancestor(trunk)
+
+    self.assertEquals(trunk_revisions.count(), 2)
+
+    trunk_revision = models.TrunkRevisionModel.all().ancestor(trunk).order(
+      '-time_stamp').fetch(1)
+    self.assertEquals(str(trunk_revision[0].parent().key()), str(trunk.key()))
+    self.assertEquals(str(trunk_revision[0].obj_ref), str(doc2.key()))
+
+    updated_trunk = db.get(trunk.key())
+    self.assertEquals(str(updated_trunk.head), str(doc2.key()))
+
+    
+class CreateNewTrunkWithDocTest(unittest.TestCase):
+  """Test creation of a new trunk with passed doc as head."""
+
+  def testCreationWithNoDocId(self):
+    self.assertRaises(TypeError, library.create_new_trunk_with_doc)
+
+  def testValidCreation(self):
+    doc = library.insert_with_new_key(models.DocModel)
+    trunk = library.create_new_trunk_with_doc(str(doc.key()))
+
+    self.assertEquals(str(trunk.head), str(doc.key()))
+
+    trunk_revisions = models.TrunkRevisionModel.all()
+    self.assertEquals(trunk_revisions.count(), 1)
+    
+    trunk_revision = models.TrunkRevisionModel.all().get()
+   
+    self.assertEquals(str(trunk_revision.parent().key()), str(trunk.key()))
+    self.assertEquals(str(trunk_revision.obj_ref), str(doc.key()))
+    
+
+class CreateNewDocTest(unittest.TestCase):
+  """Test insertion of new doc."""
+
+  def testInsertWithValidTrunkId(self):
+    # creating a trunk
+    trunk = library.insert_with_new_key(models.TrunkModel)
+    doc = library.create_new_doc(trunk.key())
+
+    self.assertEquals(str(doc.trunk_ref.key()), str(trunk.key()))
+
+    trunk = db.get(trunk.key())
+    head = db.get(trunk.head)
+    
+    revisions = models.TrunkRevisionModel.all().ancestor(trunk)  
+    
+    self.assertEquals(str(head.key()), str(doc.key()))
+    self.assertEquals(revisions.count(), 1)
+
+    returned_doc = revisions.fetch(1)
+    self.assertEquals(str(returned_doc[0].obj_ref), str(doc.key()))
+  
+  def testInsertWithInvalidTrunkId(self):
+ 
+    self.assertRaises(models.InvalidTrunkError, library.create_new_doc,
+      "xxxx")
+  
+  def testInsertWithNoTrunkId(self):
+    doc = library.create_new_doc()
+    trunk = db.get(doc.trunk_ref.key())
+   
+    head = db.get(trunk.head)
+ 
+    
+    revisions = models.TrunkRevisionModel.all().ancestor(trunk)  
+
+    self.assertEquals(str(head.key()), str(doc.key()))
+    self.assertEquals(revisions.count(), 1)
+ 
+    returned_revision = revisions.fetch(1)
+    self.assertEquals(returned_revision[0].obj_ref, str(doc.key()))
+
+
+class FetchDocTest(unittest.TestCase):
+  """Test for fetching document from datastore.
+  
+  If no trunk_id or invalid trunk_id raise InvaildDocumentError
+  If both trunk_id and doc_id are provided retrieve the corresponding
+  document.
+  If doc_id is invalid or only trunk_id is provided retrieve head document
+  for the trunk. 
+  
+  TODO(mukundjha): Check for raised exceptions.
+  """
+  
+  def testInvalidTrunkId(self):
+    self.assertRaises(models.InvalidTrunkError, library.fetch_doc, "InvalidID",
+      "InvalidId")
+    self.assertRaises(models.InvalidTrunkError, library.fetch_doc, "InvalidID")
+    self.assertRaises(TypeError, library.fetch_doc)
+  
+  def testValidTrunkIdAndInvalidDocId(self):
+    doc_rev1 = library.create_new_doc()
+    trunk_ref = doc_rev1.trunk_ref
+    trunk = db.get(trunk_ref.key())
+    new_doc_rev1 = library.create_new_doc()
+    
+    self.assertRaises(models.InvalidDocumentError, library.fetch_doc,
+      str(trunk_ref.key()), str(new_doc_rev1.key()))
+    self.assertRaises(models.InvalidDocumentError, library.fetch_doc,
+      str(trunk_ref.key()), "xxx")
+
+  def testVaildTrunkIdAndNoDocId(self):
+    doc_rev1 = library.create_new_doc()
+    trunk_ref = doc_rev1.trunk_ref
+    #creating a new doc with same trunk id
+    doc_rev2 = library.create_new_doc(str(trunk_ref.key()))
+
+    doc2 = library.fetch_doc(str(trunk_ref.key()))
+    trunk = db.get(trunk_ref.key())
+    self.assertEqual(str(doc2.key()), str(doc_rev2.key()))
+     
+  def testFetchSpecificDocWithDocID(self):
+    doc_rev1 = library.create_new_doc()
+    trunk_ref = doc_rev1.trunk_ref
+    #creating a new doc with same trunk id
+    doc_rev2 = library.create_new_doc(str(trunk_ref.key()))
+   
+    doc2 = library.fetch_doc(str(trunk_ref.key()), str(doc_rev1.key()))
+
+    self.assertEqual(str(doc2.key()), str(doc_rev1.key()))
+    
+    
 class ParseYamlTest(unittest.TestCase):
   """Tests for parse_yaml function."""
 

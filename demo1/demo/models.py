@@ -62,7 +62,7 @@ def gql(cls, clause, *args, **kwds):
   return query
 
 ### Pedagogy ###
-
+ 
 
 class PedagogyModel(db.Model):
   """Base class of items in a pedagogy hierarchy.
@@ -597,16 +597,251 @@ class Account(db.Model):
     m.update(str(when))
     return m.hexdigest()
 
-### New Models ## 
+### Error and Exception Classes ### 
+
+class InvalidTrunkError(Exception):
+  """Exception raised for invalid trunk access."""
 
 
-class DocModel(db.Model):
-  """ Stores various attributes associated with a document.
+class InvalidDocumentError(Exception):
+  """Exception raised when invalid document access."""
+
+
+class InvalidElementError(Exception):
+  """Exception raised when invalid document access."""
+
+### New Models ### 
+
+
+class ObjectType(object):
+  """Stores constant string defining type of different data models."""
+  DOC = 'doc'
+  VIDEO = 'video'
+  QUIZ = 'quiz'
+  RICH_TEXT = 'rich_text'
+  PY_SHELL = 'py_shell'
+  TRUNK = 'trunk'
+  DOC_LINK = 'doc_link'
+
  
-  TODO(mukundjha) : adopt/merge PedagogyModel 
+class DocModel(db.Model):
+  """Representation of a document.
+ 
+  Document is essentially a collection of ordered objects with an associated 
+  revision history. 
+ 
+  Attributes: 
+    trunk_ref: Reference to the associated trunk.
+    title: Title associated with the document.
+    predecessors: Pointers to the predecessor document in revision chain. Mulitple
+      predecessor will exist when we merge two different trunks or import from 
+      two different modules.
+    grade_level: Grade level associated with the doc.
+    tags: Set of tags (preferably part of some ontology).
+    content: Ordered list of references to objects/items as it appears in 
+      the document.
+    creator: Author of the document. 
+    created: Date of creation.
+  
+  TODO(mukundjha): Add required=True for required properties.
   """
+  trunk_ref = db.ReferenceProperty(reference_class=None)
+  # implicit doc_id
+  title = db.StringProperty(required=True, default='Add a title')
+  tags = db.ListProperty(db.Category)
+  predecessors = db.ListProperty(db.Key)
+  grade_level = db.IntegerProperty(default=5)
+  content = db.ListProperty(db.Key)
+  creator = db.UserProperty(auto_current_user_add=True, required=True)
+  created = db.DateTimeProperty(auto_now_add=True)
 
-  docId = db.StringProperty()
+  def dump_to_dict(self):
+    """Returns all attributes of the doc object in a dictionary.
+
+    Each attribute is keyed with doc_attribute_name and a special element
+    'obj_type' denotes the kind of model it is. This could be useful for 
+    rendering different kind of objects.
+    """
+    # Not sure we should convert all list elements to str
+    data_dict = {
+      'obj_type': ObjectType.DOC,
+      'doc_title': self.title,
+      'doc_tags': self.tags,
+      'doc_predecessors': self.predecessors,
+      'doc_grade_level': str(self.grade_level),
+      'doc_creator': str(self.creator),
+      'doc_created': str(self.created),
+      }
+ 
+    if self.trunk_ref:
+      data_dict['doc_trunk_ref'] = str(self.trunk_ref.key())
+    # collecting content
+    content_list = []
+
+    for element_key in self.content:
+      element = db.get(element_key)
+      if element:
+        content_list.append(element.dump_to_dict())
+      else:
+        raise InvalidElementError("Element with key not found " + 
+          str(element_key))
+    
+    data_dict['doc_content'] = content_list
+    return data_dict
+  
+
+class TrunkModel(db.Model):
+  """Represents a trunk.
+
+  Trunk keeps track of revisions made to a document. Each document must
+  be associated with one trunk. 
+
+  Attributes:
+     head: Pointer to a document representing current version of the trunk.
+       This is stored as string to allow atomic transcations while adding
+       and creating new trunks/documents. 
+     fork_list: List of trunks formed by forking from this trunk.
+     fork_commit_messages: Commit message log for each fork instance.
+  
+  TODO(mukundjha): Add moderators and modification date properties.
+  """
+  # implicit key 
+  # Probably we need another model to keep fork_list
+  head = db.StringProperty() 
+  fork_list = db.ListProperty(db.Key)
+  fork_commit_messages = db.StringListProperty()
+  
+  def dump_to_dict(self):
+    """Returns all attributes of the object in a dictionary."""
+    return {
+      'obj_type': ObjectType.TRUNK,
+      'trunk_fork_list': self.fork_list,
+      'trunk_fork_commit_messages': self.fork_commit_messages
+      }
+
+    
+class TrunkRevisionModel(db.Model):
+  """Stores revision history associated with a trunk.
+   
+  Associated trunk is assigned parent to this model to keep them in same entity
+  group.
+
+  Attributes:
+    
+    obj_ref: Key to a doc/object stored as string.
+    commit_message: Commit message log for each instance.
+    time_stamp: Time stamp of commit
+  """
+  obj_ref = db.StringProperty()
+  commit_message = db.StringProperty()
+  time_stamp = db.DateTimeProperty(auto_now_add=True)
+
+  def dump_to_dict(self):
+    """Returns all attributes of the object in a dictionary."""
+    return {
+      'obj_type': ObjectType.TRUNK_REVISION,
+      'trunk_revison_parent': str(self.parent().key()),
+      'trunk_revision_obj_ref': str(self.obj_ref.key()),
+      'trunk_revision_commit_message': self.commit_message
+      }
+
+
+class RichTextModel(db.Model):
+  """Immutable rich text object. 
+  
+  Attributes:
+    data: Blob store object with rich text content.
+  """
+  # implicit key 
+  data = db.BlobProperty()
+  
+  def dump_to_dict(self):
+    """Returns all attributes of the object in a dictionary."""
+    return {
+      'obj_type': ObjectType.RICH_TEXT,
+      'rich_text_data': str(self.data)
+       }
+
+
+class DocLinkModel(db.Model):
+  """Link to another document in the datastore. 
+  
+  Stores trunk_id and optional doc_id.
+
+  Attributes: 
+    trunk_ref: Reference to a trunk containing the document.
+    doc_ref: Reference to a document (used to point at a specific version 
+      of a document).
+    default_title: Default title for the link (useful for docs which do 
+      not exists yet).
+  """
+  trunk_ref = db.ReferenceProperty(TrunkModel)
+  default_title = db.StringProperty()
+  doc_ref = db.ReferenceProperty(DocModel)
+
+  def dump_to_dict(self):
+    """Returns all attributes of the object in a dictionary."""
+    return {
+      'obj_type': ObjectType.DOC_LINK,
+      'doc_link_trunk_ref': str(self.trunk_ref.key()), 
+      'doc_link_doc_ref': str(self.doc_ref.key()), 
+      'doc_link_default_title': str(self.default_title)
+      }
+
+
+class VideoModel(db.Model):
+  """Stores video id and optional size configuration.
+  
+  Attributes:
+    video_id: A youtube video id.
+    width: Width of the embedded video.
+    height: Height of the embedded video.
+  """
+  video_id = db.StringProperty()
+  width = db.StringProperty(default='480')
+  height = db.StringProperty(default='280')
+
+  def dump_to_dict(self):
+    """Returns all attributes of the object in a dictionary."""
+    return {
+      'obj_type': ObjectType.VIDEO, 
+      'video_video_id': self.video_id,
+      'video_width': self.width, 
+      'video_height': self.height
+      } 
+
+# Should we replace PyShell and Quiz with one Widget model ?
+
+class PyShellModel(db.Model):
+  """Link to python interpretor.
+
+  Attributes:
+    shell_url: Url to the app running python shell to be embedded as an Iframe.
+  """
+  shell_url = db.LinkProperty(required=True)
+
+  def dump_to_dict(self):
+    """Returns all attributes of the object in a dictionary."""
+    return {
+      'obj_type': ObjectType.PY_SHELL,
+      'py_shell_shell_url': self.shell_url
+      }
+ 
+
+class QuizModel(db.Model):
+  """Link to quiz module.
+ 
+  Attributes:
+    quiz_url: Url to quiz app to be embedded as an Iframe.
+  """
+  quiz_url = db.LinkProperty(required=True)
+
+  def dump_to_dict(self):
+    """Returns all attributes of the object in a dictionary."""
+    return {
+      'obj_type': ObjectType.QUIZ, 
+      'quiz_quiz_url': self.quiz_url
+      }
 
 
 class StudentState (db.Model):

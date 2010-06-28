@@ -1,0 +1,144 @@
+<!-- Copyright 2010 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+{% extends "app/base1col.html" %}
+
+{% block extra_head %}
+
+<script LANGUAGE='JavaScript'>
+<!--
+
+ 
+ }-->
+</script>
+{% endblock %}
+
+{% block title %} {{ title }} {% endblock %}
+
+{% block content_main %}
+{% if errorMsg %}
+  {{errorMsg}}
+  <hr/>
+{% endif %}
+ <form id='edit_form' action='/submitEdits' method='POST' enctype="application/octet-stream">
+ <table class='commonAttributes' width='50%'> 
+ <tr><td><b>Creator : </b></td><td>{{data.doc_creator}}</td></tr>
+ <tr><td><b>Created on : </b></td><td>{{data.doc_created}}</td></tr>
+ <tr><td><b>Title: </b></td><td><input type='text' name='doc_title' value='{{data.doc_title}}'/></td></tr>
+ <tr><td><b>Grade Level: </b></td><td><select name='doc_grade_level'>
+ {% for i in data.valid_range %}
+ {% ifequal i data.doc_grade_level %}
+ <option value={{i}} selected>{{i}}</option>
+ {% else %}
+ <option value={{i}}>{{i}}</option>
+ {% endifequal %}
+ {% endfor %}
+ </td>
+</tr>
+ </table>
+ <hr/>
+ <font align='right'>
+ <input type='submit' value='submit'>
+ </font>
+ <center>
+ <table class='addItem' id='content_table'>
+<tr id='object_menu'><td><b>Add Item:</b></td><td><select id='object_type' width='10'>
+<!--<tr><td><b>Add Item:</b></td><td><select name='object_type' width='10' OnChange="javascrpit:addContent( 'content_table', edit_form.object_type.options[selectedIndex].value);">-->
+<!-- <tr><td><b>Add Item:</b></td><td><select name='object_type' width='10' OnChange="javascrpit:alert('hi');">-->
+ <option value='None'>---</option>
+ <option value='rich_text'>Html Text</option>
+ <option value='DocLinkModel'>Link</option>
+ <option value='video'>Video</option>
+ <option value='PyShellModel'>Python Interpretor</option>
+ <option value='QuizModel'>Quiz</option></td></tr>
+</table>
+ </center>
+ </form>
+
+<script type="text/javascript">
+ var global_counter = 0;
+
+ function add_content(value_passed){
+    /*
+     *@param
+     *  value_passed: type of object selected for insertion
+     */
+    
+    var table_body = document.getElementById('content_table');
+    var new_row = document.createElement("TR");
+    var col1 = document.createElement("TD");
+    var bTag = document.createElement("B");
+    var col2 = document.createElement("TD");
+
+    if (value_passed == 'rich_text')
+    {
+          var iElement1 = document.createElement("TEXTAREA")
+          iElement1.setAttribute('cols', '40')
+          iElement1.setAttribute('rows', '10')
+          bTag.appendChild(document.createTextNode('HTML Text: '))
+    } else if (value_passed == 'DocLinkModel')
+    {
+          var iElement1 = document.createElement("Input")
+          iElement1.setAttribute('type', 'text')
+          bTag.appendChild(document.createTextNode('Link: '))
+    } else if (value_passed == 'video') {
+          var iElement1 = document.createElement("Input")
+          iElement1.setAttribute('type', 'text')
+
+          bTag.appendChild(document.createTextNode('Videl Link/Id: '))
+    } else if (value_passed == 'PyShellModel'){
+
+           var iElement1 = document.createElement("Input")
+          iElement1.setAttribute('type', 'text')
+
+          bTag.appendChild(document.createTextNode('PyShell Link: '))
+    } else if (value_passed == 'QuizModel') {
+         
+          var iElement1 = document.createElement("Input")
+          iElement1.setAttribute('type', 'text')
+          bTag.appendChild(document.createTextNode('Quiz Link: '))
+
+     }
+    else {
+      alert('wrong value') 
+    } 
+    ++global_counter
+    var att_name = "data_val";
+    var iElement2 = document.createElement("Input"); 
+    iElement2.setAttribute('type', "hidden");
+    iElement2.setAttribute('name', "data_type");
+    iElement2.value = value_passed;
+    
+    iElement1.setAttribute('name', att_name);
+
+    col1.appendChild(bTag)
+    col2.appendChild(iElement1)
+    col2.appendChild(iElement2)
+
+    new_row.appendChild(col1);
+    new_row.appendChild(col2);
+    var el1 = document.getElementById('object_menu')
+    el1.parentNode.insertBefore(new_row,el1);
+} 
+
+
+ var edit_menu = document.getElementById("object_type")
+ edit_menu.onchange = function(){ 
+  var option = this.options[this.selectedIndex]
+   add_content(option.value)
+   this.selectedIndex = 0
+ }
+
+</script>
+{% endblock %}

@@ -27,7 +27,7 @@
 """Views for Lantern."""
 
 
-### Imports ###
+# ## Imports # ##
 
 
 # Python imports
@@ -71,7 +71,7 @@ from django.core.urlresolvers import reverse
 
 # Local imports
 import constants
-#import forms
+# import forms
 import library
 import models
 import settings
@@ -82,20 +82,20 @@ if not django.template.libraries.get(_library_name, None):
   django.template.add_to_builtins(_library_name)
 
 
-### Constants ###
+# ## Constants # ##
 
 
 IS_DEV = os.environ['SERVER_SOFTWARE'].startswith('Dev')  # Development server
 
 
-### Exceptions ###
+# ## Exceptions # ##
 
 
 class InvalidIncomingEmailError(Exception):
   """Exception raised by incoming mail handler when a problem occurs."""
 
 
-### Helper functions ###
+# ## Helper functions # ##
 
 
 # Counter displayed (by respond()) below) on every page showing how
@@ -184,7 +184,7 @@ def respond(request, page_title, template, params=None):
   """
   global counter
   counter += 1
-  initialize(request)
+ # initialize(request)
   if params is None:
     params = {}
   must_choose_nickname = False
@@ -259,7 +259,7 @@ def _clean_int(value, default, min_value=None, max_value=None):
   return value
 
 
-### Decorators for request handlers ###
+# ## Decorators for request handlers # ##
 
 
 def post_required(func):
@@ -356,11 +356,72 @@ def user_key_required(func):
 
   return user_key_wrapper
 
+# ## Helper function (move eventually to library?) # ## 
 
+def collect_data_from_query(request):
+  """Collects POST data passed in edit form and maps data in required
+  dictionary format.
+  
+  TODO(mukundjha): Take care of other parameters like tags, commit_message etc.
+  Define hard-coded constants like 'doc_title' in separate file.
+  
+  """
+  data_dict = {}
+  data_dict['doc_title'] = request.POST.get('doc_title')
+  data_dict['doc_trunk_ref'] = request.POST.get('doc_trunk_ref')
+  data_dict['doc_grade_level'] = int(request.POST.get('doc_grade_level')) 
+  
+  content_data_vals = request.POST.getlist('data_val')
+  content_data_types = request.POST.getlist('data_type')
+ 
+
+  content_list = data_dict.setdefault('doc_content', [])
+  for obj_type, data_val in zip(content_data_types, content_data_vals):
+    content_list.append({
+        'obj_type': obj_type,
+        'val': data_val,
+        })
+  return data_dict
+
+
+def create_doc(data_dict):
+  """Create new document from data passed in dictionary format.
+
+  TODO(mukundjha): Currently works only rich text and video objects,
+    extend for other objects.
+  TODO(mukundjha): Replace content addition if-else block with more generic
+    function.
+  """
+
+  try:
+    doc = library.create_new_doc(trunk_id=data_dict['doc_trunk_ref'])
+
+  except (models.InvalidDocumentError, models.InvalidTrunkError):
+    logging.exception("Error while creating a new document")
+    return None
+
+  doc.title = data_dict.get('doc_title', 'Add a title')
+  doc.grade_level = data_dict.get('doc_grade_level', 5)
+  
+  for element in data_dict['doc_content']:
+    if element.get('obj_type') == 'rich_text':
+      rich_text_object = library.insert_with_new_key(models.RichTextModel)
+      rich_text_object.data= db.Blob(str(element.get('val')))
+      rich_text_object.put()
+      doc.content.append(rich_text_object.key())
+
+    elif element.get('obj_type') == 'video':
+      video_object = library.insert_with_new_key(models.VideoModel)
+      video_object.video_id = str(element.get('val'))
+      video_object.put()
+      doc.content.append(video_object.key())  
+
+  doc.put()
+  return doc
+        
 ### Request handlers ###
 
 def content_handler(request, title, template, file_path, node_type):
-  
   """Handels request and renders template with content, based on type of data.
       
   Helper function which loads the provided template with data extracted from
@@ -380,7 +441,6 @@ def content_handler(request, title, template, file_path, node_type):
   Raises:
      Whatever render_to_response(template, params) raises.
   """
-
   _MAIN_MENU = """
   <a href = "http://www.khanacademy.org">Video Library</a> |
   <a href = "/">Exercises (Requires Login)</a>
@@ -391,7 +451,7 @@ def content_handler(request, title, template, file_path, node_type):
   elif node_type == 'node':
     data_dict = library.parse_node(file_path)
   else:
-    data_dict = {'errorMsg':'Invalid Type passed to content_handler'}
+    data_dict = {'errorMsg': 'Invalid Type passed to content_handler'}
   
   data_dict['mainmenu'] = _MAIN_MENU
   
@@ -454,8 +514,62 @@ def index(request):
     else:
       return content_handler(request, constants.DEFAULT_TITLE, 
         constants.GROUP_TEMPLATE, _INIT_PAGE, 'node')
-	
 
+def edit(request):
+  """For editing and creating content.
+
+  TODO(mukundjha): extend to editing contents.
+  """
+  
+  trunk_id = request.GET.get('trunk_id')
+  doc_id = request.GET.get('doc_id')
+  
+  # Create a new document trunk.
+  # valid_range is passed for grade_level, maybe we can do this in template 
+  # itslef.
+  
+  if not trunk_id:
+    doc = models.DocModel()
+    data_dict = doc.dump_to_dict()
+    data_dict['valid_range'] = range(1, 17)
+
+    return respond(request, 'Edit', 'edit.html', {'data': data_dict} )
+
+
+def view_doc(request):
+  """Displays document from provided trunk and doc ids.
+
+  TODO(mukundjha): Merge with /(root) and handle other types in template
+  """
+  trunk_id = request.GET.get('trunk_id')
+  doc_id = request.GET.get('doc_id')
+  
+  if not trunk_id:
+     HttpResponse("ERROR: no trunk id provided", status=500)
+  doc = library.fetch_doc(trunk_id, doc_id)
+  
+  if doc:
+     return respond(request, constants.DEFAULT_TITLE, "view.html", 
+        {'data': doc.dump_to_dict()})
+
+
+def submit_edits(request):
+  """ Accepts edits from user and stores in datastore.
+
+  TODO(mukundjha): use AJAX/JSON
+  """
+ 
+  data_dict = collect_data_from_query(request)
+  doc = create_doc(data_dict)
+  if not doc: 
+    return HttpResponse("Error in creating document", status=500)
+  else:
+    # redirect to view mode
+    trunk_id = doc.trunk_ref.key()
+    doc_id = doc.key()
+    return HttpResponseRedirect('/view?trunk_id=%s&doc_id=%s' % (trunk_id,doc_id))
+
+	
 def video(request):
   """/video - Shows video with list of other related videos."""
 

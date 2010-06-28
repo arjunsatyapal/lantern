@@ -24,9 +24,14 @@
 import cgi
 import logging
 import traceback
+import os
+import base64
+import string
+import random
 
 from google.appengine.api import memcache
 from google.appengine.api import users
+from google.appengine.ext import db
 
 import django.template
 import django.utils.safestring
@@ -214,7 +219,7 @@ def parse_yaml(path):
     return {'errorMsg':'Error: Unable to load yaml content from %s<br> ' +
       'Details:<br>\n%s'% (path, str(exc))}
 
-  if not isinstance(data_dict,dict):
+  if not isinstance(data_dict, dict):
     return {'errorMsg':'ERROR: (DICTIONARY OBJECT EXPECTED) Error loading yaml' +
       'content from ' + path }
   
@@ -250,7 +255,7 @@ def parse_leaf(path):
 
   Returns: 
     A dict object with yaml_content mapped with corresponding keys, 
-      or with appropriate error message,if there is a type mismatch.
+      or with appropriate error message, if there is a type mismatch.
   """ 
   data_dict = parse_yaml(path)
   
@@ -261,3 +266,201 @@ def parse_leaf(path):
     return {'errorMsg':'Error loading yaml file ( '+path+' ):  invalid leaf'}
   
   return data_dict
+
+### Library function to interact with datastore ###
+
+def gen_random_string(num_chars=16):
+  """Generates a random string of the specified number of characters.
+
+  First char is chosen from set of alphabets as app engine requires
+  key name to start with an alphabet. Also '-_' are used instead of
+  '+/' for 64 bit encoding.
+   
+  Args: 
+    num_chars: Length of random string.
+  Returns:
+    Random string of length = num_chars
+  """
+  # Uses base64 encoding, which has roughly 4/3 size of underlying data.
+  first_letter = random.choice(string.letters)
+  num_chars -= 1
+  remainder = num_chars % 4
+  num_bytes = ((num_chars + remainder) / 4) * 3
+  random_byte = os.urandom(num_bytes)
+  random_str = base64.b64encode(random_byte, altchars='-_')
+  return first_letter+random_str[:num_chars]
+
+
+def insert_with_new_key(cls, parent=None, **kwargs):
+  """Insert model into datastore with a random key.
+
+  Args:
+    cls: Data model class (ex. models.DocModel).
+    parent: optional parent argument to bind models in same entity group.
+      NOTE: If parent argument is passed, key_name may not be unique across
+      all entities.
+  Returns:
+    Data model entity or None if error. 
+
+  TODO(mukundjha): Check for race condition. 
+  """
+  while True:  
+    key_name = gen_random_string()
+    entity = cls.get_by_key_name(key_name, parent=parent)
+    if entity is None:
+      entity = cls(key_name=key_name, parent=parent, **kwargs)
+      entity.put()
+      break
+    else:
+      logging.info("Entity with key "+key_name+" exists")
+
+  return entity
+
+
+def create_new_trunk_with_doc(doc_id, **kwargs):
+  """Creates a new trunk with given document as head.
+
+  WARNING: Since we are passing parent parameter in insert_with_new_key, 
+  function will only check for uniqueness of key among entities having 'trunk' 
+  as an ancestor. This no longer guarantees unique key_name across all entities.
+
+  NOTE(mukundjha): No check is done on doc_id, it's responsibility of
+  other functions calling create_new_trunk_with_doc to check the parameter 
+  before its passed.
+
+  Args:
+    doc_id: String value of key of the document to be added.
+  Returns:
+    Returns created trunk.
+  Raises:
+    InvalidDocumentError: If the doc_id is invalid.
+  """
+  trunk = insert_with_new_key(models.TrunkModel)
+  
+  message = kwargs.pop('commit_message', 'Commited a new revision')
+  trunk_revision = insert_with_new_key(models.TrunkRevisionModel, parent=trunk,
+    obj_ref=doc_id, commit_message=message)
+
+  trunk.head = doc_id
+  trunk.put()
+  return trunk
+
+
+def append_to_trunk(trunk_id, doc_id, **kwargs):
+  """Appends a document to end of the trunk.
+   
+  NOTE(mukundjha): No check is done on doc_id, it's responsibility of
+  other functions calling append_to_trunk to check the parameter 
+  before its passed.
+
+  Args:
+    trunk_id: Key of the trunk.
+    doc_id: String value of key of the document to be added.
+  Returns:
+    Returns modified trunk.
+  Raises:
+    InvalidDocumentError: If the doc_id is invalid.
+    InvalidTrunkError: If the trunk_id is invalid.
+  """
+  try:
+    trunk = db.get(trunk_id)
+  except db.BadKeyError, e:
+    raise models.InvalidTrunkError('Trunk is not valid %s',
+      trunk_id)
+   
+  message = kwargs.pop('commit_message', 'Commited a new revision')
+  trunk_revision = insert_with_new_key(models.TrunkRevisionModel, parent=trunk,
+    obj_ref=doc_id, commit_message=message)
+  
+  trunk.head = doc_id
+  trunk.put()
+  return trunk
+
+
+def create_new_doc(trunk_id=None, **kwargs):
+  """Creates a new document in datastore.
+
+  If trunk_id is provided, new document is appended to the trunk.
+  Else a new trunk is created.
+
+  Args:
+    trunk_id: key(string) to the trunk to which the new document belongs.
+  Returns:
+    A DocModel object.
+  Raises: 
+    InvalidTrunkError: If an invalid trunk id is provided
+    InvalidDocumentError: If unable to save document in data store
+
+  TODO(mukundjha): Check all db.put statements for exceptions.
+  """
+   
+  if trunk_id:
+    try:
+      trunk = db.get(trunk_id)
+    except db.BadKeyError, e: 
+      raise models.InvalidTrunkError('Invalid Trunk id %s', str(trunk_id))
+    
+    doc = insert_with_new_key(models.DocModel)
+    doc_key = str(doc.key())
+    trunk = db.run_in_transaction(append_to_trunk, trunk.key(), doc_key,
+      **kwargs)
+  else:
+ 
+    doc = insert_with_new_key(models.DocModel)
+    doc_key = str(doc.key())
+    trunk = db.run_in_transaction(create_new_trunk_with_doc, doc_key, 
+     **kwargs)
+   
+  if not trunk:
+    doc.delete()
+    raise models.InvalidDocumentError('Unable to create/append to trunk')
+
+  doc.trunk_ref = trunk.key()
+  doc.put()
+
+  return doc
+
+ 
+def fetch_doc(trunk_id, doc_id=None):
+  """Fetches a document from datastore or raises InvalidDocumentError.
+
+  If both trunk_id and doc_id are provided, return particular doc if it belongs
+  to the given trunk, else return head of the trunk.  
+   
+  Args:
+    trunk_id: Trunk to fetch the document from.
+    doc_id: Document id to fetch a particular version of document.
+  Returns: 
+    A DocModel object which having provided trunk_id and doc_id, if only 
+      trunk_id is provided or an invalid doc_id is provided head of the 
+      trunk is returned.
+  Raises: 
+    InvalidDocumentError: If trunk_id passed is invalid.
+  """
+  try: 
+    trunk = db.get(trunk_id)
+  except db.BadKeyError, e: 
+    raise models.InvalidTrunkError('Invalid trunk id: %s', trunk_id)
+  
+  if doc_id:
+    try:
+      doc = db.get(doc_id)
+    except db.BadKeyError, e:
+      raise models.InvalidDocumentError('No document Found with provided key')
+
+    trunk_revisions = models.TrunkRevisionModel.all().ancestor(trunk)
+    trunk_revision_with_doc = trunk_revisions.filter('obj_ref =',
+      str(doc.key()))
+
+    if trunk_revision_with_doc.count():
+      return doc
+    else:
+      raise models.InvalidDocumentError("No document Found")
+
+  # Using cached value of head stored in trunk, should be fine since all 
+  # writes are atomic and updates head.
+
+  if trunk.head:
+    return db.get(trunk.head)
+  else:
+    raise models.InvalidDocumentError("Trunk has no head document!")

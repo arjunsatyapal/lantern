@@ -263,10 +263,10 @@ table.topics td.video_next {
   text-align: right;
 }
 
-table.topics tr.evenrow {
+table tr.evenrow {
 }
 
-table.topics tr.oddrow {
+table tr.oddrow {
   background-color: #efefef;
 }
 
