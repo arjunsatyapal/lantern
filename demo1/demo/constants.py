@@ -21,3 +21,5 @@ HOME_DOMAIN = 'www.khanacademy.org'
 YAML_TYPE_KEY = 'doc_type'
 GROUP_TEMPLATE = 'group.html'
 CONTENT_TEMPLATE = 'content.html'
+DEFAULT_GRADE_LEVEL = 10
+VALID_GRADE_RANGE = range(1, 17)

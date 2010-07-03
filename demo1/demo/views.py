@@ -27,7 +27,7 @@
 """Views for Lantern."""
 
 
-# ## Imports # ##
+### Imports ###
 
 
 # Python imports
@@ -41,6 +41,7 @@ import os
 import random
 import re
 import urllib
+import urlparse
 from cStringIO import StringIO
 from xml.etree import ElementTree
 
@@ -119,11 +120,11 @@ def get_user_status(request, data_dict):
 
   # Status only for groups
   if data_dict.get(constants.YAML_TYPE_KEY) == "group":
-    
+
     state_list = models.gql(models.StudentState, 'WHERE student = :1', request.user)
-    
+
     # Store all the status info in a new dictionary
-    temp_dict = {} 
+    temp_dict = {}
     for state in state_list:
       try :
         current_status = int(state.status)
@@ -131,26 +132,26 @@ def get_user_status(request, data_dict):
         current_status = 0
       temp_dict[state.doc] = current_status
 
-    # If module is present in the content, 
+    # If module is present in the content,
     # and has a status record, update it else set to zero.
     for module in data_dict.get('doc_content'):
       if module['key'] in temp_dict:
          module['rating'] = temp_dict.get(module['key'], 0)
   return data_dict
- 
- 
+
+
 def initialize(request):
-  """ Temp function to initialize datastore. 
- 
+  """ Temp function to initialize datastore.
+
   Initialize the data store with some values to experiment.
   """
-    
+
   docList = ['AlRG3wQOBqMc2nIwjoHZZ8', 'Des7BVODdcptnOdWhsWXeK',
     'BQYVV1KayQ2xjccQgIXfP+', 'BkT/Nqi4HTkpn3qPHeV+Xx', 'CE9inaE8SU6kMS05xno8Qg',
     'DOI0PIFb+0qIAdYlswlgX6']
 
   docRating = [100, 80, 80, 70, 90, 80]
-  
+
   i = 0
   for id in docList:
     doc = models.DocModel()
@@ -192,7 +193,7 @@ def respond(request, page_title, template, params=None):
     account = models.Account.current_user_account
     must_choose_nickname = not account.user_has_selected_nickname()
   params['title'] = constants.DEFAULT_TITLE
-  params['base_url'] = "/" + constants.HOME_DOMAIN
+  params['base_url'] = ''
   params['request'] = request
   params['page_title'] = page_title
   params['counter'] = counter
@@ -356,26 +357,27 @@ def user_key_required(func):
 
   return user_key_wrapper
 
-# ## Helper function (move eventually to library?) # ## 
+# ## Helper function (move eventually to library?) # ##
 
 def collect_data_from_query(request):
   """Collects POST data passed in edit form and maps data in required
   dictionary format.
-  
+
   TODO(mukundjha): Take care of other parameters like tags, commit_message etc.
   Define hard-coded constants like 'doc_title' in separate file.
-  
+
   """
   data_dict = {}
   data_dict['doc_title'] = request.POST.get('doc_title')
-  data_dict['doc_trunk_ref'] = request.POST.get('doc_trunk_ref')
-  data_dict['doc_grade_level'] = int(request.POST.get('doc_grade_level')) 
-  
+  data_dict['trunk_id'] = request.POST.get('trunk_id')
+  data_dict['doc_id'] = request.POST.get('doc_id')
+  data_dict['doc_grade_level'] = int(request.POST.get('doc_grade_level',
+    constants.DEFAULT_GRADE_LEVEL))
+
   content_data_vals = request.POST.getlist('data_val')
   content_data_types = request.POST.getlist('data_type')
- 
 
-  content_list = data_dict.setdefault('doc_content', [])
+  content_list = data_dict.setdefault('doc_contents', [])
   for obj_type, data_val in zip(content_data_types, content_data_vals):
     content_list.append({
         'obj_type': obj_type,
@@ -391,19 +393,21 @@ def create_doc(data_dict):
     extend for other objects.
   TODO(mukundjha): Replace content addition if-else block with more generic
     function.
+  TODO(mukundjha): Validate url provided in link object.
+  TODO(mukundjha): Move this function into another (content_manager.py) module.
   """
-
+  trunk = data_dict.get('trunk_id')
   try:
-    doc = library.create_new_doc(trunk_id=data_dict['doc_trunk_ref'])
-
+    doc = library.create_new_doc(trunk)
   except (models.InvalidDocumentError, models.InvalidTrunkError):
     logging.exception("Error while creating a new document")
     return None
 
   doc.title = data_dict.get('doc_title', 'Add a title')
-  doc.grade_level = data_dict.get('doc_grade_level', 5)
-  
-  for element in data_dict['doc_content']:
+  doc.grade_level = data_dict.get('doc_grade_level',
+    constants.DEFAULT_GRADE_LEVEL)
+
+  for element in data_dict['doc_contents']:
     if element.get('obj_type') == 'rich_text':
       rich_text_object = library.insert_with_new_key(models.RichTextModel)
       rich_text_object.data= db.Blob(str(element.get('val')))
@@ -414,16 +418,30 @@ def create_doc(data_dict):
       video_object = library.insert_with_new_key(models.VideoModel)
       video_object.video_id = str(element.get('val'))
       video_object.put()
-      doc.content.append(video_object.key())  
+      doc.content.append(video_object.key())
+
+    elif element.get('obj_type') == 'doc_link':
+      link = urlparse.urlparse(element.get('val'))
+      if link.query:
+        params = dict([query.split('=') for query in link.query.split('&')])
+
+        referred_doc = db.get(params.get('doc_id'))
+        referred_trunk = db.get(params.get('trunk_id'))
+
+        doc_link_object = library.insert_with_new_key(models.DocLinkModel,
+          trunk_ref=referred_trunk.key(), doc_ref=referred_doc.key(),
+          default_title=referred_doc.title, from_trunk_ref=doc.trunk_ref.key(),
+          from_doc_ref=doc.key())
+        doc.content.append(doc_link_object.key())
 
   doc.put()
   return doc
-        
+
 ### Request handlers ###
 
 def content_handler(request, title, template, file_path, node_type):
   """Handels request and renders template with content, based on type of data.
-      
+
   Helper function which loads the provided template with data extracted from
   file  provided in file_path or renders an error page if error occurs.
 
@@ -434,7 +452,7 @@ def content_handler(request, title, template, file_path, node_type):
      file_path: Path to yaml file to be parsed
      node_type: String describing the type of content file (node/leaf)
 
-  Returns: 
+  Returns:
      Whatever render_to_response(template, params) returns if no error, else
      displays an error page.
 
@@ -452,9 +470,9 @@ def content_handler(request, title, template, file_path, node_type):
     data_dict = library.parse_node(file_path)
   else:
     data_dict = {'errorMsg': 'Invalid Type passed to content_handler'}
-  
+
   data_dict['mainmenu'] = _MAIN_MENU
-  
+
   if 'errorMsg' in data_dict:
     logging.error(data_dict['errorMsg'])
     return HttpResponse(data_dict['errorMsg'], status = 500)
@@ -478,79 +496,154 @@ def index(request):
 
   # Initial course page
   # TODO(mukundjha) : point to correct page
- 
+
   _INIT_PAGE = os.path.join(settings.ROOT_PATH, 'demo/content/course-template');
   _PATH_ = os.path.join(settings.ROOT_PATH, 'demo/content');
 
   # If doc_id is not specified, redirect to default initial page
   if not doc_id:
     # Initial page
-    return content_handler(request, constants.DEFAULT_TITLE, 
+    return content_handler(request, constants.DEFAULT_TITLE,
       constants.GROUP_TEMPLATE, _INIT_PAGE, 'node')
 
   elif not doc_type:
     # Get the doc_type before redirecting to the current page.
     page_path = _INIT_PAGE
-    return content_handler(request, constants.DEFAULT_TITLE, 
+    return content_handler(request, constants.DEFAULT_TITLE,
       constants.GROUP_TEMPLATE, _INIT_PAGE, 'node')
-  
+
   else:
     # If group page.
     if doc_type == "g":
       # Render as group
       page_path = os.path.join(_PATH_, doc_id)
       logging.info('Rendering group page\n')
-      return content_handler(request, constants.DEFAULT_TITLE, 
+      return content_handler(request, constants.DEFAULT_TITLE,
         constants.GROUP_TEMPLATE, page_path, 'node')
-    
+
     # If content
     elif doc_type == "c":
       # Render as content page
       page_path = os.path.join(_PATH_, doc_id)
-      return content_handler(request, constants.DEFAULT_TITLE, 
+      return content_handler(request, constants.DEFAULT_TITLE,
         constants.CONTENT_TEMPLATE, page_path, 'leaf')
-      
+
     # Default page
     else:
-      return content_handler(request, constants.DEFAULT_TITLE, 
+      return content_handler(request, constants.DEFAULT_TITLE,
         constants.GROUP_TEMPLATE, _INIT_PAGE, 'node')
+
+
+def list_docs(request):
+  """Presents a list of existing document/module in the datastore.
+
+  List is reverse sorted by creation date and includes all the documents.
+  TODO(mukundjha): Move this function to another module.
+  """
+  docs_by_user = models.DocModel.all().order('-created')
+
+  doc_list = []
+  for doc in docs_by_user:
+    doc_list.append({
+      'doc': doc,
+      'trunk_id': str(doc.trunk_ref.key()),
+      'doc_id': str(doc.key())
+      })
+
+  return respond(request, constants.DEFAULT_TITLE, "list.html",
+        {'data': doc_list})
+
 
 def edit(request):
   """For editing and creating content.
 
-  TODO(mukundjha): extend to editing contents.
+  TODO(mukundjha): Split creation of new doc from editing existing.
   """
-  
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
-  
-  # Create a new document trunk.
-  # valid_range is passed for grade_level, maybe we can do this in template 
-  # itslef.
-  
+
   if not trunk_id:
     doc = models.DocModel()
-    data_dict = doc.dump_to_dict()
-    data_dict['valid_range'] = range(1, 17)
+    return respond(request, 'Edit', 'edit.html',
+      {'doc': doc, 'data_valid_range': constants.VALID_GRADE_RANGE})
 
-    return respond(request, 'Edit', 'edit.html', {'data': data_dict} )
+  try:
+    doc = library.fetch_doc(trunk_id, doc_id)
+  except (models.InvalidTrunkError, models.InvalidDocumentError):
+    return HttpResponse("No such document exists", status=404)
+
+  doc_contents = library.get_doc_contents(doc)
+
+  return respond(request, constants.DEFAULT_TITLE, "edit.html",
+                {'doc': doc,
+                'doc_contents': doc_contents,
+                'data_valid_range': constants.VALID_GRADE_RANGE,
+                'doc_id': str(doc.key()),
+                'trunk_id': str(doc.trunk_ref.key())
+                })
 
 
 def view_doc(request):
   """Displays document from provided trunk and doc ids.
 
+  NOTE(mukundjha): If paramater 'absolute' is passed in the request, user
+    is shown the document pointed to by the doc id (or latest if only trunk
+    id is passed) and does not take into account user's view histroy. This
+    is useful in many cases like migrating to latest version, saving an edit
+    etc.
   TODO(mukundjha): Merge with /(root) and handle other types in template
+  TODO(mukundjha): Display parent title instead of up_link
+  TODO(mukundjha): Maintain consistent back/parent link, currently it
+   breaks after one.
   """
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
-  
-  if not trunk_id:
-     HttpResponse("ERROR: no trunk id provided", status=500)
-  doc = library.fetch_doc(trunk_id, doc_id)
-  
-  if doc:
-     return respond(request, constants.DEFAULT_TITLE, "view.html", 
-        {'data': doc.dump_to_dict()})
+  parent_trunk = request.GET.get('parent_trunk')
+  absolute_address_mapping = request.GET.get('absolute')
+
+  try:
+    if absolute_address_mapping:
+      doc = library.fetch_doc(trunk_id, doc_id)
+    else:
+      doc = library.get_doc_for_user(trunk_id, users.get_current_user())
+
+  except (models.InvalidTrunkError, models.InvalidDocumentError):
+    return HttpResponse("No such document exists", status=404)
+
+  if not parent_trunk:
+    parent = library.get_parent(doc)
+    if parent:
+      parent_trunk = parent.trunk_ref.key()
+
+  doc_contents = library.get_doc_contents(doc)
+  doc_score = library.get_accumulated_score(doc, doc_contents,
+                                            users.get_current_user())
+  trunk = doc.trunk_ref
+
+  # Just place holders to check the output, should present in better way.
+  menu_items = [
+    '<a href="/edit">Create New </a> | '
+    '<a href="/edit?trunk_id=%s&doc_id=%s">' %(trunk.key(), doc.key()),
+    'Edit this page</a> | ',
+    '<a href="/view?trunk_id=%s&absolute=True">Show latest</a>' %(trunk.key())
+    ]
+
+  main_menu = ''.join(menu_items)
+  title_items = [
+    constants.DEFAULT_TITLE,
+    ' | <b>Progress: %s</b>' % (doc_score)
+    ]
+
+  if parent_trunk:
+    title_items.append('|'+'<a href="/view?trunk_id=%s">UP</a>' %(parent_trunk))
+
+  title = ''.join(title_items)
+  return respond(request, title, "view.html",
+                {'doc': doc,
+                'doc_score': doc_score,
+                'doc_contents': doc_contents,
+                'mainmenu': main_menu
+                })
 
 
 def submit_edits(request):
@@ -558,16 +651,15 @@ def submit_edits(request):
 
   TODO(mukundjha): use AJAX/JSON
   """
- 
   data_dict = collect_data_from_query(request)
   doc = create_doc(data_dict)
-  if not doc: 
-    return HttpResponse("Error in creating document", status=500)
+  if not doc:
+    return HttpResponse("Error in creating document", status=404)
   else:
     # redirect to view mode
     trunk_id = doc.trunk_ref.key()
     doc_id = doc.key()
-    return HttpResponseRedirect('/view?trunk_id=%s&doc_id=%s' % (trunk_id,doc_id))
+    return HttpResponseRedirect('/view?trunk_id=%s&doc_id=%s&absolute=True' % (trunk_id, doc_id))
 
 	
 def video(request):
@@ -590,6 +682,6 @@ def xsrf_token(request):
   """
   if not request.META.has_key('HTTP_X_REQUESTING_XSRF_TOKEN'):
     return HttpResponse('Please include a header named X-Requesting-XSRF-Token '
-                        '(its content doesn\'t matter).', status=400)
+                        '(its content doesn\'t matter).', status=404)
   return HttpResponse(models.Account.current_user_account.get_xsrf_token(),
                       mimetype='text/plain')

@@ -13,8 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 {% extends "app/base1col.html" %}
+{% block extra_head %}
+<script type="text/javascript"
+ src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
+</script>
+{% endblock %}
 
-{% block title %} {{ doc_title }} {% endblock %}
+{% block title %} {{ title|safe }} {% endblock %}
 
 {% block content_main %}
 {% if errorMsg %}
@@ -23,20 +28,24 @@ limitations under the License.
 {% endif %}
 
 <table class='commonAttributes' width='50%'>
- <tr class='oddrow'><td><b>Creator : </b></td><td>{{data.doc_creator}}</td></tr>
- <tr class='evenrow'><td><b>Created on : </b></td><td>{{data.doc_created}}</td></tr>
- <tr class='oddrow'><td><b>Title: </b></td><td>{{data.doc_title}}</td></tr>
-<tr><td><b>Grade Level: </b></td><td>{{data.doc_grade_level}} </td></tr>
+ <tr class='oddrow'><td><b>Creator: </b></td><td>{{doc.creator}}</td></tr>
+ <tr class='evenrow'><td><b>Created on: </b></td><td>{{doc.created}}</td></tr>
+ <tr class='oddrow'><td><b>Title: </b></td><td>{{doc.title}}</td></tr>
+<tr><td><b>Grade Level: </b></td><td>{{doc.grade_level}} </td></tr>
 </table>
 <hr/>
 <table width='100%'>
-{% for element in data.doc_content %}
+{% for object in doc_contents %}
   <tr class={% cycle '"oddrow"' '"evenrow"' %}>
-  {% ifequal element.obj_type "rich_text" %}
-  <td>{{element.rich_text_data}}</td>
+  {% ifequal object|class_name "RichTextModel" %}
+  <td>{% include 'include/rich_text_model.html' %}</td>
   {% else %} 
-   {% ifequal element.obj_type "video" %}
-  <td>VIDEO : {{element.video_video_id}}</td>
+   {% ifequal object|class_name "VideoModel" %}
+     <td>{% include 'include/video_model.html' %}</td>
+   {% else %}
+   {% ifequal object|class_name "DocLinkModel" %}
+  <td>{% include 'include/doc_link_model.html' %}</td>
+   {% endifequal %}
    {% endifequal %}
  {% endifequal %}
 {% endfor %} 

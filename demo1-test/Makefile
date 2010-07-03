@@ -29,7 +29,7 @@ APP_CFG = appcfg.py
 DATASTORE_DIR = /tmp/$(shell basename $(shell pwd))
 
 TEST_ARGS = --clear_datastore \
-    --datastore_path=$(DATASTORE_DIR)/dev_appserver.datastore
+	--datastore_path=$(DATASTORE_DIR)/dev_appserver.datastore
 
 TEST_PORT = 9092
 

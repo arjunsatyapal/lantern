@@ -33,12 +33,18 @@ limitations under the License.
 {% endif %}
  <form id='edit_form' action='/submitEdits' method='POST' enctype="application/octet-stream">
  <table class='commonAttributes' width='50%'> 
- <tr><td><b>Creator : </b></td><td>{{data.doc_creator}}</td></tr>
- <tr><td><b>Created on : </b></td><td>{{data.doc_created}}</td></tr>
- <tr><td><b>Title: </b></td><td><input type='text' name='doc_title' value='{{data.doc_title}}'/></td></tr>
+ {% if trunk_id %}
+ <input type='hidden' name='trunk_id' value='{{trunk_id}}'>
+ {% endif %}
+ {% if doc_id %}
+ <input type='hidden' name='doc_id' value='{{doc_id}}'>
+ {% endif %}
+ <tr><td><b>Creator : </b></td><td>{{doc.creator}}</td></tr>
+ <tr><td><b>Created on : </b></td><td>{{doc.created}}</td></tr>
+ <tr><td><b>Title: </b></td><td><input type='text' name='doc_title' value='{{doc.title}}'/></td></tr>
  <tr><td><b>Grade Level: </b></td><td><select name='doc_grade_level'>
- {% for i in data.valid_range %}
- {% ifequal i data.doc_grade_level %}
+ {% for i in data_valid_range %}
+ {% ifequal i doc.grade_level %}
  <option value={{i}} selected>{{i}}</option>
  {% else %}
  <option value={{i}}>{{i}}</option>
@@ -53,15 +59,30 @@ limitations under the License.
  </font>
  <center>
  <table class='addItem' id='content_table'>
+ {% if doc_contents %}
+ {% for object in doc_contents %}
+  <tr class={% cycle '"oddrow"' '"evenrow"' %}>
+  {% ifequal object|class_name "RichTextModel" %}
+  <td>{% include 'include/edit_rich_text_model.html' %}</td>
+  {% else %}
+   {% ifequal object|class_name "VideoModel" %}
+     <td>{% include 'include/edit_video_model.html' %}</td>
+   {% else %}
+   {% ifequal object|class_name "DocLinkModel" %}
+  <td>{% include 'include/edit_doc_link_model.html' %}</td>
+   {% endifequal %}
+   {% endifequal %}
+ {% endifequal %}
+</tr>
+{% endfor %}
+{% endif %}
 <tr id='object_menu'><td><b>Add Item:</b></td><td><select id='object_type' width='10'>
-<!--<tr><td><b>Add Item:</b></td><td><select name='object_type' width='10' OnChange="javascrpit:addContent( 'content_table', edit_form.object_type.options[selectedIndex].value);">-->
-<!-- <tr><td><b>Add Item:</b></td><td><select name='object_type' width='10' OnChange="javascrpit:alert('hi');">-->
  <option value='None'>---</option>
  <option value='rich_text'>Html Text</option>
- <option value='DocLinkModel'>Link</option>
+ <option value='doc_link'>Link</option>
  <option value='video'>Video</option>
- <option value='PyShellModel'>Python Interpretor</option>
- <option value='QuizModel'>Quiz</option></td></tr>
+ <option value='py_shell'>Python Interpretor</option>
+ <option value='quiz'>Quiz</option></td></tr>
 </table>
  </center>
  </form>
@@ -81,37 +102,30 @@ limitations under the License.
     var bTag = document.createElement("B");
     var col2 = document.createElement("TD");
 
-    if (value_passed == 'rich_text')
-    {
+    if (value_passed == 'rich_text'){
           var iElement1 = document.createElement("TEXTAREA")
           iElement1.setAttribute('cols', '40')
           iElement1.setAttribute('rows', '10')
           bTag.appendChild(document.createTextNode('HTML Text: '))
-    } else if (value_passed == 'DocLinkModel')
-    {
+    } else if (value_passed == 'doc_link'){
           var iElement1 = document.createElement("Input")
           iElement1.setAttribute('type', 'text')
           bTag.appendChild(document.createTextNode('Link: '))
     } else if (value_passed == 'video') {
           var iElement1 = document.createElement("Input")
           iElement1.setAttribute('type', 'text')
-
           bTag.appendChild(document.createTextNode('Videl Link/Id: '))
-    } else if (value_passed == 'PyShellModel'){
-
+    } else if (value_passed == 'py_shell'){
            var iElement1 = document.createElement("Input")
           iElement1.setAttribute('type', 'text')
-
           bTag.appendChild(document.createTextNode('PyShell Link: '))
-    } else if (value_passed == 'QuizModel') {
-         
+    } else if (value_passed == 'quiz') {
           var iElement1 = document.createElement("Input")
           iElement1.setAttribute('type', 'text')
           bTag.appendChild(document.createTextNode('Quiz Link: '))
-
-     }
+    }
     else {
-      alert('wrong value') 
+          alert('wrong value') 
     } 
     ++global_counter
     var att_name = "data_val";

@@ -14,7 +14,7 @@ limitations under the License.
 -->
 {% extends "app/base.html" %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}{{ title|safe }}{% endblock %}
 
 {% block extra_head %}
 {% endblock %}
@@ -30,7 +30,7 @@ limitations under the License.
     <div id="content-header">
      <div id="logo">
       <a href="{{base_url}}/">
-         <img alt="KHAN" src="{{media_url}}images/khan.gif" class="logo">
+         <img alt="Lantern" src="{{media_url}}images/lantern-logo.png">
       </a>
      </div>
      <div id="top-links">
@@ -58,7 +58,7 @@ limitations under the License.
         <div id="loading" class="loading" style="display:none;">Loading...
             <span id="loadingCount"></span>
         </div>
-        <div id="title-name" class="title">{{ page_title }}</div>
+        <div id="title-name" class="title">{{ page_title|safe }}</div>
          {% block titlebar %}{% endblock %}
       </div>
      </div> <!-- page-title -->

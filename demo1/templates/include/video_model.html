@@ -1,0 +1,20 @@
+<center><div class="topic_video">
+ {% if object.video_id %}
+  <div id= 'ytapiplayer'>
+    You need Flash player 8+ and JavaScript enabled to view this video.
+  </div>
+  <script type="text/javascript"> <!--
+     var params = { allowScriptAccess: 'always' };
+     var atts = { id: '{{ object|get_key }}' };
+     swfobject.embedSWF(
+        'http://www.youtube.com/v/{{object.video_id}}?enablejsapi=1&'
+        + 'playerapiid=ytplayer',
+        'ytapiplayer', '{{object.width}}', '{{object.height}}', '8', null, null, params, atts);
+  // -->
+  </script>
+ {% else %}
+  <div id="ytapiplayer">
+     Please select a topic
+  </div>
+ {% endif %}
+ </div></center>

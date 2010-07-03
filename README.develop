@@ -38,6 +38,39 @@ limitations under the License.
 COPYING based on:  http://www.apache.org/licenses/LICENSE-2.0.txt
 
 -----------
+2010-06-28  Branch and Merge
+-----------
+1) Creating a branch:
+
+ -To create a branch use svn copy: 
+     svn copy path_to_trunk path_to_new_branch
+ -Branch name should be in the following format: 
+   username-date (eg. mukundjha-20100614)
+   (eg. svn copy https://lantern.googlecode.com/svn/trunk \
+       https://lantern.googlecode.com/svn/branches/mukundjha-20100614 )
+ -Checkout the branch using svn checkout 
+   svn checkout https://lantern.googlecode.com/svn/branches/mukundjha-20100614 \
+    lantern_branch
+
+
+2) Merging:
+To merge the branch back to trunk, follow the steps below.
+(NOTE:Make sure you have commited all changes to the branch before merging)
+
+ - Checkout a copy of trunk:
+    svn checkout https://lantern.googlecode.com/svn/trunk lantern
+ 
+ - Change to current working directory:
+    cd lantern
+
+ - Merge it with the brach using svn merge
+    svn merge https://lantern.googlecode.com/svn/trunk \
+    https://lantern.googlecode.com/svn/branches/mukundjha-20100614
+ 
+ - Commit the change(merging with the branch) to the trunk:
+    svn commit -m "merging with branch mukundjha-20100614"
+
+-----------
 2010-05-06  Development setup
 -----------
 Install django-1.1.1 to local machine's Python site-packages

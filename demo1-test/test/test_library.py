@@ -1,4 +1,4 @@
-#!/usr/bin/python
+# !/usr/bin/python
 #
 # Copyright 2010 Google Inc.
 #
@@ -44,6 +44,137 @@ class InsertWithNewKeyTest(unittest.TestCase):
 
   TODO(mukundjha): Add test cases for function insert_with_new_key.
   """
+
+class GetDocForUserTest(unittest.TestCase):
+  """Test fetching document based on user's state.
+
+  If trunk_id has an entry in user's state, return the last document visited
+  in the trunk, else return the latest document in the trunk.
+  """
+
+  def testFetchWithTrunkEntry(self):
+    trunk = library.insert_with_new_key(models.TrunkModel)
+    doc1 = library.create_new_doc(trunk.key())
+    doc2 = library.create_new_doc(trunk.key())
+
+    library.insert_with_new_key(models.DocVisitState, trunk_ref=trunk,
+      doc_ref = doc1)
+    doc = library.get_doc_for_user(trunk.key(), users.get_current_user())
+    self.assertEquals(str(doc.key()), str(doc1.key()))
+
+  def testFetchWithNoEntry(self):
+    trunk = library.insert_with_new_key(models.TrunkModel)
+    doc1 = library.create_new_doc(trunk.key())
+    doc2 = library.create_new_doc(trunk.key())
+
+    doc = library.get_doc_for_user(trunk.key(), users.get_current_user())
+    self.assertEquals(str(doc.key()), str(doc2.key()))
+
+  def testDifferentUsersView(self):
+    trunk = library.insert_with_new_key(models.TrunkModel)
+    doc1 = library.create_new_doc(trunk.key())
+    doc2 = library.create_new_doc(trunk.key())
+    doc3 = library.create_new_doc(trunk.key())
+
+    new_user1 = users.User('test1@gmail.com')
+    library.insert_with_new_key(models.DocVisitState, trunk_ref=trunk,
+      doc_ref = doc1, user=new_user1)
+    new_user2 = users.User('test2@gmail.com')
+    library.insert_with_new_key(models.DocVisitState, trunk_ref=trunk,
+      doc_ref = doc2, user=new_user2)
+
+    new_user3 = users.User('test3@gmail.com')
+    doc = library.get_doc_for_user(trunk.key(), new_user1)
+    self.assertEquals(str(doc.key()), str(doc1.key()))
+    doc = library.get_doc_for_user(trunk.key(), new_user2)
+    self.assertEquals(str(doc.key()), str(doc2.key()))
+    doc = library.get_doc_for_user(trunk.key(), new_user3)
+    self.assertEquals(str(doc.key()), str(doc3.key()))
+    doc = library.get_doc_for_user(trunk.key(), None)
+    self.assertEquals(str(doc.key()), str(doc3.key()))
+
+  def testFetchWithInvalidInput(self):
+    self.assertRaises(models.InvalidTrunkError, library.get_doc_for_user, 'xx',
+      users.get_current_user())
+
+
+class GetParentTest(unittest.TestCase):
+  """Test for fetching parent for a doc."""
+
+  def testDocWithNoParent(self):
+    doc1 = library.create_new_doc()
+    doc = library.get_parent(doc1.key())
+    self.assertEquals(None, doc)
+
+  def testDocWithSingleParent(self):
+    doc1 = library.create_new_doc()
+    doc2 = library.create_new_doc()
+
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=doc1.trunk_ref.key(), doc_ref=doc1.key(),
+      from_trunk_ref=doc2.trunk_ref.key(), from_doc_ref=doc2.key())
+
+    doc = library.get_parent(doc1)
+    self.assertEquals(str(doc2.key()), str(doc.key()))
+
+  def testDocWithMultipleParents(self):
+    """Test that latest parent should be returned.
+
+    This would eventually return highest ranked parent.
+    """
+    doc1 = library.create_new_doc()
+    doc2 = library.create_new_doc()
+    doc3 = library.create_new_doc()
+    library.insert_with_new_key(models.DocLinkModel, trunk_ref=doc1.trunk_ref.key(),
+      doc_ref=doc1.key(), from_trunk_ref=doc3.trunk_ref.key(),
+      from_doc_ref=doc3.key())
+
+    library.insert_with_new_key(models.DocLinkModel, trunk_ref=doc1.trunk_ref.key(),
+      doc_ref=doc1.key(), from_trunk_ref=doc2.trunk_ref.key(),
+      from_doc_ref=doc2.key())
+
+    doc = library.get_parent(doc1)
+    self.assertEquals(str(doc2.key()), str(doc.key()))
+
+
+class GetAccumulatedScoreTest(unittest.TestCase):
+  """Test retrieving accumulated progress score for a document."""
+
+  def testDocWithNoContent(self):
+    doc = library.create_new_doc()
+    score = doc.get_score(users.get_current_user())
+    self.assertEquals(0, score)
+
+  def testDocWithContent(self):
+    # creating a doc
+    doc = library.create_new_doc()
+    # registering score for doc
+    library.insert_with_new_key(models.DocVisitState, trunk_ref=doc.trunk_ref,
+      doc_ref = doc, user=users.get_current_user(), progress_score=4)
+    # creating another doc
+    doc1 = library.create_new_doc()
+    # creating link to previous doc
+    link = library.insert_with_new_key(models.DocLinkModel, trunk_ref=doc.trunk_ref.key(),
+      doc_ref=doc.key(), from_trunk_ref=doc1.trunk_ref.key(),
+      from_doc_ref=doc1.key())
+    # creating a quiz
+    quiz = library.insert_with_new_key(models.QuizModel,
+      quiz_url='http://quiz')
+    # registering score for quiz
+    library.insert_with_new_key(models.QuizProgressState, quiz_ref=quiz,
+      user=users.get_current_user(), progress_score=8)
+    # adding link and quiz to doc
+    doc1.content.append(link.key())
+    doc1.content.append(quiz.key())
+    doc1.put()
+    doc_content = library.get_doc_contents(doc1)
+
+    score = library.get_accumulated_score(doc1, doc_content, users.get_current_user())
+    # avg score
+    self.assertEquals(6, score)
+    # checking if score is registered
+    score_for_doc = doc1.get_score(users.get_current_user())
+    self.assertEquals(6, score_for_doc)
 
 
 class AppendToTrunkTest(unittest.TestCase):
@@ -107,7 +238,7 @@ class AppendToTrunkTest(unittest.TestCase):
     updated_trunk = db.get(trunk.key())
     self.assertEquals(str(updated_trunk.head), str(doc2.key()))
 
-    
+
 class CreateNewTrunkWithDocTest(unittest.TestCase):
   """Test creation of a new trunk with passed doc as head."""
 
@@ -122,12 +253,12 @@ class CreateNewTrunkWithDocTest(unittest.TestCase):
 
     trunk_revisions = models.TrunkRevisionModel.all()
     self.assertEquals(trunk_revisions.count(), 1)
-    
+
     trunk_revision = models.TrunkRevisionModel.all().get()
-   
+
     self.assertEquals(str(trunk_revision.parent().key()), str(trunk.key()))
     self.assertEquals(str(trunk_revision.obj_ref), str(doc.key()))
-    
+
 
 class CreateNewDocTest(unittest.TestCase):
   """Test insertion of new doc."""
@@ -141,60 +272,60 @@ class CreateNewDocTest(unittest.TestCase):
 
     trunk = db.get(trunk.key())
     head = db.get(trunk.head)
-    
-    revisions = models.TrunkRevisionModel.all().ancestor(trunk)  
-    
+
+    revisions = models.TrunkRevisionModel.all().ancestor(trunk)
+
     self.assertEquals(str(head.key()), str(doc.key()))
     self.assertEquals(revisions.count(), 1)
 
     returned_doc = revisions.fetch(1)
     self.assertEquals(str(returned_doc[0].obj_ref), str(doc.key()))
-  
+
   def testInsertWithInvalidTrunkId(self):
- 
+
     self.assertRaises(models.InvalidTrunkError, library.create_new_doc,
       "xxxx")
-  
+
   def testInsertWithNoTrunkId(self):
     doc = library.create_new_doc()
     trunk = db.get(doc.trunk_ref.key())
-   
+
     head = db.get(trunk.head)
- 
-    
-    revisions = models.TrunkRevisionModel.all().ancestor(trunk)  
+
+
+    revisions = models.TrunkRevisionModel.all().ancestor(trunk)
 
     self.assertEquals(str(head.key()), str(doc.key()))
     self.assertEquals(revisions.count(), 1)
- 
+
     returned_revision = revisions.fetch(1)
     self.assertEquals(returned_revision[0].obj_ref, str(doc.key()))
 
 
 class FetchDocTest(unittest.TestCase):
   """Test for fetching document from datastore.
-  
+
   If no trunk_id or invalid trunk_id raise InvaildDocumentError
   If both trunk_id and doc_id are provided retrieve the corresponding
   document.
   If doc_id is invalid or only trunk_id is provided retrieve head document
-  for the trunk. 
-  
+  for the trunk.
+
   TODO(mukundjha): Check for raised exceptions.
   """
-  
+
   def testInvalidTrunkId(self):
     self.assertRaises(models.InvalidTrunkError, library.fetch_doc, "InvalidID",
       "InvalidId")
     self.assertRaises(models.InvalidTrunkError, library.fetch_doc, "InvalidID")
     self.assertRaises(TypeError, library.fetch_doc)
-  
+
   def testValidTrunkIdAndInvalidDocId(self):
     doc_rev1 = library.create_new_doc()
     trunk_ref = doc_rev1.trunk_ref
     trunk = db.get(trunk_ref.key())
     new_doc_rev1 = library.create_new_doc()
-    
+
     self.assertRaises(models.InvalidDocumentError, library.fetch_doc,
       str(trunk_ref.key()), str(new_doc_rev1.key()))
     self.assertRaises(models.InvalidDocumentError, library.fetch_doc,
@@ -203,24 +334,24 @@ class FetchDocTest(unittest.TestCase):
   def testVaildTrunkIdAndNoDocId(self):
     doc_rev1 = library.create_new_doc()
     trunk_ref = doc_rev1.trunk_ref
-    #creating a new doc with same trunk id
+    # creating a new doc with same trunk id
     doc_rev2 = library.create_new_doc(str(trunk_ref.key()))
 
     doc2 = library.fetch_doc(str(trunk_ref.key()))
     trunk = db.get(trunk_ref.key())
     self.assertEqual(str(doc2.key()), str(doc_rev2.key()))
-     
+
   def testFetchSpecificDocWithDocID(self):
     doc_rev1 = library.create_new_doc()
     trunk_ref = doc_rev1.trunk_ref
-    #creating a new doc with same trunk id
+    # creating a new doc with same trunk id
     doc_rev2 = library.create_new_doc(str(trunk_ref.key()))
-   
+
     doc2 = library.fetch_doc(str(trunk_ref.key()), str(doc_rev1.key()))
 
     self.assertEqual(str(doc2.key()), str(doc_rev1.key()))
-    
-    
+
+
 class ParseYamlTest(unittest.TestCase):
   """Tests for parse_yaml function."""
 
@@ -246,17 +377,17 @@ class ParseYamlTest(unittest.TestCase):
     self.assertEquals("mukundjha@google.com", data_dict.get('doc_creator'))
     self.assertEquals(['p1', 'p2', 'p3'], data_dict.get('doc_parents'))
     self.assertEquals(2, len(data_dict.get('doc_content')))
-    self.assertEquals("AlRG3wQOBqMc2nIwjoHZZ8", 
+    self.assertEquals("AlRG3wQOBqMc2nIwjoHZZ8",
     data_dict.get('doc_content')[0]['key'])
 
-    self.assertEquals("Overview of AP CS Learning with Python", 
+    self.assertEquals("Overview of AP CS Learning with Python",
     data_dict.get('doc_content')[0]['title'])
 
     self.assertEquals("g", data_dict.get('doc_content')[0]['type'])
-    self.assertEquals("BQYVV1KayQ2xjccQgIXfP+", 
+    self.assertEquals("BQYVV1KayQ2xjccQgIXfP+",
     data_dict.get('doc_content')[1]['key'])
 
-    self.assertEquals("The way of the program", 
+    self.assertEquals("The way of the program",
     data_dict.get('doc_content')[1]['title'])
 
     self.assertEquals("g", data_dict.get('doc_content')[1]['type'])
@@ -269,12 +400,12 @@ class ParseNodeTest(unittest.TestCase):
     data_dict = library.parse_node(_INVALID_FILE_PATH)
     self.assertEquals(1, len(data_dict))
     self.assertTrue('errorMsg' in data_dict)
- 
+
   def testLoadInvaildFilePath(self):
     data_dict = library.parse_node(_VALID_LEAF_FILE)
     self.assertEquals(1, len(data_dict))
     self.assertTrue('errorMsg' in data_dict)
- 
+
   def testLoadValidFile(self):
     data_dict = library.parse_node(_VALID_NODE_FILE)
     self.assertFalse('errorMsg' in data_dict)
@@ -283,22 +414,22 @@ class ParseNodeTest(unittest.TestCase):
     self.assertEquals("Course", data_dict.get('doc_type_desc'))
     self.assertEquals("DUdpMQXAZewtzPdkLtwW6K", data_dict.get('doc_key'))
     self.assertEquals("AP CS Python", data_dict.get('doc_title'))
-    #self.assertEquals("AP AP course on Python", data_dict.get('doc_desc'))
+    # self.assertEquals("AP AP course on Python", data_dict.get('doc_desc'))
     self.assertEquals("2010-05-27 10:15", data_dict.get('doc_created_on'))
     self.assertEquals("mukundjha@google.com", data_dict.get('doc_creator'))
     self.assertEquals(['p1', 'p2', 'p3'], data_dict.get('doc_parents'))
     self.assertEquals(2, len(data_dict.get('doc_content')))
 
-    self.assertEquals("AlRG3wQOBqMc2nIwjoHZZ8", 
+    self.assertEquals("AlRG3wQOBqMc2nIwjoHZZ8",
     data_dict.get('doc_content')[0]['key'])
 
     self.assertEquals("Overview of AP CS Learning with Python",
     data_dict.get('doc_content')[0]['title'])
 
     self.assertEquals("g", data_dict.get('doc_content')[0]['type'])
-    self.assertEquals("BQYVV1KayQ2xjccQgIXfP+", 
+    self.assertEquals("BQYVV1KayQ2xjccQgIXfP+",
     data_dict.get('doc_content')[1]['key'])
-    self.assertEquals("The way of the program", 
+    self.assertEquals("The way of the program",
     data_dict.get('doc_content')[1]['title'])
 
     self.assertEquals("g", data_dict.get('doc_content')[1]['type'])
@@ -325,7 +456,7 @@ class ParseLeafTest(unittest.TestCase):
     self.assertEquals("module", data_dict.get('doc_type_desc'))
     self.assertEquals("CE9+naE8SU6kMS05xno8Qg", data_dict.get('doc_key'))
     self.assertEquals("Values and types", data_dict.get('doc_title'))
-    #self.assertEquals("AP AP course on Python", data_dict.get('doc_desc'))
+    # self.assertEquals("AP AP course on Python", data_dict.get('doc_desc'))
     self.assertEquals("2010-05-27 10:15", data_dict.get('doc_created_on'))
     self.assertEquals("mukundjha@google.com", data_dict.get('doc_creator'))
     self.assertEquals(['p1', 'p2', 'p3'], data_dict.get('doc_parents'))
