@@ -599,7 +599,6 @@ class Account(db.Model):
     m.update(str(when))
     return m.hexdigest()
 
-### Error and Exception Classes ###
 
 class InvalidTrunkError(Exception):
   """Exception raised for invalid trunk access."""
@@ -618,6 +617,44 @@ class InvalidQuizError(Exception):
 
 ### New Models ###
 
+class BaseModel(db.Model):
+  """Abstract base class inherited by all Lantern models."""
+
+
+class UserStateModel(db.Model):
+  """Abstarct base class for all user specific state models.
+ 
+  Attributes:
+    user: Reference to the the user.
+  """
+  user = db.UserProperty(auto_current_user_add=True, required=True)
+
+
+class BaseContentModel(BaseModel):
+  """Abstract base class inherited by all immutable content objects.
+  
+  Immutable objects like DocModel, TrunkModel, VideoModel etc.
+
+  Attributes:
+    creator: Author of the content.
+    created: Time of creation.
+  """
+  creator = db.UserProperty(auto_current_user_add=True, required=True)
+  created = db.DateTimeProperty(auto_now_add=True)
+
+  def get_score(self, user):
+    """Returns progress score for the model.
+    
+    Fuction returns None by default and must be over-ridden by subclasses to return
+    any other valid score.
+
+    Args:
+     user: User whose score is fetched.
+    Returns:
+     Score for the model or None if not scorable.
+    """
+    return None
+  
 
 class ObjectType(object):
   """Stores constant string defining type of different data models."""
@@ -630,7 +667,7 @@ class ObjectType(object):
   DOC_LINK = 'doc_link'
 
 
-class DocModel(db.Model):
+class DocModel(BaseContentModel):
   """Representation of a document.
 
   Document is essentially a collection of ordered objects with an associated
@@ -646,8 +683,6 @@ class DocModel(db.Model):
     tags: Set of tags (preferably part of some ontology).
     content: Ordered list of references to objects/items as it appears in
       the document.
-    creator: Author of the document.
-    created: Date of creation.
 
   TODO(mukundjha): Add required=True for required properties.
   """
@@ -658,8 +693,6 @@ class DocModel(db.Model):
   predecessors = db.ListProperty(db.Key)
   grade_level = db.IntegerProperty(default=constants.DEFAULT_GRADE_LEVEL)
   content = db.ListProperty(db.Key)
-  creator = db.UserProperty(auto_current_user_add=True, required=True)
-  created = db.DateTimeProperty(auto_now_add=True)
 
   def get_score(self, user):
     """Returns progress score for the doc.
@@ -721,7 +754,7 @@ class DocModel(db.Model):
     return data_dict
 
 
-class TrunkModel(db.Model):
+class TrunkModel(BaseModel):
   """Represents a trunk.
 
   Trunk keeps track of revisions made to a document. Each document must
@@ -733,8 +766,6 @@ class TrunkModel(db.Model):
        and creating new trunks/documents.
      fork_list: List of trunks formed by forking from this trunk.
      fork_commit_messages: Commit message log for each fork instance.
-
-  TODO(mukundjha): Add moderators and modification date properties.
   """
   # implicit key
   # Probably we need another model to keep fork_list
@@ -750,18 +781,8 @@ class TrunkModel(db.Model):
       'trunk_fork_commit_messages': self.fork_commit_messages
       }
 
-  def get_score(self, user):
-    """Returns progress score for the model.
 
-    Args:
-     user: User whose score is fetched.
-    Returns:
-     Score for the model or None if not scorable.
-    """
-    return None
-
-
-class TrunkRevisionModel(db.Model):
+class TrunkRevisionModel(BaseContentModel):
   """Stores revision history associated with a trunk.
 
   Associated trunk is assigned parent to this model to keep them in same entity
@@ -771,11 +792,9 @@ class TrunkRevisionModel(db.Model):
 
     obj_ref: Key to a doc/object stored as string.
     commit_message: Commit message log for each instance.
-    time_stamp: Time stamp of commit
   """
   obj_ref = db.StringProperty()
   commit_message = db.StringProperty()
-  time_stamp = db.DateTimeProperty(auto_now_add=True)
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
@@ -786,18 +805,8 @@ class TrunkRevisionModel(db.Model):
       'trunk_revision_commit_message': self.commit_message
       }
 
-  def get_score(self, user):
-    """Returns progress score for the model.
 
-    Args:
-     user: User whose score is fetched.
-    Returns:
-     Score for the model or None if not scorable.
-    """
-    return None
-
-
-class RichTextModel(db.Model):
+class RichTextModel(BaseContentModel):
   """Immutable rich text object.
 
   Attributes:
@@ -813,18 +822,8 @@ class RichTextModel(db.Model):
       'rich_text_data': str(self.data)
        }
 
-  def get_score(self, user):
-    """Returns progress score for the model.
 
-    Args:
-     user: User whose score is fetched.
-    Returns:
-     Score for the model or None if not scorable.
-    """
-    return None
-
-
-class DocLinkModel(db.Model):
+class DocLinkModel(BaseContentModel):
   """Link to another document in the datastore.
 
   Stores trunk_ref, doc_ref to the document it's pointing to and also
@@ -838,15 +837,12 @@ class DocLinkModel(db.Model):
     from_doc_ref: Reference to the doc containing this link.
     default_title: Default title for the link (useful for docs which do
       not exists yet).
-    time_stamp: Time of link creation.
   """
   trunk_ref = db.ReferenceProperty(TrunkModel)
   default_title = db.StringProperty()
   doc_ref = db.ReferenceProperty(DocModel)
   from_trunk_ref = db.ReferenceProperty(TrunkModel, collection_name='from_link')
   from_doc_ref = db.ReferenceProperty(DocModel, collection_name='from_link')
-  time_stamp = db.DateTimeProperty(auto_now_add=True)
-
 
   def get_score(self, user):
     """Returns progress score for the doc.
@@ -865,7 +861,8 @@ class DocLinkModel(db.Model):
     else:
       return self.doc_ref.get_score(user)
 
-class VideoModel(db.Model):
+
+class VideoModel(BaseContentModel):
   """Stores video id and optional size configuration.
 
   Attributes:
@@ -886,19 +883,9 @@ class VideoModel(db.Model):
       'video_height': self.height
       }
 
-  def get_score(self, user):
-    """Returns progress score for the model.
-
-    Args:
-     user: User whose score is fetched.
-    Returns:
-     Score for the model or None if not scorable.
-    """
-    return None
-
 # Should we replace PyShell and Quiz with one Widget model ?
 
-class PyShellModel(db.Model):
+class PyShellModel(BaseContentModel):
   """Link to python interpretor.
 
   Attributes:
@@ -913,18 +900,8 @@ class PyShellModel(db.Model):
       'py_shell_shell_url': self.shell_url
       }
 
-  def get_score(self, user):
-    """Returns progress score for the model.
 
-    Args:
-     user: User whose score is fetched.
-    Returns:
-     Score for the model or None if not scorable.
-    """
-    return None
-
-
-class QuizModel(db.Model):
+class QuizModel(BaseContentModel):
   """Link to quiz module.
 
   Attributes:
@@ -963,43 +940,38 @@ class QuizModel(db.Model):
       return 0
 
 
-class DocVisitState(db.Model):
+class DocVisitState(UserStateModel):
   """Maintains state of visited docs for each user.
 
   Attributes:
-    user: Reference to user.
     trunk_ref: Reference to visited trunk.
     doc_ref: Reference to visited doc.
     last_visit: Time stamp for last visit to the document.
     doc_progress_score: Completion score for the visited doc.
   """
-  user = db.UserProperty(auto_current_user_add=True, required=True)
   trunk_ref = db.ReferenceProperty(TrunkModel)
   doc_ref = db.ReferenceProperty(DocModel)
   last_visit = db.DateTimeProperty(auto_now_add=True)
   progress_score = db.RatingProperty(default=0)
 
 
-class QuizProgressState(db.Model):
+class QuizProgressState(UserStateModel):
   """Maintains per quiz progress state for each user.
 
   Attributes:
-    user: Reference to user.
     quiz_ref: Reference to quiz model.
     progress_score: Completion/progress score for the quiz.
     time_stamp: Timestamp to maintain history of progress.
   """
-  user = db.UserProperty(auto_current_user_add=True, required=True)
   quiz_ref = db.ReferenceProperty(QuizModel)
   progress_score = db.RatingProperty(default=0)
   time_stamp = db.DateTimeProperty(auto_now_add=True)
 
 
-class AnnotationState(db.Model):
+class AnnotationState(UserStateModel):
   """Maintains per user annotation for each annotated object.
 
   Attributes:
-    user: Reference to user.
     object_ref: Reference to annotated object.
     trunk_ref:  Reference to annotated trunk.
     doc_ref: Reference to annotated doc.
@@ -1007,7 +979,6 @@ class AnnotationState(db.Model):
       and kept in text form.
     last_modified: Time for last modification.
   """
-  user = db.UserProperty(auto_current_user_add=True, required=True)
   object_ref = db.ReferenceProperty(reference_class=None)
   trunk_ref = db.ReferenceProperty(TrunkModel, collection_name='annotation')
   doc_ref = db.ReferenceProperty(DocModel, collection_name='annotation')

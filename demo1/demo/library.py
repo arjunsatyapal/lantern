@@ -534,7 +534,7 @@ def get_parent(doc):
     parents.
   """
   parent_entry = models.DocLinkModel.all().filter('doc_ref =', doc).order(
-    '-time_stamp').get()
+    '-created').get()
 
   if parent_entry:
     return parent_entry.from_doc_ref

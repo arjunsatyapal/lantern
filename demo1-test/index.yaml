@@ -13,6 +13,12 @@ indexes:
 - kind: DocLinkModel
   properties:
   - name: doc_ref
+  - name: created
+    direction: desc
+
+- kind: DocLinkModel
+  properties:
+  - name: doc_ref
   - name: time_stamp
     direction: desc
 

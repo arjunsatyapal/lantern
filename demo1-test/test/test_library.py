@@ -231,7 +231,7 @@ class AppendToTrunkTest(unittest.TestCase):
     self.assertEquals(trunk_revisions.count(), 2)
 
     trunk_revision = models.TrunkRevisionModel.all().ancestor(trunk).order(
-      '-time_stamp').fetch(1)
+      '-created').fetch(1)
     self.assertEquals(str(trunk_revision[0].parent().key()), str(trunk.key()))
     self.assertEquals(str(trunk_revision[0].obj_ref), str(doc2.key()))
 
