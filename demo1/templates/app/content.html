@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 {% extends "app/base1col.html" %}
+{% load lanternEmbed %}
 {% block extra_head %}
 <script type="text/javascript"
  src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
@@ -43,9 +44,6 @@ limitations under the License.
  {% endif %}
  </div>
 
-{{ doc_content|safe }}
-<iframe src ="http://pyshell1.appspot.com/pyshell" width="100%" height="300">
-  <p>Your browser does not support iframes.</p>
-</iframe>
+{{ doc_content|lanternEmbed|safe }}
 
 {% endblock %}
