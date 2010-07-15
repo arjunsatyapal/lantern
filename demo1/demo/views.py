@@ -625,13 +625,16 @@ def view_doc(request):
 
   # Just place holders to check the output, should present in better way.
   menu_items = [
-    '<a href="/edit">Create New </a> | '
-    '<a href="/edit?trunk_id=%s&doc_id=%s">' %(trunk.key(), doc.key()),
-    'Edit this page</a> | ',
-    '<a href="/view?trunk_id=%s&absolute=True">Show latest</a>' %(trunk.key())
+    '<a href="/edit">Create New </a>',
+    '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a>' %
+    (trunk.key(), doc.key()),
+    '<a href="/view?trunk_id=%s&absolute=True">Show latest</a>' %
+    (trunk.key(),),
+    '<a href="/history?trunk_id=%s">History</a>' %
+    (trunk.key()),
     ]
 
-  main_menu = ''.join(menu_items)
+  main_menu = ' | '.join(menu_items)
   title_items = [
     constants.DEFAULT_TITLE,
     ' | <b>Progress: %s</b>' % (doc_score)
@@ -647,6 +650,20 @@ def view_doc(request):
                 'doc_contents': doc_contents,
                 'mainmenu': main_menu
                 })
+
+
+def history(request):
+  """Show revisions of a given trunk"""
+
+  trunk_id = request.GET.get('trunk_id')
+  trunk = db.get(trunk_id)
+  revs = [db.get(i.obj_ref) for i in models.TrunkRevisionModel.all().ancestor(trunk)
+          .order('-created')]
+  return respond(request, constants.DEFAULT_TITLE,
+                 "history.html", {
+      'trunk_id': trunk_id,
+      'data': revs,
+      })
 
 
 def submit_edits(request):
