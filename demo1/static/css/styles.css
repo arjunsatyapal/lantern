@@ -273,3 +273,15 @@ table tr.oddrow {
 table.topics td {
   width: 260px;
 }
+
+span.diff_add {
+  background-color: #80ff80;
+}
+
+span.diff_sub {
+  background-color: #ff8080;
+}
+
+span.diff_chg {
+  background-color: #80ff80;
+}

@@ -753,6 +753,15 @@ class DocModel(BaseContentModel):
     data_dict['doc_content'] = content_list
     return data_dict
 
+  def text(self):
+    """Return textual representation of the document for diff generation"""
+
+    data = []
+    for elem in self.content:
+      elem = db.get(elem)
+      data.append(elem.data)
+    return "".join(data)
+
 
 class TrunkModel(BaseModel):
   """Represents a trunk.

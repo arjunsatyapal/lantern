@@ -26,5 +26,6 @@ urlpatterns = defaults.patterns(
     (r'^edit$', 'edit'),
     (r'^list$', 'list_docs'),
     (r'^history$', 'history'),
+    (r'^changes$', 'changes'),
     (r'^submitEdits$', 'submit_edits'),
     )

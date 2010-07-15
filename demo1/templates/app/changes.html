@@ -26,16 +26,8 @@ limitations under the License.
  <tr class='oddrow'><td><b>User : </b></td><td>{{username}}</td></tr>
 </table></center>
 <hr/>
-<table width='100%'>
-{% for rev in data %}
-  <tr class="oddrow">
-  <td ><b><a href='/view?trunk_id={{trunk_id}}&doc_id={{rev.doc.key}}&absolute=True'>{{rev.doc.title}}</a></b></td>
-  <td>{% if rev.previous %}
-<a href="/changes?trunk_id={{trunk_id}}&post={{rev.doc.key}}&pre={{rev.previous}}">?</a>{% endif %}
-  </td>
-  <td><b>{{rev.doc.creator}}</b></td>
-  <td ><b>{{rev.doc.created}}</b></td>
-  </tr>
-{% endfor %}
-</table>
+{{text|safe}}
+<div>
+<a href="/history?trunk_id={{trunk_id}}">Back</a>
+</div>
 {% endblock %}

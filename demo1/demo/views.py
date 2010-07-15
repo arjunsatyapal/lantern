@@ -33,6 +33,7 @@
 # Python imports
 import binascii
 import datetime
+import difflib
 import email  # see incoming_mail()
 import email.utils
 import logging
@@ -657,12 +658,45 @@ def history(request):
 
   trunk_id = request.GET.get('trunk_id')
   trunk = db.get(trunk_id)
-  revs = [db.get(i.obj_ref) for i in models.TrunkRevisionModel.all().ancestor(trunk)
-          .order('-created')]
+  data = []
+  revs = [i.obj_ref
+          for i in models.TrunkRevisionModel.all().ancestor(trunk).order('-created')]
+  length = len(revs)
+  for i in xrange(length):
+    it = revs[i]
+    if i < length - 1:
+      previous = revs[i + 1]
+    else:
+      previous = None
+    datum = {
+        'doc': db.get(it),
+        'previous': previous,
+    }
+    data.append(datum)
+
   return respond(request, constants.DEFAULT_TITLE,
                  "history.html", {
       'trunk_id': trunk_id,
-      'data': revs,
+      'data': data,
+      })
+
+
+def changes(request):
+  """Show differences between pre and post"""
+
+  trunk_id = request.GET.get('trunk_id')
+  preimage = db.get(request.GET.get('pre')).text().split("\n")
+  postimage = db.get(request.GET.get('post')).text().split("\n")
+  differ = difflib.HtmlDiff()
+  text = differ.make_table(preimage, postimage,
+                           fromdesc="Previous",
+                           todesc="This version",
+                           context=True)
+
+  return respond(request, constants.DEFAULT_TITLE,
+                 "changes.html", {
+      'trunk_id': trunk_id,
+      'text': text,
       })
 
 
