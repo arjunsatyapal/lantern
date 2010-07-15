@@ -540,16 +540,19 @@ def list_docs(request):
   List is reverse sorted by creation date and includes all the documents.
   TODO(mukundjha): Move this function to another module.
   """
-  docs_by_user = models.DocModel.all().order('-created')
-
   doc_list = []
-  for doc in docs_by_user:
-    doc_list.append({
-      'doc': doc,
-      'trunk_id': str(doc.trunk_ref.key()),
-      'doc_id': str(doc.key())
-      })
-
+  seen = {}
+  for doc in models.DocModel.all():
+    t = doc.trunk_ref
+    k = t.key()
+    if k not in seen:
+      seen[k] = t.head
+      d = db.get(t.head)
+      doc_list.append({
+          'doc': d,
+          'trunk_id': str(k),
+          'doc_id': str(d.key()),
+          })
   return respond(request, constants.DEFAULT_TITLE, "list.html",
         {'data': doc_list})
 
