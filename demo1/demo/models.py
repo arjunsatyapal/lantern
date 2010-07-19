@@ -654,7 +654,11 @@ class BaseContentModel(BaseModel):
      Score for the model or None if not scorable.
     """
     return None
-  
+
+  def text(self):
+    """Return textual representation for diffing and merging"""
+
+    raise NotImplementedError
 
 class ObjectType(object):
   """Stores constant string defining type of different data models."""
@@ -759,8 +763,8 @@ class DocModel(BaseContentModel):
     data = []
     for elem in self.content:
       elem = db.get(elem)
-      data.append(elem.data)
-    return "".join(data)
+      data.append(elem.text())
+    return "\n".join(data)
 
 
 class TrunkModel(BaseModel):
@@ -831,6 +835,9 @@ class RichTextModel(BaseContentModel):
       'rich_text_data': str(self.data)
        }
 
+  def text(self):
+    return self.data
+
 
 class DocLinkModel(BaseContentModel):
   """Link to another document in the datastore.
@@ -870,6 +877,9 @@ class DocLinkModel(BaseContentModel):
     else:
       return self.doc_ref.get_score(user)
 
+  def text(self):
+    return "Doc reference: %s" % str(self.doc_ref.key())
+
 
 class VideoModel(BaseContentModel):
   """Stores video id and optional size configuration.
@@ -891,6 +901,10 @@ class VideoModel(BaseContentModel):
       'video_width': self.width,
       'video_height': self.height
       }
+
+  def text(self):
+    return "Video reference: %s" % self.video_id
+
 
 # Should we replace PyShell and Quiz with one Widget model ?
 
