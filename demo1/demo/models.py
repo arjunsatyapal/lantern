@@ -654,7 +654,16 @@ class BaseContentModel(BaseModel):
      Score for the model or None if not scorable.
     """
     return None
-  
+
+  def asText(self):
+    """Return textual representation for diffing and merging"""
+    # Fallback implementation
+    return "%s: %s" % (self.__class__.__name__, self.ident())
+
+  def ident(self):
+    """Fallback implementation for identifying this object to the end user"""
+    return "%s" % id(self)
+
 
 class ObjectType(object):
   """Stores constant string defining type of different data models."""
@@ -753,6 +762,14 @@ class DocModel(BaseContentModel):
     data_dict['doc_content'] = content_list
     return data_dict
 
+  def asText(self):
+    """Return textual representation of the document for diff generation"""
+    data = []
+    for elem in self.content:
+      elem = db.get(elem)
+      data.append(elem.asText())
+    return "\n".join(data)
+
 
 class TrunkModel(BaseModel):
   """Represents a trunk.
@@ -822,6 +839,9 @@ class RichTextModel(BaseContentModel):
       'rich_text_data': str(self.data)
        }
 
+  def asText(self):
+    return self.data
+
 
 class DocLinkModel(BaseContentModel):
   """Link to another document in the datastore.
@@ -861,6 +881,9 @@ class DocLinkModel(BaseContentModel):
     else:
       return self.doc_ref.get_score(user)
 
+  def ident(self):
+    return str(self.doc_ref.key())
+
 
 class VideoModel(BaseContentModel):
   """Stores video id and optional size configuration.
@@ -882,6 +905,10 @@ class VideoModel(BaseContentModel):
       'video_width': self.width,
       'video_height': self.height
       }
+
+  def ident(self):
+    return self.video_id
+
 
 # Should we replace PyShell and Quiz with one Widget model ?
 

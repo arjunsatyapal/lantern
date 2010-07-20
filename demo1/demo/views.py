@@ -33,8 +33,10 @@
 # Python imports
 import binascii
 import datetime
+import difflib
 import email  # see incoming_mail()
 import email.utils
+import itertools
 import logging
 import md5
 import os
@@ -540,16 +542,19 @@ def list_docs(request):
   List is reverse sorted by creation date and includes all the documents.
   TODO(mukundjha): Move this function to another module.
   """
-  docs_by_user = models.DocModel.all().order('-created')
-
   doc_list = []
-  for doc in docs_by_user:
-    doc_list.append({
-      'doc': doc,
-      'trunk_id': str(doc.trunk_ref.key()),
-      'doc_id': str(doc.key())
-      })
-
+  seen = {}
+  for doc in models.DocModel.all():
+    t = doc.trunk_ref
+    k = t.key()
+    if k not in seen:
+      seen[k] = t.head
+      d = db.get(t.head)
+      doc_list.append({
+          'doc': d,
+          'trunk_id': str(k),
+          'doc_id': str(d.key()),
+          })
   return respond(request, constants.DEFAULT_TITLE, "list.html",
         {'data': doc_list})
 
@@ -622,13 +627,16 @@ def view_doc(request):
 
   # Just place holders to check the output, should present in better way.
   menu_items = [
-    '<a href="/edit">Create New </a> | '
-    '<a href="/edit?trunk_id=%s&doc_id=%s">' %(trunk.key(), doc.key()),
-    'Edit this page</a> | ',
-    '<a href="/view?trunk_id=%s&absolute=True">Show latest</a>' %(trunk.key())
+    '<a href="/edit">Create New </a>',
+    '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a>' %
+    (trunk.key(), doc.key()),
+    '<a href="/view?trunk_id=%s&absolute=True">Show latest</a>' %
+    (trunk.key(),),
+    '<a href="/history?trunk_id=%s">History</a>' %
+    (trunk.key()),
     ]
 
-  main_menu = ''.join(menu_items)
+  main_menu = ' | '.join(menu_items)
   title_items = [
     constants.DEFAULT_TITLE,
     ' | <b>Progress: %s</b>' % (doc_score)
@@ -644,6 +652,46 @@ def view_doc(request):
                 'doc_contents': doc_contents,
                 'mainmenu': main_menu
                 })
+
+
+def history(request):
+  """Show revisions of a given trunk"""
+  trunk_id = request.GET.get('trunk_id')
+  trunk = db.get(trunk_id)
+  data = []
+  revs = [i.obj_ref
+          for i in models.TrunkRevisionModel.all().ancestor(trunk).order('-created')]
+  for it, previous in itertools.izip(revs, revs[1:] + [None]):
+    datum = {
+        'doc': db.get(it),
+        'previous': previous,
+    }
+    data.append(datum)
+
+  return respond(request, constants.DEFAULT_TITLE,
+                 "history.html", {
+      'trunk_id': trunk_id,
+      'data': data,
+      })
+
+
+def changes(request):
+  """Show differences between pre and post"""
+  trunk_id = request.GET.get('trunk_id')
+  pre_image = db.get(request.GET.get('pre')).asText().split("\n")
+  post_image = db.get(request.GET.get('post')).asText().split("\n")
+  differ = difflib.HtmlDiff()
+  text = differ.make_table(pre_image, post_image,
+                           fromdesc="Previous",
+                           todesc="This version",
+                           context=True)
+
+  return respond(
+      request, constants.DEFAULT_TITLE, "changes.html",
+      {
+          'trunk_id': trunk_id,
+          'text': text,
+      })
 
 
 def submit_edits(request):
