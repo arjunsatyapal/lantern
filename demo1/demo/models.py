@@ -655,7 +655,7 @@ class BaseContentModel(BaseModel):
     """
     return None
 
-  def text(self):
+  def asText(self):
     """Return textual representation for diffing and merging"""
     # Fallback implementation
     return "%s: %s" % (self.__class__.__name__, self.ident())
@@ -762,12 +762,12 @@ class DocModel(BaseContentModel):
     data_dict['doc_content'] = content_list
     return data_dict
 
-  def text(self):
+  def asText(self):
     """Return textual representation of the document for diff generation"""
     data = []
     for elem in self.content:
       elem = db.get(elem)
-      data.append(elem.text())
+      data.append(elem.asText())
     return "\n".join(data)
 
 
@@ -839,7 +839,7 @@ class RichTextModel(BaseContentModel):
       'rich_text_data': str(self.data)
        }
 
-  def text(self):
+  def asText(self):
     return self.data
 
 
