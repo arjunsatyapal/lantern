@@ -655,7 +655,6 @@ def view_doc(request):
 
 def history(request):
   """Show revisions of a given trunk"""
-
   trunk_id = request.GET.get('trunk_id')
   trunk = db.get(trunk_id)
   data = []
@@ -683,7 +682,6 @@ def history(request):
 
 def changes(request):
   """Show differences between pre and post"""
-
   trunk_id = request.GET.get('trunk_id')
   preimage = db.get(request.GET.get('pre')).text().split("\n")
   postimage = db.get(request.GET.get('post')).text().split("\n")

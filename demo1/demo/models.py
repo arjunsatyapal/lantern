@@ -657,7 +657,6 @@ class BaseContentModel(BaseModel):
 
   def text(self):
     """Return textual representation for diffing and merging"""
-
     # Fallback implementation
     return "%s: %s" % (self.__class__.__name__, self.ident())
 
@@ -765,7 +764,6 @@ class DocModel(BaseContentModel):
 
   def text(self):
     """Return textual representation of the document for diff generation"""
-
     data = []
     for elem in self.content:
       elem = db.get(elem)
