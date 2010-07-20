@@ -691,10 +691,11 @@ def changes(request):
                            todesc="This version",
                            context=True)
 
-  return respond(request, constants.DEFAULT_TITLE,
-                 "changes.html", {
-      'trunk_id': trunk_id,
-      'text': text,
+  return respond(
+      request, constants.DEFAULT_TITLE, "changes.html",
+      {
+          'trunk_id': trunk_id,
+          'text': text,
       })
 
 
