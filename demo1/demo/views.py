@@ -36,6 +36,7 @@ import datetime
 import difflib
 import email  # see incoming_mail()
 import email.utils
+import itertools
 import logging
 import md5
 import os
@@ -660,13 +661,7 @@ def history(request):
   data = []
   revs = [i.obj_ref
           for i in models.TrunkRevisionModel.all().ancestor(trunk).order('-created')]
-  length = len(revs)
-  for i in xrange(length):
-    it = revs[i]
-    if i < length - 1:
-      previous = revs[i + 1]
-    else:
-      previous = None
+  for it, previous in itertools.izip(revs, revs[1:] + [None]):
     datum = {
         'doc': db.get(it),
         'previous': previous,
