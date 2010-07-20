@@ -658,7 +658,13 @@ class BaseContentModel(BaseModel):
   def text(self):
     """Return textual representation for diffing and merging"""
 
-    raise NotImplementedError
+    # Fallback implementation
+    return "%s: %s" % (self.__class__.__name__, self.ident())
+
+  def ident(self):
+    """Fallback implementation for identifying this object to the end user"""
+    return "%s" % id(self)
+
 
 class ObjectType(object):
   """Stores constant string defining type of different data models."""
@@ -877,8 +883,8 @@ class DocLinkModel(BaseContentModel):
     else:
       return self.doc_ref.get_score(user)
 
-  def text(self):
-    return "Doc reference: %s" % str(self.doc_ref.key())
+  def ident(self):
+    return str(self.doc_ref.key())
 
 
 class VideoModel(BaseContentModel):
@@ -902,8 +908,8 @@ class VideoModel(BaseContentModel):
       'video_height': self.height
       }
 
-  def text(self):
-    return "Video reference: %s" % self.video_id
+  def ident(self):
+    return self.video_id
 
 
 # Should we replace PyShell and Quiz with one Widget model ?
