@@ -683,10 +683,10 @@ def history(request):
 def changes(request):
   """Show differences between pre and post"""
   trunk_id = request.GET.get('trunk_id')
-  preimage = db.get(request.GET.get('pre')).text().split("\n")
-  postimage = db.get(request.GET.get('post')).text().split("\n")
+  pre_image = db.get(request.GET.get('pre')).text().split("\n")
+  post_image = db.get(request.GET.get('post')).text().split("\n")
   differ = difflib.HtmlDiff()
-  text = differ.make_table(preimage, postimage,
+  text = differ.make_table(pre_image, post_image,
                            fromdesc="Previous",
                            todesc="This version",
                            context=True)
