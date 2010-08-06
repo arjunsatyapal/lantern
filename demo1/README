@@ -27,8 +27,9 @@ Running
 
 To run locally: *** YOU MUST INSTALL DJANGO 1.0 OR NEWER. ***
 
-- Download Django-1.1.1.tar.gz (or newer) from www.djangoproject.com and 
-  follow the installation instructions, Typically:
+- Download Django-1.1.1.tar.gz (or newer, but not Django-1.2.X)
+  from www.djangoproject.com and follow the installation instructions.
+  Typically:
 
     cd /tmp
     tar xzf Django-1.1.1.tar.gz

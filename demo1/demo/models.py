@@ -23,6 +23,8 @@
 
 # Python imports
 import base64
+import difflib
+import itertools
 import logging
 import md5
 import operator
@@ -644,9 +646,9 @@ class BaseContentModel(BaseModel):
 
   def get_score(self, user):
     """Returns progress score for the model.
-    
-    Fuction returns None by default and must be over-ridden by subclasses to return
-    any other valid score.
+
+    Function returns None by default and must be over-ridden by
+    subclasses to return any other valid score.
 
     Args:
      user: User whose score is fetched.
@@ -663,6 +665,55 @@ class BaseContentModel(BaseModel):
   def ident(self):
     """Fallback implementation for identifying this object to the end user"""
     return "%s" % id(self)
+
+  def metainfo(self):
+    """A list of (label, string) tuples to describe the document
+
+    Subclasses can add their own metainformation by overriding
+    myMetainfo() method.
+    """
+    return ([(self.__class__.__name__, self.ident()),
+             ('Creator', self.creator),
+             ('Created', self.created)] +
+            self.myMetainfo())
+
+  def metainfoOneline(self):
+    """self.metainfo() in a one-line-per-item format, used in UI."""
+    return ['%s: %s' % elem for elem in self.metainfo()]
+
+  def metainfoHtml(self):
+    """self.metainfoOneline() in HTML format, used in UI"""
+    return "\n".join(["<div>%s</div>" %
+                      elem for elem in self.metainfoOneline()])
+
+  def myMetainfo(self):
+    """Subclass specific enhancement to self.metainfo(), to be overriden."""
+    return [] # override
+
+  @classmethod
+  def HtmlDiff(cls, one, two, context=True):
+    """Return diff to turn one into two.
+
+    This is implemented as a classmethod so that a creation patch can be
+    sanely requested by the caller (e.g. DocModel.HtmlDiff(None, newrev)).
+    """
+    # Fallback implementation
+    if two is None:
+      if one is None:
+        # Should not happen but wth...
+        return ""
+      return ('<div class="diff_delete">%s%s</div>' %
+              (one.metainfoHtml(), one.asText()))
+    elif one is None:
+      return ('<div class="diff_insert">%s%s</div>' %
+              (two.metainfoHtml(), two.asText()))
+
+    differ = difflib.HtmlDiff()
+    return differ.make_table(one.metainfoOneline() + one.asText().split("\n"),
+                             two.metainfoOneline() + two.asText().split("\n"),
+                             fromdesc="Previous",
+                             todesc="This Version",
+                             context=context)
 
 
 class ObjectType(object):
@@ -762,13 +813,68 @@ class DocModel(BaseContentModel):
     data_dict['doc_content'] = content_list
     return data_dict
 
-  def asText(self):
-    """Return textual representation of the document for diff generation"""
-    data = []
-    for elem in self.content:
-      elem = db.get(elem)
-      data.append(elem.asText())
-    return "\n".join(data)
+  def myMetainfo(self):
+    return [('Title', self.title)]
+
+  @classmethod
+  def HtmlDiff(cls, one, two, context=True):
+    if two is None:
+      if one is None:
+        # Should not happen but wth...
+        return ""
+      return ('<div class="diff_delete">%s%s</div>' %
+              (one.metainfoHtml(), one.asText()))
+    elif one is None:
+      return ('<div class="diff_insert">%s%s</div>' %
+              (two.metainfoHtml(), two.asText()))
+
+    # Both are DocModel with content[]
+    oneContent = one.contentAsComparable()
+    twoContent = two.contentAsComparable()
+
+    # First compare them at the surface level
+    ops = list(difflib.SequenceMatcher(None, oneContent, twoContent).
+               get_opcodes())
+
+    # Decompose "replace" into "delete" then "insert"
+    oplist = []
+    for op in ops:
+      (tag, i1, i2, j1, j2) = op
+      if tag == 'replace':
+        oplist.extend([('delete', i1, i2, j1, j1),
+                       ('insert', i1, i1, j1, j2)])
+      else:
+        oplist.append(op)
+
+    result = []
+    differ = difflib.HtmlDiff()
+    result.append(differ.make_table(one.metainfoOneline(),
+                                    two.metainfoOneline(),
+                                    fromdesc="Previous",
+                                    todesc="This Version",
+                                    context=context))
+
+    for (tag, i1, i2, j1, j2) in oplist:
+      if tag == 'delete':
+        for i in range(i1, i2):
+          this = oneContent[i].doc
+          result.append(this.HtmlDiff(this, None))
+      elif tag == 'insert':
+        for j in range(j1, j2):
+          that = twoContent[j].doc
+          result.append(that.HtmlDiff(None, that))
+      elif tag == 'equal':
+        for (i, j) in itertools.izip(range(i1, i2), range(j1, j2)):
+          this = oneContent[i].doc
+          that = twoContent[j].doc
+          result.append(this.HtmlDiff(this, that))
+      else:
+        "Should not happen (seen tag '%s')" % tag
+
+    return "<div>" + "</div>\n<div>".join(result) + "</div>"
+
+  def contentAsComparable(self):
+    return [ComparableSequenceElem(db.get(elem)) for elem in self.content]
 
 
 class TrunkModel(BaseModel):
@@ -840,7 +946,7 @@ class RichTextModel(BaseContentModel):
        }
 
   def asText(self):
-    return self.data
+    return super(self.__class__, self).asText() + "\n" + self.data
 
 
 class DocLinkModel(BaseContentModel):
@@ -965,6 +1071,48 @@ class QuizModel(BaseContentModel):
       return quiz_state.progress_score
     else:
       return 0
+
+
+class ComparableSequenceElem(object):
+  """An element in a comparable sequence.
+
+  Attributes:
+    doc: Reference to the document this element represents
+
+  When comparing two Lantern documents, each of which often is a
+  sequence of links to versioned documents, we first convert them into
+  a "comparable sequence" and give them to difflib to match the
+  corresponding subdocument (which could be of different revision) up.
+  Then the different revisions of matched subdocuments are further
+  compared.
+
+  For this to work, an element in a comparable sequence needs to say "I
+  am equal" to an object with the same trunk-id even when the other object
+  is of a different revision.  Also we have to inspect each element and
+  be able to say which revision it is about.
+  """
+  def __init__(self, doc):
+    # TODO(jch): There probably needs a subclass between BaseContentModel
+    # and its subclasses to distinguish the ones with and the ones without
+    # trunk_ref.
+    self.doc = doc
+
+  def __hash__(self):
+    return id(self)
+
+  def __eq__(self, other):
+    """Are two objects 'equal' in the sense that they are of the same trunk?"""
+    if self.doc.__class__ is not other.doc.__class__:
+      return False
+    one = getattr(self.doc, 'trunk_ref', None)
+    two = getattr(other.doc, 'trunk_ref', None)
+    if one and two:
+      one, two = one.key(), two.key()
+      return one == two
+    # If neither have trunk (e.g. two videos), consider them the same
+    # at the structure level, and let the content level comparison kick in.
+    # If only one has trunk, they are different.
+    return (not one) is (not two)
 
 
 class DocVisitState(UserStateModel):

@@ -611,3 +611,7 @@ def get_doc_contents(doc):
     return None
   else:
     return [db.get(element) for element in doc.content]
+
+
+def show_changes(pre, post):
+  return pre.HtmlDiff(pre, post)

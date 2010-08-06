@@ -33,7 +33,6 @@
 # Python imports
 import binascii
 import datetime
-import difflib
 import email  # see incoming_mail()
 import email.utils
 import itertools
@@ -678,19 +677,32 @@ def history(request):
 def changes(request):
   """Show differences between pre and post"""
   trunk_id = request.GET.get('trunk_id')
-  pre_image = db.get(request.GET.get('pre')).asText().split("\n")
-  post_image = db.get(request.GET.get('post')).asText().split("\n")
-  differ = difflib.HtmlDiff()
-  text = differ.make_table(pre_image, post_image,
-                           fromdesc="Previous",
-                           todesc="This version",
-                           context=True)
+  preKey = request.GET.get('pre')
+  postKey = request.GET.get('post')
+  pre = db.get(preKey)
+  post = db.get(postKey)
+  text = library.show_changes(pre, post)
+  prevpair = None
+  nextpair = None
+
+  trunk = db.get(trunk_id)
+  revs = [i.obj_ref
+          for i in models.TrunkRevisionModel.all().ancestor(trunk).order('-created')]
+  for it, previous in itertools.izip(revs, revs[1:] + [None]):
+    if previous is None:
+      continue
+    if previous == postKey:
+      nextpair = (it, previous)
+    elif it == preKey:
+      prevpair = (it, previous)
 
   return respond(
       request, constants.DEFAULT_TITLE, "changes.html",
       {
           'trunk_id': trunk_id,
           'text': text,
+          'prevpair': prevpair,
+          'nextpair': nextpair,
       })
 
 

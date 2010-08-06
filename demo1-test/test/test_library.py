@@ -20,6 +20,7 @@
 import logging
 import unittest
 import os
+import re
 
 # AppEngine imports
 from google.appengine.ext import db
@@ -461,6 +462,42 @@ class ParseLeafTest(unittest.TestCase):
     self.assertEquals("mukundjha@google.com", data_dict.get('doc_creator'))
     self.assertEquals(['p1', 'p2', 'p3'], data_dict.get('doc_parents'))
     self.assertEquals("This is a message", data_dict.get('doc_content'))
+
+
+class ShowChangesTest(unittest.TestCase):
+  """Tests for show-changes"""
+  def testHtmlDiff(self):
+    doc = library.create_new_doc()
+    trunk = doc.trunk_ref
+    doc.title = 'A document'
+    doc.grade_level = 1
+    text = library.insert_with_new_key(models.RichTextModel)
+    text.data = db.Blob('An original line in a document')
+    text.put()
+    doc.content.append(text.key())
+    doc.put()
+    self.assertEquals(trunk.key(), doc.trunk_ref.key())
+    self.assertEquals(trunk.head, str(doc.key()))
+
+    # TODO(jch): It feels wrong that the model layer does not allow
+    # the user to start from an existing doc, taken from the database
+    # with "db.get(doc.key)", to modify in-place (e.g. assignment to
+    # "doc.title" or appending to "doc.content"), and to finalize the
+    # new revision with doc.commit("message").  The user should not
+    # have to worry about the "trunk", which ought to be a hidden
+    # implementation detail.  It looks to me that the current design
+    # does too many things at the library and the view layers instead.
+    newdoc = library.create_new_doc(str(trunk.key()))
+    newtext = library.insert_with_new_key(models.RichTextModel)
+    newtext.data = db.Blob('A different line in a document')
+    newtext.put()
+    newdoc.content.append(newtext.key())
+    self.assertEquals(trunk.key(), newdoc.trunk_ref.key())
+
+    diff = library.show_changes(doc, newdoc)
+    diff = diff.replace("&nbsp;", " ")
+    self.assertTrue(re.search('="diff_sub">[^<]*An original', diff))
+    self.assertTrue(re.search('="diff_add">[^<]*A different', diff))
 
 
 if __name__ == "__main__":

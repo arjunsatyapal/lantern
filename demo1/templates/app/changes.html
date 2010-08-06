@@ -25,9 +25,14 @@ limitations under the License.
 <center><table class='commonAttributes' width='80%'>
  <tr class='oddrow'><td><b>User : </b></td><td>{{username}}</td></tr>
 </table></center>
-<hr/>
-{{text|safe}}
 <div>
-<a href="/history?trunk_id={{trunk_id}}">Back</a>
+{% if prevpair %}
+<a href="/changes?trunk_id={{trunk_id}}&post={{prevpair.0}}&pre={{prevpair.1}}">&#9664;</a
+>{% endif %}
+<a href="/history?trunk_id={{trunk_id}}">&#9651;</a>
+{% if nextpair %}
+<a href="/changes?trunk_id={{trunk_id}}&post={{nextpair.0}}&pre={{nextpair.1}}">&#9654;</a
+>{% endif %}
 </div>
+{{text|safe}}
 {% endblock %}
