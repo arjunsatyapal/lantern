@@ -435,6 +435,13 @@ def create_doc(data_dict):
           from_doc_ref=doc.key())
         doc.content.append(doc_link_object.key())
 
+    elif element.get('obj_type') == 'widget':
+      widget_url = str(element.get('val'))
+      widget_object = library.insert_with_new_key(models.WidgetModel,
+                                                  widget_url=widget_url)
+      widget_object.put()
+      doc.content.append(widget_object.key())
+
   doc.put()
   return doc
 
@@ -638,7 +645,8 @@ def view_doc(request):
   main_menu = ' | '.join(menu_items)
   title_items = [
     constants.DEFAULT_TITLE,
-    ' | <b>Progress: %s</b>' % (doc_score)
+    '<div id="docProgressContainer">',
+    '<b>Progress: %s</b></div>' % (doc_score)
     ]
 
   if parent_trunk:
@@ -719,9 +727,70 @@ def submit_edits(request):
     # redirect to view mode
     trunk_id = doc.trunk_ref.key()
     doc_id = doc.key()
-    return HttpResponseRedirect('/view?trunk_id=%s&doc_id=%s&absolute=True' % (trunk_id, doc_id))
+    return HttpResponseRedirect(
+        '/view?trunk_id=%s&doc_id=%s&absolute=True' % (trunk_id, doc_id))
 
-	
+
+def get_session_id_for_widget(request):
+  """Returns session id tied with user and widget.
+  
+  NOTE: BadKeyError was not checked on purpose, so that exception is raised.
+  """
+  widget_id = request.GET.get('widget_id')
+  widget = db.get(widget_id)
+    
+  session_id = library.get_or_create_session_id(widget,
+                                                users.get_current_user())
+  if session_id:
+    return HttpResponse(simplejson.dumps({'session_id' : session_id}))
+
+
+def update_doc_score(request):
+  """Updates score for the widget and the doc and returns updated doc score.
+
+  Function revceives updated status (both score and progres) from widget and
+  updates score record for associated user and widget. It also recomputes
+  accumulated score for the document from which updates are recieved and
+  sends back updated score for the document.
+
+  TODO(mukundjha): Check for possible race conditions on score updates.
+  TODO(mukundjha): Slightly inefficient with many calls to datastore,
+    should use mem-cache.
+
+  Parameters:
+    widget_id: Key for the widget.
+    progress: integer between 0-100 indicating progress of the widget.
+    score: integer between 0-100 indicating score for the widget.
+    trunk_id: Key for the trunk associated with doc containing the widget. 
+    doc_id: Key of the document.
+    absolute: Boolean value, if set doc_id is used to fetch the document and
+      history of user's visit to the trunk is ignored. This is useful in cases
+      where author always wants user to land on a particular revision of a 
+      trunk.
+  """
+  widget_id = request.GET.get('widget_id')
+  progress = int(request.GET.get('progress'))
+  score = int(request.GET.get('score'))
+  trunk_id = request.GET.get('trunk_id')
+  doc_id = request.GET.get('doc_id')
+  absolute_address_mapping = request.GET.get('absolute')
+
+  widget = db.get(widget_id) 
+  library.put_widget_score(widget, users.get_current_user(), progress)
+  
+  
+  if absolute_address_mapping:
+    doc = library.fetch_doc(trunk_id, doc_id)
+  else:
+    doc = library.get_doc_for_user(trunk_id, users.get_current_user())
+
+  doc_contents = library.get_doc_contents(doc)
+  doc_score = library.get_accumulated_score(doc, doc_contents,
+                                            users.get_current_user())
+
+  return HttpResponse(simplejson.dumps({'doc_score' : doc_score}))
+
+
 def video(request):
   """/video - Shows video with list of other related videos."""
 

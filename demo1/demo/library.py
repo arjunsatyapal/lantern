@@ -301,8 +301,9 @@ def gen_random_string(num_chars=16):
   # Uses base64 encoding, which has roughly 4/3 size of underlying data.
   first_letter = random.choice(string.letters)
   num_chars -= 1
-  remainder = num_chars % 4
-  num_bytes = ((num_chars + remainder) / 4) * 3
+#  remainder = num_chars % 4
+#  num_bytes = ((num_chars + remainder) / 4) * 3
+  num_bytes = ((num_chars + 3) / 4) * 3
   random_byte = os.urandom(num_bytes)
   random_str = base64.b64encode(random_byte, altchars='-_')
   return first_letter+random_str[:num_chars]
@@ -560,7 +561,8 @@ def get_accumulated_score(doc, doc_contents, user):
   total, count = 0,0
   for element in doc_contents:
     element.score = element.get_score(user)
-    if element.score:
+
+    if element.score is not None:
       total += element.score
       count += 1
 
@@ -581,8 +583,8 @@ def put_doc_score(doc, user, score):
 
   Args:
     doc: Document fetching the score.
-    doc: Document fetching the score.
     user: User associated with the score.
+    score: Current score.
   TODO(mukundjha): Determine if this needs to be run in a transaction.
   """
   visit_state = models.DocVisitState.all().filter('user =', user).filter(
@@ -615,3 +617,49 @@ def get_doc_contents(doc):
 
 def show_changes(pre, post):
   return pre.HtmlDiff(pre, post)
+
+
+def put_widget_score(widget, user, score):
+  """Stores progress score for a widget.
+
+  Updates the entry with new score if present, else makes a new entry.
+
+  Args:
+    widget: WidgetModel object for which score is being updated.
+    user: User associated with the score.
+    score: Current score.
+  TODO(mukundjha): Determine if this needs to be run in a transaction.
+  """
+  visit_state = models.WidgetProgressState.all().filter('user =', user).filter(
+    'widget_ref =', widget).get()
+
+  if visit_state:
+    visit_state.progress_score = score
+    visit_state.put()
+  else:
+    visit_state = insert_with_new_key(models.WidgetProgressState, user=user,
+                                      widget_ref=widget, progress_score=score)
+
+
+def get_or_create_session_id(widget, user):
+  """Retrieves or creates a new session_id for the widget.
+  
+  Session id is assumed to be the key for WidgetProgressState entry 
+  for the widget. We have separate model to store data for the user 
+  per widget but since we need only one unique id we can reutilize 
+  the id assigned by appstore instead of creating new one for 
+  every sesssion. If no entry is present, a new entry is made.
+
+  Args:
+    widget: WidgetModel object for which session id is required.
+    user: Associated user.
+  Returns:
+    returns key for the entry of corresponding WidgetProgressState model.
+  """
+  visit_state = models.WidgetProgressState.all().filter('user =', user).filter(
+    'widget_ref =', widget).get()
+
+  if not visit_state:
+    visit_state = insert_with_new_key(models.WidgetProgressState, user=user,
+                                      widget_ref=widget, progress_score=0)
+  return str(visit_state.key())

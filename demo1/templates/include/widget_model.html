@@ -1,0 +1,8 @@
+<div id='{{object|get_key}}'>
+</div>
+<script>
+lantern.comm.LanternChannelFactory.registerChannel(
+    '/quiz/',
+    '{{object.widget_url|safe}}','{{object|get_key}}','{{doc|get_key}}',
+    '{{doc.trunk_ref|get_key}}','400','800','False');
+</script>

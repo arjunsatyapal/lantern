@@ -45,6 +45,10 @@ limitations under the License.
    {% else %}
    {% ifequal object|class_name "DocLinkModel" %}
   <td>{% include 'include/doc_link_model.html' %}</td>
+   {% else %}
+   {% ifequal object|class_name "WidgetModel" %}
+  <td>{% include 'include/widget_model.html' %}</td>
+   {% endifequal %}
    {% endifequal %}
    {% endifequal %}
  {% endifequal %}

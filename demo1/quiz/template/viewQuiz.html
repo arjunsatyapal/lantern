@@ -1,0 +1,11 @@
+<html>
+<body>
+<strong>{{quiz.title}}</strong>
+<table border=0>
+{% for question in questions %}
+<tr>        
+        <td>{{forloop.counter}}</td>
+	<td>{{question.body}}</td>
+</tr>
+{% endfor %}
+</table>

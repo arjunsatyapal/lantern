@@ -21,13 +21,46 @@ limitations under the License.
 	{{errorMsg}}
 	<hr/>
 {% endif %}
+Score: <div id='quizContainer1scoreBox'>0</div>
+<div id='quizContainer1'></div>
+Score: <div id='quizContainer2scoreBox'>0</div>
+<div id='quizContainer2'></div>
+
  <table class="topics">
 {% for module in doc_content %}
         <tr class={% cycle '"oddrow"' '"evenrow"' %}>
           <td>{{forloop.counter}}</td>
           <td class="title"><a href="?docId={{module.key}}&docType={{module.type}}">{{module.title}}</a></td>
-          <td><img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{module.rating}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td>
+          <td><img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{module.rating}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11" onClick="javascript:callDialog();"></td>
        </tr>
 {% endfor %}
 </table>
+<script>
+/*
+ * Scripts and functions below are only for testing lantern_comm and 
+ * lanter_widget_channel scripts and should be replaced with relevant 
+ * scripts.
+ */
+    var dialog1 = new goog.ui.Dialog();
+
+    dialog1.setContent('Hello')
+    dialog1.setTitle('My favorite');
+ 
+    dialog1.setButtonSet(goog.ui.Dialog.ButtonSet.CONTINUE_SAVE_CANCEL);
+ 
+    goog.events.listen(dialog1, goog.ui.Dialog.EventType.SELECT, function(e) {
+      alert('You chose: ' + e.key);
+    });
+ function callDialog(){
+   dialog1.setVisible(true);
+ }
+// TODO(mukundjha): Remove after testing is finished.
+init = function() {
+   lantern.comm.LanternChannelFactory.registerChannel('/quiz/','/quiz?quiz_trunk_id=aghrMTYtODg4OHIkCxIOUXVpelRydW5rTW9kZWwiEFFxamRUUlBIaHZSNWxFMHoM&quiz_id=aghrMTYtODg4OHIfCxIJUXVpek1vZGVsIhBSSUVkT3AtMDNWUHFESFBQDA','quizContainer2','doc_id','trunk_id','400','800','False');
+};
+//init();
+
+
+//window.onLoad = init()
+</script>
 {% endblock %}

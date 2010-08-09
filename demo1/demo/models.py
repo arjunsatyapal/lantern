@@ -617,6 +617,10 @@ class InvalidElementError(Exception):
 class InvalidQuizError(Exception):
   """Exception raised for invalid quiz access."""
 
+
+class InvalidWidgetError(Exception):
+  """Exception raised for invalid widget access."""
+
 ### New Models ###
 
 class BaseModel(db.Model):
@@ -624,7 +628,7 @@ class BaseModel(db.Model):
 
 
 class UserStateModel(db.Model):
-  """Abstarct base class for all user specific state models.
+  """Abstract base class for all user specific state models.
  
   Attributes:
     user: Reference to the the user.
@@ -646,7 +650,6 @@ class BaseContentModel(BaseModel):
 
   def get_score(self, user):
     """Returns progress score for the model.
-
     Function returns None by default and must be over-ridden by
     subclasses to return any other valid score.
 
@@ -725,6 +728,7 @@ class ObjectType(object):
   PY_SHELL = 'py_shell'
   TRUNK = 'trunk'
   DOC_LINK = 'doc_link'
+  WIDGET = 'widget'
 
 
 class DocModel(BaseContentModel):
@@ -736,9 +740,9 @@ class DocModel(BaseContentModel):
   Attributes:
     trunk_ref: Reference to the associated trunk.
     title: Title associated with the document.
-    predecessors: Pointers to the predecessor document in revision chain. Mulitple
-      predecessor will exist when we merge two different trunks or import from
-      two different modules.
+    predecessors: Pointers to the predecessor document in revision chain.
+    Mulitple predecessor will exist when we merge two different trunks or
+    import from two different modules.
     grade_level: Grade level associated with the doc.
     tags: Set of tags (preferably part of some ontology).
     content: Ordered list of references to objects/items as it appears in
@@ -769,7 +773,8 @@ class DocModel(BaseContentModel):
     try:
       doc_key = self.key()
     except (db.NotSavedError, AttributeError):
-        raise InvalidDocumentError('Invalid DocModel: It has not been saved yet.')
+        raise InvalidDocumentError(
+            'Invalid DocModel: It has not been saved yet.')
 
     visit_state = DocVisitState.all().filter('user =', user).filter(
       'doc_ref =', doc_key).order('-last_visit').get()
@@ -914,10 +919,12 @@ class TrunkRevisionModel(BaseContentModel):
   Attributes:
 
     obj_ref: Key to a doc/object stored as string.
+    time_stamp: Time stamp of revision.
     commit_message: Commit message log for each instance.
   """
   obj_ref = db.StringProperty()
   commit_message = db.StringProperty()
+  time_stamp = db.DateTimeProperty(auto_now=True)
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
@@ -925,7 +932,8 @@ class TrunkRevisionModel(BaseContentModel):
       'obj_type': ObjectType.TRUNK_REVISION,
       'trunk_revison_parent': str(self.parent().key()),
       'trunk_revision_obj_ref': str(self.obj_ref.key()),
-      'trunk_revision_commit_message': self.commit_message
+      'trunk_revision_commit_message': self.commit_message,
+      'trunk_revision_time_stamp': self.time_stamp
       }
 
 
@@ -1115,6 +1123,45 @@ class ComparableSequenceElem(object):
     return (not one) is (not two)
 
 
+class WidgetModel(BaseContentModel):
+  """Link to widget module.
+
+  Attributes:
+    widget_url: Url to quiz app to be embedded as an Iframe.
+  """
+  widget_url = db.StringProperty(required=True)
+
+  def dump_to_dict(self):
+    """Returns all attributes of the object in a dictionary."""
+    return {
+      'obj_type': ObjectType.WIDGET,
+      'widget_widget_url': self.widget_url
+      }
+
+  def get_score(self, user):
+    """Returns progress score for the widget associated with given user.
+
+    Args:
+      user: User whose score is being fetched.
+    Returns:
+      Score for the widget.
+    Raises:
+      InvalidWidgetError: If the widget passed is not valid.
+    """
+    try:
+      widget_key = self.key()
+    except (db.NotSavedError, AttributeError):
+      raise InvalidWidgetError('Widget is not valid: it has not been saved')
+
+    widget_state = WidgetProgressState.all().filter('user =', user).filter(
+      'widget_ref =', widget_key).order('-time_stamp').get()
+
+    if widget_state:
+      return widget_state.progress_score
+    else:
+      return 0
+
+
 class DocVisitState(UserStateModel):
   """Maintains state of visited docs for each user.
 
@@ -1139,6 +1186,19 @@ class QuizProgressState(UserStateModel):
     time_stamp: Timestamp to maintain history of progress.
   """
   quiz_ref = db.ReferenceProperty(QuizModel)
+  progress_score = db.RatingProperty(default=0)
+  time_stamp = db.DateTimeProperty(auto_now_add=True)
+
+
+class WidgetProgressState(UserStateModel):
+  """Maintains per widget progress state for each user.
+
+  Attributes:
+    widget_ref: Reference to quiz model.
+    progress_score: Completion/progress score for the quiz.
+    time_stamp: Timestamp to maintain history of progress.
+  """
+  widget_ref = db.ReferenceProperty(WidgetModel)
   progress_score = db.RatingProperty(default=0)
   time_stamp = db.DateTimeProperty(auto_now_add=True)
 

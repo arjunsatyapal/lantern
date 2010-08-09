@@ -17,10 +17,14 @@ limitations under the License.
 {% block title %}{{ title|safe }}{% endblock %}
 
 {% block extra_head %}
+<script>
+	goog.require('goog.ui.Dialog');
+</script>
+<link rel="stylesheet" href="{{media_url}}css/dialog.css">
 {% endblock %}
 
 {% block body_tags %}id="edu-dashboard" class="body" {% endblock %}
-{% block extra_body_tags %}{% endblock %}>
+{% block extra_body_tags %}{% endblock %}
 
 {% block body %}
  <div class={% block container_class %}"base1col"{% endblock %} id="container">

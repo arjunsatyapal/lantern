@@ -82,7 +82,8 @@ limitations under the License.
  <option value='doc_link'>Link</option>
  <option value='video'>Video</option>
  <option value='py_shell'>Python Interpretor</option>
- <option value='quiz'>Quiz</option></td></tr>
+ <option value='quiz'>Quiz</option>
+ <option value='widget'>Widget</option></td></tr>
 </table>
  </center>
  </form>
@@ -123,6 +124,10 @@ limitations under the License.
           var iElement1 = document.createElement("Input")
           iElement1.setAttribute('type', 'text')
           bTag.appendChild(document.createTextNode('Quiz Link: '))
+    } else if (value_passed == 'widget') {
+          var iElement1 = document.createElement("Input")
+          iElement1.setAttribute('type', 'text')
+          bTag.appendChild(document.createTextNode('Widget/Quiz: '))
     }
     else {
           alert('wrong value') 

@@ -21,6 +21,15 @@ handlers:
 - url: /content
   static_dir: content
 
+- url:/quiz/blank.html
+  static_files: /quiz/blank.html
+
+- url:/quiz/relay.html
+  static_files: /quiz/relay.html
+
+- url: /quiz.*
+  script: quiz/main.py
+
 - url: /remote_api
   script: $PYTHON_LIB/google/appengine/ext/remote_api/handler.py
   login: admin
