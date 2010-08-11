@@ -111,6 +111,36 @@ To run the demo1-test that contains the unit-testing infrastructure:
 
   Go to http://localhost:9092/test to run the unit tests
 
+-----------
+Closure JavaScript Library
+----------
+There are two packages:
+  - Closure Library: The JavaScript lib.
+    http://code.google.com/closure/library
+  - Closure Compiler: Compiler for merging JS into a single file.
+    http://code.google.com/closure/compiler
+
+One can "install" each of these in /usr/local/google/home/<you>/apps/ and
+symlink from the project.
+
+Closure Library:
+  $ mkdir /usr/local/google/home/<you>/apps
+  $ svn checkout http://closure-library.googlecode.com/svn/trunk/ closure-library
+
+Closure Compiler:
+  Download the ZIP file
+  $ mkdir /usr/local/google/home/<you>/apps/closure-compiler
+  $ cd /usr/local/google/home/<you>/apps/closure-compiler
+  $ unzip ~/Downloads/compiler-latest.zip
+
+To set up sym links in the development tree, e.g.,
+
+  $ ln -s /usr/local/google/home/<you>/apps/closure-library \
+      demo1/static/js/closure
+  $ ln -s /usr/local/google/home/<you>/apps/closure-compiler \
+      demo1/.closure_compiler
+  $ ln -s /usr/local/google/home/<you>/apps/closure-compiler \
+      demo1-test/.closure_compiler
 
 -----------
 2010-05-01
