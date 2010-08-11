@@ -118,7 +118,7 @@ class PedagogyModel(db.Model):
 
   title = db.StringProperty(required=True)
   creator = db.UserProperty(auto_current_user_add=True, required=True)
-  created = db.DateTimeProperty(auto_now_add=True)
+  created = db.DateTimeProperty(auto_now=True)
   modified = db.DateTimeProperty(auto_now=True)
   description = db.TextProperty();
   authors = db.ListProperty(users.User)  # Multiple authors allowed
@@ -429,7 +429,7 @@ class Account(db.Model):
   user_id = db.StringProperty(required=True)  # key == <user_id>
   email = db.EmailProperty(required=True)
   nickname = db.StringProperty(required=True)
-  created = db.DateTimeProperty(auto_now_add=True)
+  created = db.DateTimeProperty(auto_now=True)
   modified = db.DateTimeProperty(auto_now=True)
   stars = db.ListProperty(str)  # key names of all starred modules.
   fresh = db.BooleanProperty()
@@ -646,7 +646,7 @@ class BaseContentModel(BaseModel):
     created: Time of creation.
   """
   creator = db.UserProperty(auto_current_user_add=True, required=True)
-  created = db.DateTimeProperty(auto_now_add=True)
+  created = db.DateTimeProperty(auto_now=True)
 
   def get_score(self, user):
     """Returns progress score for the model.
@@ -731,6 +731,18 @@ class ObjectType(object):
   WIDGET = 'widget'
 
 
+class AllowedLabels(object):
+  """Stores constants string defining various allowed labels for DocModel."""
+  MODULE = 'MODULE'
+  LESSON = 'LESSON'
+  COURSE = 'COURSE'
+
+  @classmethod
+  def dump_to_list(self):
+    """Dumps all the allowed types."""
+    return ['MODULE', 'LESSON', 'COURSE']
+
+
 class DocModel(BaseContentModel):
   """Representation of a document.
 
@@ -757,6 +769,7 @@ class DocModel(BaseContentModel):
   predecessors = db.ListProperty(db.Key)
   grade_level = db.IntegerProperty(default=constants.DEFAULT_GRADE_LEVEL)
   content = db.ListProperty(db.Key)
+  label = db.StringProperty(default=AllowedLabels.MODULE)
 
   def get_score(self, user):
     """Returns progress score for the doc.
@@ -800,6 +813,7 @@ class DocModel(BaseContentModel):
       'doc_grade_level': str(self.grade_level),
       'doc_creator': str(self.creator),
       'doc_created': str(self.created),
+      'doc_label': self.label
       }
 
     if self.trunk_ref:
@@ -1173,7 +1187,7 @@ class DocVisitState(UserStateModel):
   """
   trunk_ref = db.ReferenceProperty(TrunkModel)
   doc_ref = db.ReferenceProperty(DocModel)
-  last_visit = db.DateTimeProperty(auto_now_add=True)
+  last_visit = db.DateTimeProperty(auto_now=True)
   progress_score = db.RatingProperty(default=0)
 
 
@@ -1187,7 +1201,7 @@ class QuizProgressState(UserStateModel):
   """
   quiz_ref = db.ReferenceProperty(QuizModel)
   progress_score = db.RatingProperty(default=0)
-  time_stamp = db.DateTimeProperty(auto_now_add=True)
+  time_stamp = db.DateTimeProperty(auto_now=True)
 
 
 class WidgetProgressState(UserStateModel):
@@ -1200,7 +1214,7 @@ class WidgetProgressState(UserStateModel):
   """
   widget_ref = db.ReferenceProperty(WidgetModel)
   progress_score = db.RatingProperty(default=0)
-  time_stamp = db.DateTimeProperty(auto_now_add=True)
+  time_stamp = db.DateTimeProperty(auto_now=True)
 
 
 class AnnotationState(UserStateModel):
@@ -1217,8 +1231,46 @@ class AnnotationState(UserStateModel):
   object_ref = db.ReferenceProperty(reference_class=None)
   trunk_ref = db.ReferenceProperty(TrunkModel, collection_name='annotation')
   doc_ref = db.ReferenceProperty(DocModel, collection_name='annotation')
-  last_modified = db.DateTimeProperty(auto_now_add=True)
+  last_modified = db.DateTimeProperty(auto_now=True)
   annotation_data = db.BlobProperty()
+
+
+class RecentCourseState(UserStateModel):
+  """Maintains list of recent courses accessed by user.
+
+  Useful in building homepage.
+  
+  Attributes:
+    time_stamp = Time of last visit.
+    course_trunk_ref = Trunk id of the course.
+    course_doc_ref = Doc_id of the course.
+    course_score = Course progress state.
+    last_visited_doc_ref = Doc last visited for the course.
+  """
+  time_stamp = db.DateTimeProperty(auto_now=True)
+  course_trunk_ref = db.ReferenceProperty(TrunkModel)
+  course_doc_ref = db.ReferenceProperty(DocModel)
+  course_score = db.RatingProperty()
+  last_visited_doc_ref = db.ReferenceProperty(
+      DocModel, collection_name='recent_course_state')
+
+
+class TraversalPath(UserStateModel):
+  """Maintains path that user traversed to reach the document.
+  Sequential list of doc_ids, referring to the path down the
+  tree followed to reach the current doc.
+
+  NOTE(mukundjha): We no longer are required to store trunk ids,
+  because all the docs in the path are added based on the history.
+
+  Attributes:
+    current_doc: Id for the document for which path is stored.
+    path: Ordered list of doc_ids.
+  """
+  
+  current_doc = db.ReferenceProperty(DocModel)
+  current_trunk = db.ReferenceProperty(TrunkModel)
+  path = db.ListProperty(db.Key)
 
 
 class StudentState (db.Model):

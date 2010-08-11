@@ -17,11 +17,16 @@ limitations under the License.
 {% block extra_head %}
 
 <script LANGUAGE='JavaScript'>
-<!--
+goog.require('goog.json');
+goog.require('goog.net.XhrIo');
+goog.require('goog.ui.Dialog');
 
- 
- }-->
 </script>
+ <style>
+  .modal-dialog {
+    width: 430px;
+  }
+  </style>
 {% endblock %}
 
 {% block title %} {{ title }} {% endblock %}
@@ -42,6 +47,14 @@ limitations under the License.
  <tr><td><b>Creator : </b></td><td>{{doc.creator}}</td></tr>
  <tr><td><b>Created on : </b></td><td>{{doc.created}}</td></tr>
  <tr><td><b>Title: </b></td><td><input type='text' name='doc_title' value='{{doc.title}}'/></td></tr>
+ <tr><td><b>Label: </b></td><td><select name='doc_label'>
+  {% for label in allowed_labels %}
+  {% ifequal label doc.label %}
+  <option value='{{label}}' selected>{{label}}</option>
+  {% else %}
+  <option value='{{label}}'>{{label}}</option>
+  {% endifequal %}
+  {% endfor %}
  <tr><td><b>Grade Level: </b></td><td><select name='doc_grade_level'>
  {% for i in data_valid_range %}
  {% ifequal i doc.grade_level %}
@@ -82,7 +95,7 @@ limitations under the License.
  <option value='doc_link'>Link</option>
  <option value='video'>Video</option>
  <option value='py_shell'>Python Interpretor</option>
- <option value='quiz'>Quiz</option>
+ <option value='widget'>Quiz</option>
  <option value='widget'>Widget</option></td></tr>
 </table>
  </center>
@@ -90,6 +103,65 @@ limitations under the License.
 
 <script type="text/javascript">
  var global_counter = 0;
+ var xhr = new goog.net.XhrIo();
+ var linkDialog = new goog.ui.Dialog();
+    linkDialog.setTitle('Link Picker');
+
+ 
+ launchPicker = function(){
+    url = '/getListAjax'
+    goog.events.removeAll(xhr);
+    goog.events.listen(xhr, goog.net.EventType.COMPLETE,
+                       process_list);
+
+    xhr.send(url);
+ }
+
+ pickLink = function(trunk_id, doc_id, title){
+  var link = '/view?trunk_id='+ trunk_id +'&doc_id='+ doc_id;
+  var table_body = document.getElementById('content_table');
+  var new_row = document.createElement("TR");
+  var col1 = document.createElement("TD");
+  var bTag = document.createElement("B");
+  var col2 = document.createElement("TD");
+  ++global_counter;
+    var att_name = "data_val";
+    var iElement2 = document.createElement("Input"); 
+    iElement2.setAttribute('type', "hidden");
+    iElement2.setAttribute('name', "data_type");
+    iElement2.value = 'doc_link';
+    var iElement1 = document.createElement("Input");
+    iElement1.setAttribute('type', 'hidden');
+    iElement1.value = link;
+    bTag.appendChild(document.createTextNode('Link: '));
+    iElement1.setAttribute('name', att_name);
+    element3 = document.createElement("DIV");
+    element3.innerHTML = '<a href="' + link +'">'+title + '</a>';
+    col1.appendChild(bTag)
+    col2.appendChild(element3)
+    col2.appendChild(iElement1)
+    col2.appendChild(iElement2)
+
+    new_row.appendChild(col1);
+    new_row.appendChild(col2);
+    var el1 = document.getElementById('object_menu')
+    el1.parentNode.insertBefore(new_row,el1);
+    linkDialog.setVisible(false);
+ }
+
+ process_list = function(){
+    obj = xhr.getResponseJson();
+    dialogHtml = '<table width="100%">';
+    for (var i=0; i<obj.doc_list.length ; i++)
+    {
+       dialogHtml += '<tr><td><a href="javascript:pickLink(\''+obj.doc_list[i].trunk_id+'\',\''+ obj.doc_list[i].doc_id+'\',\'' + obj.doc_list[i].doc_title+'\');">'+
+                   obj.doc_list[i].doc_title +'</td><td><input type="button" onclick="javascript:window.open(\'/view?trunk_id='+ obj.doc_list[i].trunk_id +
+                     '&doc_id='+ obj.doc_list[i].doc_id +'&absloute=True\');" value="Preview"/></td></tr>';
+    }
+    dialogHtml += '</table>';
+    linkDialog.setContent(dialogHtml)
+    linkDialog.setVisible(true);
+ }
 
  function add_content(value_passed){
     /*
@@ -108,10 +180,6 @@ limitations under the License.
           iElement1.setAttribute('cols', '40')
           iElement1.setAttribute('rows', '10')
           bTag.appendChild(document.createTextNode('HTML Text: '))
-    } else if (value_passed == 'doc_link'){
-          var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('Link: '))
     } else if (value_passed == 'video') {
           var iElement1 = document.createElement("Input")
           iElement1.setAttribute('type', 'text')
@@ -154,9 +222,15 @@ limitations under the License.
 
  var edit_menu = document.getElementById("object_type")
  edit_menu.onchange = function(){ 
-  var option = this.options[this.selectedIndex]
-   add_content(option.value)
-   this.selectedIndex = 0
+  var option = this.options[this.selectedIndex];
+  this.selectedIndex = 0
+  if (option.value == 'doc_link'){
+    launchPicker();
+          return;
+  }
+  else {
+    add_content(option.value)
+  }
  }
 
 </script>

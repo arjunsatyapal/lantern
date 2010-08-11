@@ -46,6 +46,398 @@ class InsertWithNewKeyTest(unittest.TestCase):
   TODO(mukundjha): Add test cases for function insert_with_new_key.
   """
 
+
+class UpdateVisitStackTest(unittest.TestCase):
+  """Test for updating recent course entries."""
+
+  def testInsertFirstEntryWithNoParent(self):
+    temp_user = users.User('test1@gmail.com')
+    trunks = []
+    docs = []
+    for i in range(3):
+      trunks.append(library.insert_with_new_key(models.TrunkModel))
+      docs.append(library.create_new_doc(trunks[i].key()))
+      docs[i].title = str(i)
+      docs[i].put()
+    #graph 
+    # 2->1->0
+
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[0].trunk_ref.key(), doc_ref=docs[0].key(),
+      from_trunk_ref=docs[1].trunk_ref.key(), from_doc_ref=docs[1].key())
+
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[1].trunk_ref.key(), doc_ref=docs[1].key(),
+      from_trunk_ref=docs[2].trunk_ref.key(), from_doc_ref=docs[2].key())
+
+    visit_stack = library.update_visit_stack(docs[0], None, temp_user)
+    # expect to return the path 2->1
+    self.assertEquals([ docs[2].key(), docs[1].key() ], visit_stack.path)
+
+
+  def testWithParentButNoEntryForParent(self):
+    temp_user = users.User('test1@gmail.com')
+    trunks = []
+    docs = []
+    for i in range(3):
+      trunks.append(library.insert_with_new_key(models.TrunkModel))
+      docs.append(library.create_new_doc(trunks[i].key()))
+      docs[i].title = str(i)
+      docs[i].put()
+    #graph 
+    # 2->1->0
+
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[0].trunk_ref.key(), doc_ref=docs[0].key(),
+      from_trunk_ref=docs[1].trunk_ref.key(), from_doc_ref=docs[1].key())
+
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[1].trunk_ref.key(), doc_ref=docs[1].key(),
+      from_trunk_ref=docs[2].trunk_ref.key(), from_doc_ref=docs[2].key())
+
+    visit_stack = library.update_visit_stack(docs[0], docs[1], temp_user)
+    # expect to return the path 2->1
+    self.assertEquals([ docs[2].key(), docs[1].key() ], visit_stack.path)
+ 
+  def testWithParentAndParentEntry(self):
+    temp_user = users.User('test1@gmail.com')
+    trunks = []
+    docs = []
+    for i in range(5):
+      trunks.append(library.insert_with_new_key(models.TrunkModel))
+      docs.append(library.create_new_doc(trunks[i].key()))
+      docs[i].title = str(i)
+      docs[i].put()
+    #graph 
+    # 2->1->0
+
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[0].trunk_ref.key(), doc_ref=docs[0].key(),
+      from_trunk_ref=docs[1].trunk_ref.key(), from_doc_ref=docs[1].key())
+
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[1].trunk_ref.key(), doc_ref=docs[1].key(),
+      from_trunk_ref=docs[2].trunk_ref.key(), from_doc_ref=docs[2].key())
+
+    visit_stack = library.update_visit_stack(docs[0], None, temp_user)
+    # expect to return the path 2->1
+    self.assertEquals([ docs[2].key(), docs[1].key() ], visit_stack.path)
+    
+    visit_stack = library.update_visit_stack(docs[4], docs[0], temp_user)
+    self.assertEquals([ docs[2].key(), docs[1].key(), docs[0].key() ],
+                      visit_stack.path)
+
+  def testCheckForCycles(self):
+    temp_user = users.User('test1@gmail.com')
+    trunks = []
+    docs = []
+    for i in range(5):
+      trunks.append(library.insert_with_new_key(models.TrunkModel))
+      docs.append(library.create_new_doc(trunks[i].key()))
+      docs[i].title = str(i)
+      docs[i].put
+    #graph 
+    # 2->1->0
+
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[0].trunk_ref.key(), doc_ref=docs[0].key(),
+      from_trunk_ref=docs[1].trunk_ref.key(), from_doc_ref=docs[1].key())
+
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[1].trunk_ref.key(), doc_ref=docs[1].key(),
+      from_trunk_ref=docs[2].trunk_ref.key(), from_doc_ref=docs[2].key())
+
+    visit_stack = library.update_visit_stack(docs[0], None, temp_user)
+    # expect to return the path 2->1
+    self.assertEquals([ docs[2].key(), docs[1].key() ], visit_stack.path)
+
+    visit_stack = library.update_visit_stack(docs[4], docs[1], temp_user)
+    self.assertEquals([ docs[2].key(), docs[1].key()],
+                      visit_stack.path)
+ 
+    visit_stack = library.update_visit_stack(docs[1], docs[0], temp_user)
+    self.assertEquals([ docs[2].key()],
+                      visit_stack.path)
+
+
+class GetPathTillCourseTest(unittest.TestCase):
+  """Test for updating recent course entries."""
+
+  def testDocWithNoParent(self):
+    trunk1 = library.insert_with_new_key(models.TrunkModel)
+    # Default module
+    doc1 = library.create_new_doc(trunk1.key())
+    path = library.get_path_till_course(doc1)
+    self.assertEquals([], path)
+ 
+  def testDocWithMultipleParents(self):
+    trunks = []
+    docs = []
+    for i in range(5):
+      trunks.append(library.insert_with_new_key(models.TrunkModel))
+      docs.append(library.create_new_doc(trunks[i].key()))
+      docs[i].title = str(i)
+      docs[i].put()
+    
+    docs[3].label = models.AllowedLabels.COURSE
+    docs[3].put()
+    doc = db.get(docs[3].key())
+    logging.info('~~~~~~~~~~~tititle %r',doc.title) 
+    # Graph looks like this
+    #  3 -> 1 -> 0
+    #  4 -> 2 -> 0
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[0].trunk_ref.key(), doc_ref=docs[0].key(),
+      from_trunk_ref=docs[1].trunk_ref.key(), from_doc_ref=docs[1].key())
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[0].trunk_ref.key(), doc_ref=docs[0].key(),
+      from_trunk_ref=docs[2].trunk_ref.key(), from_doc_ref=docs[2].key())
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[1].trunk_ref.key(), doc_ref=docs[1].key(),
+      from_trunk_ref=docs[3].trunk_ref.key(), from_doc_ref=docs[3].key())
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[2].trunk_ref.key(), doc_ref=docs[2].key(),
+      from_trunk_ref=docs[4].trunk_ref.key(), from_doc_ref=docs[4].key())
+    # Although 3 is a course function picks path till 4 because it searches
+    # within recently formed paths.
+
+    path = library.get_path_till_course(docs[0])
+    self.assertEquals([docs[4].key(), docs[2].key()], path)
+    # Now after modifying link for course we should get course path.
+
+    # 3->2->0
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[2].trunk_ref.key(), doc_ref=docs[2].key(),
+      from_trunk_ref=docs[3].trunk_ref.key(), from_doc_ref=docs[3].key())
+  
+    path = library.get_path_till_course(docs[0])
+    self.assertEquals([docs[3].key(), docs[2].key()], path)
+
+  def testCheckForCycles(self):
+    """Checks for existing cycles, partial path formed until cycle is formed
+    is returned."""
+
+    # Creating a cycle.
+    trunks = []
+    docs = []
+    for i in range(5):
+      trunks.append(library.insert_with_new_key(models.TrunkModel))
+      docs.append(library.create_new_doc(trunks[i].key()))
+      docs[i].title = str(i)
+      docs[i].put() 
+    docs[4].label = models.AllowedLabels.COURSE
+    # Graph looks like this
+    #
+    # 4->3->2->1->0
+    #       ^     |
+    #       |_____|
+    #
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[0].trunk_ref.key(), doc_ref=docs[0].key(),
+      from_trunk_ref=docs[2].trunk_ref.key(), from_doc_ref=docs[2].key())
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[0].trunk_ref.key(), doc_ref=docs[0].key(),
+      from_trunk_ref=docs[1].trunk_ref.key(), from_doc_ref=docs[1].key())
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[1].trunk_ref.key(), doc_ref=docs[1].key(),
+      from_trunk_ref=docs[2].trunk_ref.key(), from_doc_ref=docs[2].key())
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[2].trunk_ref.key(), doc_ref=docs[2].key(),
+      from_trunk_ref=docs[3].trunk_ref.key(), from_doc_ref=docs[3].key())
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=docs[3].trunk_ref.key(), doc_ref=docs[3].key(),
+      from_trunk_ref=docs[4].trunk_ref.key(), from_doc_ref=docs[4].key())
+    path = library.get_path_till_course(docs[0])
+#    self.assertEquals([docs[4].key(), docs[3].key(), docs[2].key(),
+#                     docs[1].key()], path)
+    self.assertEquals([docs[4].title, docs[3].title, docs[2].title,
+                       docs[1].title], [db.get(k).title for k in path])
+
+
+class GetOrCreateSessionIdTest(unittest.TestCase):
+  """Test for updating recent course entries."""
+
+  def testValidCreate(self):
+    temp_user = users.User('test1@gmail.com')
+    widget = library.insert_with_new_key(models.WidgetModel, widget_url='xx')
+
+    id = library.get_or_create_session_id(widget, temp_user)
+    vs = models.WidgetProgressState.all().filter('user =', temp_user).filter(
+        'widget_ref =', widget)
+    self.assertEquals(1, vs.count())
+    self.assertEquals(id, str(vs.get().key()))
+    
+ 
+  def testValidGet(self):
+    temp_user = users.User('test1@gmail.com')
+    widget = library.insert_with_new_key(models.WidgetModel, widget_url='xx')
+    vs = library.insert_with_new_key(models.WidgetProgressState,
+                                     widget_ref=widget, user=temp_user,
+                                     progress_score=2)
+    id = library.get_or_create_session_id(widget, temp_user)
+    self.assertEquals(id, str(vs.key()))   
+    
+
+class UpdateRecentCourseEntryTest(unittest.TestCase):
+  """Test for updating recent course entries."""
+
+  def testUpdateWithInValidCourse(self):
+    temp_user = users.User('test1@gmail.com')
+    trunk1 = library.insert_with_new_key(models.TrunkModel)
+    # Default module
+    doc1 = library.create_new_doc(trunk1.key())
+    e1 = library.update_recent_course_entry(doc1, doc1, temp_user)
+    self.assertEquals(None, e1)
+    
+    entry = models.RecentCourseState.all().filter('user =', temp_user).filter(
+      'course_trunk_ref =', doc1.trunk_ref).get()
+    self.assertEquals(None, entry)
+
+  def testFirstUpdateWithValidCourse(self):
+    temp_user = users.User('test1@gmail.com')
+    trunk1 = library.insert_with_new_key(models.TrunkModel)
+    doc1 = library.create_new_doc(trunk1.key())
+    doc1.label = models.AllowedLabels.COURSE
+    doc1.put()
+    trunk2 = library.insert_with_new_key(models.TrunkModel)
+    doc2 = library.create_new_doc(trunk2.key())
+    doc2.label = models.AllowedLabels.MODULE
+    doc2.put()
+   
+    library.insert_with_new_key(models.DocVisitState, trunk_ref=doc1.trunk_ref,
+      doc_ref=doc1, user=temp_user, progress_score=50)
+
+    e1 = library.update_recent_course_entry(doc2, doc1, temp_user)
+    self.assertEquals(e1.course_trunk_ref.key(), trunk1.key())
+    self.assertEquals(e1.course_doc_ref.key(), doc1.key())
+    self.assertEquals(e1.last_visited_doc_ref.key(), doc2.key())
+    self.assertEquals(50, e1.course_score)
+
+    entry = models.RecentCourseState.all().filter('user =', temp_user).filter(
+        'course_trunk_ref =', trunk1).get()
+
+    self.assertEquals(entry.course_trunk_ref.key(), trunk1.key())
+    self.assertEquals(entry.course_doc_ref.key(), doc1.key())
+    self.assertEquals(entry.last_visited_doc_ref.key(), doc2.key())
+    self.assertEquals(50, entry.course_score)
+
+    
+  def testUpdateWithValidCourse(self):
+    temp_user = users.User('test1@gmail.com')
+    trunk1 = library.insert_with_new_key(models.TrunkModel)
+    doc1 = library.create_new_doc(trunk1.key())
+    doc1.label = models.AllowedLabels.COURSE
+    doc1.put()
+    trunk2 = library.insert_with_new_key(models.TrunkModel)
+    doc2 = library.create_new_doc(trunk2.key())
+    doc2.label = models.AllowedLabels.MODULE
+    doc2.put()
+
+    visit_state = library.insert_with_new_key(
+        models.DocVisitState, trunk_ref=doc1.trunk_ref,
+        doc_ref=doc1, user=temp_user, progress_score=50)
+
+    e1 = library.update_recent_course_entry(doc2, doc1, temp_user)
+    self.assertEquals(e1.course_trunk_ref.key(), trunk1.key())
+    self.assertEquals(e1.course_doc_ref.key(), doc1.key())
+    self.assertEquals(e1.last_visited_doc_ref.key(), doc2.key())
+    self.assertEquals(50, e1.course_score)
+
+
+    entry = models.RecentCourseState.all().filter('user =', temp_user).filter(
+        'course_trunk_ref =', trunk1).get()
+
+    self.assertEquals(entry.course_trunk_ref.key(), trunk1.key())
+    self.assertEquals(entry.course_doc_ref.key(), doc1.key())
+    self.assertEquals(entry.last_visited_doc_ref.key(), doc2.key())
+    self.assertEquals(50, entry.course_score)
+
+
+    # Update Score
+    visit_state.progress_score = 100
+    visit_state.put()
+    
+    e1 = library.update_recent_course_entry(doc1, doc1, temp_user)
+    self.assertEquals(e1.course_trunk_ref.key(), trunk1.key())
+    self.assertEquals(e1.course_doc_ref.key(), doc1.key())
+    self.assertEquals(e1.last_visited_doc_ref.key(), doc1.key())
+    self.assertEquals(100, e1.course_score) 
+
+    entry = models.RecentCourseState.all().filter('user =', temp_user).filter(
+        'course_trunk_ref =', trunk1).get()
+
+    self.assertEquals(entry.course_trunk_ref.key(), trunk1.key())
+    self.assertEquals(entry.course_doc_ref.key(), doc1.key())
+    self.assertEquals(entry.last_visited_doc_ref.key(), doc1.key())
+    self.assertEquals(100, entry.course_score)
+
+
+class GetRecentInProgressCoursesTest(unittest.TestCase):
+  """Test for fetching recent course entries."""
+
+  def testFetchWithNoEntry(self):
+    temp_user = users.User('test1@gmail.com')
+    in_progress = library.get_recent_in_progress_courses(temp_user)
+    self.assertEquals([], in_progress)
+  
+  def testWithAllCompleteCourses(self):
+    temp_user = users.User('test1@gmail.com')
+    trunk1 = library.insert_with_new_key(models.TrunkModel)
+    doc1 = library.create_new_doc(trunk1.key())
+    doc1.label = models.AllowedLabels.COURSE
+    doc1.put()
+    trunk2 = library.insert_with_new_key(models.TrunkModel)
+    doc2 = library.create_new_doc(trunk2.key())
+    doc2.label = models.AllowedLabels.COURSE
+    doc2.put()
+
+    #making entry for visit
+    library.insert_with_new_key(models.DocVisitState, trunk_ref=doc1.trunk_ref,
+      doc_ref=doc1, user=temp_user, progress_score=100)
+
+    library.insert_with_new_key(models.DocVisitState, trunk_ref=doc2.trunk_ref,
+      doc_ref=doc2, user=temp_user, progress_score=100)
+    
+    library.update_recent_course_entry(doc1, doc1, temp_user)
+    library.update_recent_course_entry(doc2, doc2, temp_user)
+
+    in_progress = library.get_recent_in_progress_courses(temp_user)
+    self.assertEquals([], in_progress)
+
+  def testWithIncompleteCourses(self):
+    temp_user = users.User('test1@gmail.com')
+    trunk1 = library.insert_with_new_key(models.TrunkModel)
+    doc1 = library.create_new_doc(trunk1.key())
+    doc1.label = models.AllowedLabels.COURSE
+    doc1.put()
+    trunk2 = library.insert_with_new_key(models.TrunkModel)
+    doc2 = library.create_new_doc(trunk2.key())
+    doc2.label = models.AllowedLabels.COURSE
+    doc2.put()
+    #making entry for visit
+    library.insert_with_new_key(models.DocVisitState, trunk_ref=doc1.trunk_ref,
+      doc_ref=doc1, user=temp_user, progress_score=0)
+
+    entry = library.insert_with_new_key(
+        models.DocVisitState, trunk_ref=doc2.trunk_ref,
+        doc_ref=doc2, user=temp_user, progress_score=10)
+
+    e1 = library.update_recent_course_entry(doc1, doc1, temp_user)
+    e2 = library.update_recent_course_entry(doc2, doc2, temp_user)
+    
+    in_progress = library.get_recent_in_progress_courses(temp_user)
+    self.assertEquals([str(e2.key()), str(e1.key())],
+                      [str(x.key()) for x in in_progress])
+    
+    entry.progress_score = 100
+    entry.put()
+    e2 = library.update_recent_course_entry(doc2, doc2, temp_user)
+    
+    in_progress = library.get_recent_in_progress_courses(temp_user)
+    self.assertEquals([str(e1.key())],
+                      [str(x.key()) for x in in_progress])
+
+
 class GetDocForUserTest(unittest.TestCase):
   """Test fetching document based on user's state.
 
@@ -159,18 +551,19 @@ class GetAccumulatedScoreTest(unittest.TestCase):
       doc_ref=doc.key(), from_trunk_ref=doc1.trunk_ref.key(),
       from_doc_ref=doc1.key())
     # creating a quiz
-    quiz = library.insert_with_new_key(models.QuizModel,
-      quiz_url='http://quiz')
+    widget = library.insert_with_new_key(models.WidgetModel,
+      widget_url='http://quiz')
     # registering score for quiz
-    library.insert_with_new_key(models.QuizProgressState, quiz_ref=quiz,
+    library.insert_with_new_key(models.WidgetProgressState, widget_ref=widget,
       user=users.get_current_user(), progress_score=8)
     # adding link and quiz to doc
     doc1.content.append(link.key())
-    doc1.content.append(quiz.key())
+    doc1.content.append(widget.key())
     doc1.put()
     doc_content = library.get_doc_contents(doc1)
 
-    score = library.get_accumulated_score(doc1, doc_content, users.get_current_user())
+    score = library.get_accumulated_score(doc1, doc_content,
+                                          users.get_current_user())
     # avg score
     self.assertEquals(6, score)
     # checking if score is registered

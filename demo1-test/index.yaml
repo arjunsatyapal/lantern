@@ -22,6 +22,12 @@ indexes:
   - name: time_stamp
     direction: desc
 
+- kind: DocLinkModel
+  properties:
+  - name: trunk_ref
+  - name: created
+    direction: desc
+
 - kind: DocModel
   properties:
   - name: creator
@@ -44,6 +50,13 @@ indexes:
 
 - kind: DocVisitState
   properties:
+  - name: progress_score
+  - name: user
+  - name: last_visit
+    direction: desc
+
+- kind: DocVisitState
+  properties:
   - name: trunk_id
   - name: user
   - name: last_visit
@@ -59,6 +72,12 @@ indexes:
 - kind: QuizQuestionListModel
   properties:
   - name: quiz
+  - name: time_stamp
+    direction: desc
+
+- kind: RecentCourseState
+  properties:
+  - name: user
   - name: time_stamp
     direction: desc
 

@@ -34,5 +34,6 @@ urlpatterns = defaults.patterns(
     (r'^getSessionId$', 'get_session_id_for_widget'), 
     # Updates progress score for widget and document for the current user
     # and returns updated accumulated score for the document.
-    (r'^updateScore$', 'update_doc_score')
+    (r'^updateScore$', 'update_doc_score'),
+    (r'^getListAjax$', 'get_list_ajax')
     )
