@@ -105,7 +105,6 @@ lantern.widget.LanternWidgetChannel.prototype.send = function(
  */ 
 lantern.widget.LanternWidgetChannel.prototype.processData = function(data) {
   var callback = this.activeRequest_[this.KEY_GET_DATA_];
-  alert('processing data ' + data);
   if(callback) {
     //alert('has callback');
     callback(data);

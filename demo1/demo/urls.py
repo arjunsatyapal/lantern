@@ -28,6 +28,7 @@ urlpatterns = defaults.patterns(
     (r'^history$', 'history'),
     (r'^changes$', 'changes'),
     (r'^submitEdits$', 'submit_edits'),
+    (r'^temp$', 'temp'),
     # XHR targets
 
     # Gets session id for a widget

@@ -565,7 +565,7 @@ def get_parent(doc):
     return None
 
 
-def get_score_for_link(link_element, user, recurse=False):
+def get_score_for_link(link_element, user, use_history=False, recurse=False):
   """Cacluates score for the DocLink object by selecting 
   correct document based on user's history.
 
@@ -588,17 +588,22 @@ def get_score_for_link(link_element, user, recurse=False):
   Returns: 
     Score for the link object.
   """
-  doc = get_doc_for_user(link_element.trunk_ref.key(), user)
+  if use_history:
+    doc = get_doc_for_user(link_element.trunk_ref.key(), user)
+  else:
+    doc = fetch_doc(link_element.trunk_ref.key())
   if recurse:
-    doc_contents = get_accumulated_score(doc, doc_contents, user)
-    return get_accumulated_score(doc, doc_contents, user, recurse)
+    doc_contents = get_doc_contents(doc, True, use_history, user, True)
+    return get_accumulated_score(doc, doc_contents, user, use_history, recurse)
   else:
     return doc.get_score(user)
 
 
-def get_accumulated_score(doc, doc_contents, user, recurse=False):
+def get_accumulated_score(doc, doc_contents, user, use_history=False, recurse=False):
   """Calculate score for a doc by accumulating scores from its objects.
-
+  
+  Assumption if doc_contents contain score for docLinkElement, it is resolved
+  using correct parameters and is preferred over recalculation.
   Averages score, no weights.
 
   Args:
@@ -618,7 +623,7 @@ def get_accumulated_score(doc, doc_contents, user, recurse=False):
     if not isinstance(element, models.DocLinkModel): 
       element.score = element.get_score(user)
     else:
-      element.score = get_score_for_link(element, user, recurse)
+      element.score = get_score_for_link(element, user, use_history, recurse)
 
     if element.score is not None:
       total += element.score
@@ -657,12 +662,17 @@ def put_doc_score(doc, user, score):
       trunk_ref=doc.trunk_ref.key(), doc_ref=doc.key(), progress_score= score)
 
 
-def get_doc_contents(doc):
+def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
   """Return a list of objects referred by keys in content list of a doc.
 
   NOTE(mukundjha): doc is a DocModel object and not an id.
   Args:
     doc: DocModel used for populating content objects.
+    reslove_links: If reslove_links is true, then links are resolved to
+      get appropriate title for links.
+    use_history: Use history to resolve links.
+    user: User in consideration.
+    fetch_score: If set true score is also appended to all objects.
   Returns:
     An ordered list of objects referenced in content list of passed doc.
   Raises:
@@ -671,7 +681,29 @@ def get_doc_contents(doc):
   if not isinstance(doc, models.DocModel):
     return None
   else:
-    return [db.get(element) for element in doc.content]
+    content_list = []
+    for el in doc.content:
+      if not isinstance(el, models.DocLinkModel):
+        element = db.get(el)
+        if fetch_score:
+          element.score = element.get_score(user) 
+        content_list.append(element)
+      else:
+        if not resolve_links:
+          link = db.get(el)
+          doc = fetch_doc(link.trunk_ref.key(), link.doc_ref.key())
+        elif use_history:
+          link = db.get(element)
+          doc = get_doc_for_user(link.trunk_ref.key(), user)
+        else:
+          link = db.get(element)
+          doc = fetch_doc(link.trunk_ref.key())
+          
+        link.title = doc.title
+        if fetch_score:
+          link.score = doc.get_score(user)
+        content_list.append(link)
+    return content_list
 
 
 def put_widget_score(widget, user, score):
@@ -745,7 +777,7 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
           path_trunk_set.add(parent.from_trunk_ref.key())
           path.append(parent.from_doc_ref)
           path.reverse()
-          path_to_return = [doc.key() for doc in path]
+          path_to_return = [el.key() for el in path]
           logging.info('RETURNING PATH LOOP 1: %r',  [p.title for p in path])
           return path_to_return
      
@@ -763,10 +795,10 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
       path_to_return = get_path_till_course(parent.from_doc_ref, path, path_trunk_set)
     else:
       path.reverse()
-      path_to_return = [doc.key() for doc in path]
+      path_to_return = [el.key() for el in path]
   else:
     path.reverse()
-    path_to_return = [doc.key() for doc in path]
+    path_to_return = [el.key() for el in path]
 
   logging.info('RETURNING PATH LOOP 2: %r',  [p.title for p in path])
   return path_to_return
@@ -792,7 +824,7 @@ def get_or_create_session_id(widget, user):
 
   if not visit_state:
     visit_state = insert_with_new_key(models.WidgetProgressState, user=user,
-                                      widget_ref=widget, progress_score=0)
+                                      widget_ref=widget, progress_score=None)
   return str(visit_state.key())
 
 
@@ -929,6 +961,29 @@ def get_recent_in_progress_courses(user):
       logging.info('****** picked %r', entry)
   
   return in_progress
+
+
+def expand_path(path, use_history, absolute, user):
+  """Expands the path into objects based on the parameters.
+
+  Absolute is given preference over others.
+  Args:
+    path: List of doc_ids forming a traversal path.
+    use_history: If set then user's history is used to expand all
+    the links.
+    absolute: If set absolute addressing is used. Docs with same doc_ids in
+      the list are fetched.
+    user: User associated with request.
+  """
+  path = [ db.get(el) for el in path ]
+  if absolute:
+    return path
+  elif use_history:
+    path = [ get_doc_for_user(el.trunk_ref.key(), user) for el in path ]
+  else: 
+    # Fetch latest
+    path = [ fetch_doc(el.trunk_ref.key()) for el in path ]
+  return path
 
 
 def show_changes(pre, post):

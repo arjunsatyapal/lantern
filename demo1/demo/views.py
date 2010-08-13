@@ -499,9 +499,12 @@ def index(request):
   recently_finished = models.DocVisitState.all().filter(
       'user =', users.get_current_user()).filter(
       'progress_score =', 100).order('-last_visit').fetch(5)
-  for entry in recently_finished:
-    entry.doc = entry.doc_ref
 
+  # Fetching the latest version
+  for entry in recently_finished:
+    entry.doc = library.fetch_doc(entry.trunk_ref.key())
+
+  # Course title is stale here 
   in_progress_courses = library.get_recent_in_progress_courses(users.get_current_user())
   return respond(request, constants.DEFAULT_TITLE, "homepage.html",
                  {'recently_finished': recently_finished,
@@ -550,7 +553,9 @@ def edit(request):
   except (models.InvalidTrunkError, models.InvalidDocumentError):
     return HttpResponse("No such document exists", status=404)
 
-  doc_contents = library.get_doc_contents(doc)
+  doc_contents = library.get_doc_contents(doc, True, False,
+                                          users.get_current_user(),
+                                          False)
 
   return respond(request, constants.DEFAULT_TITLE, "edit.html",
                 {'doc': doc,
@@ -574,24 +579,63 @@ def view_doc(request):
   TODO(mukundjha): Display parent title instead of up_link
   TODO(mukundjha): Maintain consistent back/parent link, currently it
    breaks after one.
+
+  Args:
+    trunk_id: Trunk Id for the required doc.
+    doc_id: Doc Id associated with the doc. This just shows the entry point
+      for the request and only plays a role if 'absolute' is set true.
+    parent_trunk: Trunk Id of the parent. Required to build up correct heirarchy. 
+    parent_id: Doc Id for the parent. Again its just marks an entry point.
+    absolute: If set doc pointed by the doc_id is fetched, irrespective of user's 
+      history or latest version of the doc.
+    use_history: If set user's history is used to fetch the doc. If use_history 
+      is set user will always land on the same version of the doc he was on last
+      visit, until chooses to move to a newer version.
+    abs_path: Specifies path to be followed to reach the doc. This is useful in
+      cases where links are bookmarks and a particular heirarchy is to be followed.
   """
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
   parent_trunk = request.GET.get('parent_trunk')
   parent_id = request.GET.get('parent_id')
-  absolute_address_mapping = request.GET.get('absolute')
+  use_absolute_addressing = request.GET.get('absolute')
+  use_history = request.GET.get('use_history')
+  # This would be set true if path argument is present
+  abs_path = request.GET.get('abs_path')
 
+  if abs_path:
+    use_absolute_mapping_for_path = True
+  else:
+    use_absolute_mapping_for_path = False
+ 
+  prev_doc = library.get_doc_for_user(trunk_id, users.get_current_user()) 
   try:
-    if absolute_address_mapping:
+    if use_absolute_addressing:
       doc = library.fetch_doc(trunk_id, doc_id)
-    else:
+    elif use_history:
       doc = library.get_doc_for_user(trunk_id, users.get_current_user())
+    else:
+      doc = library.fetch_doc(trunk_id)
 
   except (models.InvalidTrunkError, models.InvalidDocumentError):
     return HttpResponse("No such document exists", status=404)
 
-  if parent_id:
-    parent = db.get(parent_id)
+
+  doc_contents = library.get_doc_contents(doc, True, use_history,
+                                          users.get_current_user(),
+                                          True)
+  current_doc_score = doc.get_score(users.get_current_user())
+  if current_doc_score == 100:
+    library.put_doc_score(doc, users.get_current_user(), 100)
+    doc_score = 100
+  else:
+    doc_score = library.get_accumulated_score(doc, doc_contents,
+                                              users.get_current_user(),
+                                              use_history)
+  trunk = doc.trunk_ref
+
+  if parent_trunk:
+    parent = library.fetch_doc(parent_trunk, parent_id)
   else:
     parent = None
 
@@ -602,7 +646,9 @@ def view_doc(request):
     library.update_recent_course_entry(doc, doc,
                                          users.get_current_user())
   if updated_stack.path:
-    traversed_path = [ db.get(el) for el in updated_stack.path]
+    traversed_path = library.expand_path(updated_stack.path, use_history,
+                                         use_absolute_mapping_for_path,
+                                         users.get_current_user())
     root_doc = traversed_path[0]
     if root_doc.label == models.AllowedLabels.COURSE:
       library.update_recent_course_entry(doc, root_doc,
@@ -610,31 +656,27 @@ def view_doc(request):
   else:
     traversed_path = []
 
-  doc_contents = library.get_doc_contents(doc)
-  doc_score = library.get_accumulated_score(doc, doc_contents,
-                                            users.get_current_user())
-  trunk = doc.trunk_ref
-
+  
   # Just place holders to check the output, should present in better way.
 
   menu_items = [
-    '<a href="/edit">Create New </a>',
-    '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a>' %
+    '<a href="/edit">Create New </a> | ',
+    '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a> | ' %
     (trunk.key(), doc.key()),
-    '<a href="/view?trunk_id=%s&absolute=True">Show latest</a>' %
-    (trunk.key()),
+    '<a href="/view?trunk_id=%s&doc_id=%s&absolute=True&use_history=True">' %
+    (trunk.key(), prev_doc.key()),
+    'Show as it was last time</a> | ',
     '<a href="/history?trunk_id=%s">History</a>' %
     (trunk.key()),
     ]
 
-  main_menu = ' | '.join(menu_items)
+  main_menu = ''.join(menu_items)
 
   title_items = [
     constants.DEFAULT_TITLE,
     '<div id="docProgressContainer">',
     '<b>Progress: %s</b></div>' % (doc_score)
     ]
-
   title = ''.join(title_items)
   return respond(request, title, "view.html",
                 {'doc': doc,
@@ -757,20 +799,25 @@ def update_doc_score(request):
   score = int(request.GET.get('score'))
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
-  absolute_address_mapping = request.GET.get('absolute')
+  use_absolute_addressing = request.GET.get('absolute')
+  use_history = request.GET.get('use_history', False)
 
   widget = db.get(widget_id) 
   library.put_widget_score(widget, users.get_current_user(), progress)
   
   
-  if absolute_address_mapping:
+  if use_absolute_addressing:
     doc = library.fetch_doc(trunk_id, doc_id)
-  else:
+  elif use_history:
     doc = library.get_doc_for_user(trunk_id, users.get_current_user())
+  else:
+    doc = fetch_doc(trunk_id)
 
-  doc_contents = library.get_doc_contents(doc)
+  doc_contents = library.get_doc_contents(doc, True, use_history,
+                                          users.get_current_user(), True)
+  # No recursive
   doc_score = library.get_accumulated_score(doc, doc_contents,
-                                            users.get_current_user())
+                                            users.get_current_user(), use_history, False)
 
   return HttpResponse(simplejson.dumps({'doc_score' : doc_score}))
 
@@ -819,3 +866,14 @@ def xsrf_token(request):
                         '(its content doesn\'t matter).', status=404)
   return HttpResponse(models.Account.current_user_account.get_xsrf_token(),
                       mimetype='text/plain')
+
+def temp(request):
+  """/video - Shows video with list of other related videos."""
+
+  # TODO(vchen): Need to convert to the CS chapter
+  return respond(request, 'SUBJECT', 'temp.html',
+                 {})
+
+
+
+

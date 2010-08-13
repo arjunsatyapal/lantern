@@ -560,7 +560,7 @@ class GetAccumulatedScoreTest(unittest.TestCase):
     doc1.content.append(link.key())
     doc1.content.append(widget.key())
     doc1.put()
-    doc_content = library.get_doc_contents(doc1)
+    doc_content = library.get_doc_contents(doc1, True, False, users.get_current_user(),False)
 
     score = library.get_accumulated_score(doc1, doc_content,
                                           users.get_current_user())

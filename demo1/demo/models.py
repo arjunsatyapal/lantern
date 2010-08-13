@@ -783,14 +783,8 @@ class DocModel(BaseContentModel):
     Raises:
      InvalidDocumentError: If doc is invalid.
     """
-    try:
-      doc_key = self.key()
-    except (db.NotSavedError, AttributeError):
-        raise InvalidDocumentError(
-            'Invalid DocModel: It has not been saved yet.')
-
     visit_state = DocVisitState.all().filter('user =', user).filter(
-      'doc_ref =', doc_key).order('-last_visit').get()
+      'trunk_ref =', self.trunk_ref).order('-last_visit').get()
 
     if visit_state:
       return visit_state.progress_score

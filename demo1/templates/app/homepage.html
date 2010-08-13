@@ -36,7 +36,12 @@ limitations under the License.
 <table class='in_progress' width='100%'>
 {% for entry in in_progress_courses %}
   <tr class={% cycle '"oddrow"' '"evenrow"' %}>
-  <td><a href='/view?trunk_id={{entry.course_trunk_ref|get_key}}&doc_id={{entry.course_doc_ref|get_key}}'>{{entry.course_doc_ref.title}}</a></td>
+  <td>
+    <a href='/view?trunk_id={{entry.course_trunk_ref|get_key}}&doc_id={{entry.course_doc_ref|get_key}}'>{{entry.course_doc_ref.title}}</a>
+  </td>
+  <td>
+     <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{entry.course_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11">
+  </td>
   </tr>
 {% endfor %} 
 </table>

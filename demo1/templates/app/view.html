@@ -56,16 +56,9 @@ limitations under the License.
 	{{errorMsg}}
 	<hr/>
 {% endif %}
-
-<table class='commonAttributes' width='50%'>
- <tr class='oddrow'><td><b>Creator: </b></td><td>{{doc.creator}}</td></tr>
- <tr class='evenrow'><td><b>Created on: </b></td><td>{{doc.created}}</td></tr>
- <tr class='oddrow'><td><b>Title: </b></td><td>{{doc.title}}</td></tr>
- <tr class='evenrow'><td><b>Label: </b></td><td>{{doc.label}}</td></tr>
-<tr><td><b>Grade Level: </b></td><td>{{doc.grade_level}} </td></tr>
-</table>
+<h1>{{doc.title}}</h1>
 <hr/>
-<table width='100%'>
+<table width='100%' class='contentTable'>
 {% for object in doc_contents %}
   <tr class={% cycle '"oddrow"' '"evenrow"' %}>
   {% ifequal object|class_name "RichTextModel" %}
@@ -83,6 +76,7 @@ limitations under the License.
    {% endifequal %}
    {% endifequal %}
  {% endifequal %}
+</tr>
 {% endfor %} 
 </table>
 {% endblock %}

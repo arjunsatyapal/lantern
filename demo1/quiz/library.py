@@ -536,7 +536,7 @@ def fetch_new_question_and_status(session_id, quiz_trunk_id, repeat):
     progress = round(score_entry.progress)
   
   return {'current_status' : {'score' : score, 'progress': progress},
-          'question' : question, 'attempts': attempts}
+          'question' : question, 'attempts': attempts, 'title': quiz.title}
 
 
 def question_to_json(question_and_status_dict, repeat):
@@ -575,6 +575,7 @@ def question_to_json(question_and_status_dict, repeat):
   data_dict = {'current_status' : question_and_status_dict['current_status'],
                'question' : question_dict,
                'attempts': question_and_status_dict['attempts'],
-               'gen_message': gen_message}
+               'gen_message': gen_message,
+               'title': question_and_status_dict['title']}
 
   return simplejson.dumps(data_dict)

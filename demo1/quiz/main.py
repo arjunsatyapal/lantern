@@ -39,9 +39,11 @@ class PresentQuiz(webapp.RequestHandler):
     quiz_trunk_id = self.request.get('quiz_trunk_id')
     quiz_id = self.request.get('quiz_id')
     path = os.path.join(os.path.dirname(__file__), 'template/quiz.html')
+    quiz = db.get(quiz_id) 
     self.response.out.write(template.render(path,
                             {'quiz_trunk_id': quiz_trunk_id,
-                            'quiz_id': quiz_id}))
+                            'quiz_id': quiz_id,
+                            'title': quiz.title}))
 
 
 class GetQuestionAjax(webapp.RequestHandler):
