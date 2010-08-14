@@ -193,19 +193,20 @@ goog.require('goog.dom');
     var new_row = document.createElement("TR");
     new_row.id = 'content_row'+global_counter;
     var col1 = document.createElement("TD");
+       
+    if (value_passed == 'rich_text'){
        var iElement = document.createElement("DIV");
        var inputHtmlArray = 
            ['<table><tr><td><b>HTML Text: </b></td>','<td><textarea ',
-            'rows="8" cols="60" name="data_val"/>',
-            '<input type="hidden" name="data_type" value="',value_passed,'">',
-            '<input type="hidden" name="data_height" value="0">',
-            '<input type="hidden" name="data_width" value="0">',
-            '<input type="hidden" name="data_title" value="">',
+            'rows="8" cols="60" name="data_val"/></textarea>',
+            '<input type="hidden" name="data_type" value="rich_text"/>',
+            '<input type="hidden" name="data_height" value="0"/>',
+            '<input type="hidden" name="data_width" value="0"/>',
+            '<input type="hidden" name="data_title" value="no title"/>',
             '</td></tr></table><hr/>',
             ];
        iElement.innerHTML = inputHtmlArray.join('');
 
-    if (value_passed == 'rich_text'){
     } else if (value_passed == 'video') {
        var iElement = document.createElement("DIV");
        var inputHtmlArray = 

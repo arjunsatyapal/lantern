@@ -692,8 +692,6 @@ def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
           temp_array = re.split('/',re.sub('//','__TEMP__', element.widget_url))
           base_url = re.sub('__TEMP__','//',temp_array[0])
           element.base_url = base_url + '/'
-          logging.info('#####$$$$$####### %r  %r %r', base_url, element.base_url,
-                       element.widget_url)
         content_list.append(element)
       else:
         if not resolve_links:
@@ -707,6 +705,7 @@ def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
           doc = fetch_doc(link.trunk_ref.key())
           
         link.title = doc.title
+
         if fetch_score:
           link.score = doc.get_score(user)
         content_list.append(link)

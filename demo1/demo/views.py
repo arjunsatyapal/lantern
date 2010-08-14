@@ -378,6 +378,8 @@ def collect_data_from_query(request):
 
   content_data_vals = request.POST.getlist('data_val')
   content_data_types = request.POST.getlist('data_type')
+  logging.info('\n.... %r \n', content_data_types)
+  logging.info('\n.... %r \n', content_data_vals)
   content_height = request.POST.getlist('data_height')
   content_width = request.POST.getlist('data_width')
   content_title = request.POST.getlist('data_title')
@@ -417,7 +419,10 @@ def create_doc(data_dict):
     constants.DEFAULT_GRADE_LEVEL)
   doc.label = data_dict.get('doc_label', models.AllowedLabels.MODULE)
 
+  logging.info('logging .............. %r', data_dict)
   for element in data_dict['doc_contents']:
+
+    logging.info('logging .............. %r', element)
     if element.get('obj_type') == 'rich_text':
       rich_text_object = library.insert_with_new_key(models.RichTextModel)
       rich_text_object.data= db.Blob(str(element.get('val')))
