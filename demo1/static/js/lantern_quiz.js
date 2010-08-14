@@ -37,7 +37,7 @@ lantern.quiz.QuizSession = function(quizTrunkId, quizId) {
   this.quizId_ = quizId;
   this.quizTrunkId_ = quizTrunkId;
   this.widgetChannel_  = new lantern.widget.LanternWidgetChannel();
-  this.widgetChannel_.initializeChannel(goog.bind(this.getSessionId, this));
+  this.widgetChannel_.initializeChannel();
   this.sessionId_ = '';
   this.question_ = {};
   this.attempts_ = 0;

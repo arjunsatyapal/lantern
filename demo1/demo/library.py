@@ -28,6 +28,7 @@ import os
 import base64
 import string
 import random
+import re
 
 from google.appengine.api import memcache
 from google.appengine.api import users
@@ -686,7 +687,13 @@ def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
       if not isinstance(el, models.DocLinkModel):
         element = db.get(el)
         if fetch_score:
-          element.score = element.get_score(user) 
+          element.score = element.get_score(user)
+        if isinstance(element, models.WidgetModel):
+          temp_array = re.split('/',re.sub('//','__TEMP__', element.widget_url))
+          base_url = re.sub('__TEMP__','//',temp_array[0])
+          element.base_url = base_url + '/'
+          logging.info('#####$$$$$####### %r  %r %r', base_url, element.base_url,
+                       element.widget_url)
         content_list.append(element)
       else:
         if not resolve_links:

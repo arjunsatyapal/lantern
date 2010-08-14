@@ -1,3 +1,4 @@
+<h2>{{object.title}}</h2>
 <div id='{{object|get_key}}'>
 </div>
 <script> 
@@ -5,16 +6,16 @@ var doc_score = {{doc_score}};
 if ( doc_score == 100) {
 
   lantern.comm.LanternChannelFactory.registerChannel(
-    '/quiz/',
+    '{{object.base_url}}',
     '{{object.widget_url|safe}}','{{object|get_key}}','{{doc|get_key}}',
-    '{{doc.trunk_ref|get_key}}','350px','100%',false,true);
+    '{{doc.trunk_ref|get_key}}','{{object.height}}','{{object.width}}',false,true);
   }
 else
  {
    lantern.comm.LanternChannelFactory.registerChannel(
-    '/quiz/',
+    '{{object.base_url}}',
     '{{object.widget_url|safe}}','{{object|get_key}}','{{doc|get_key}}',
-    '{{doc.trunk_ref|get_key}}','350px','100%',false,false);
+    '{{doc.trunk_ref|get_key}}','{{object.height}}','{{object.width}}',false,false);
  }
 
 </script>

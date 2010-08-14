@@ -47,7 +47,7 @@ goog.require('goog.dom');
  {% endif %}
  <tr><td><b>Creator : </b></td><td>{{doc.creator}}</td></tr>
  <tr><td><b>Created on : </b></td><td>{{doc.created}}</td></tr>
- <tr><td><b>Title: </b></td><td><input type='text' name='doc_title' value='{{doc.title}}'/></td></tr>
+ <tr><td><b>Title: </b></td><td><input type='text' name='doc_title'/></td></tr>
  <tr><td><b>Label: </b></td><td><select name='doc_label'>
   {% for label in allowed_labels %}
   {% ifequal label doc.label %}
@@ -77,16 +77,16 @@ goog.require('goog.dom');
  {% for object in doc_contents %}
   <tr class={% cycle '"oddrow"' '"evenrow"' %} id='{{ object|get_key }}'>
   {% ifequal object|class_name "RichTextModel" %}
-  <td>{% include 'include/edit_rich_text_model.html' %}</td>
+  <td><div>{% include 'include/edit_rich_text_model.html' %}<hr></div></td>
   {% else %}
    {% ifequal object|class_name "VideoModel" %}
-     <td>{% include 'include/edit_video_model.html' %}</td>
+     <td><div>{% include 'include/edit_video_model.html' %}<hr></div></td>
    {% else %}
    {% ifequal object|class_name "DocLinkModel" %}
-  <td>{% include 'include/edit_doc_link_model.html' %}</td>
+  <td><div>{% include 'include/edit_doc_link_model.html' %}<hr></div></td>
    {% else %}
    {% ifequal object|class_name "WidgetModel" %}
-  <td>{% include 'include/edit_widget_model.html' %}</td>
+  <td><div>{% include 'include/edit_widget_model.html' %}<hr></div></td>
 
    {% endifequal %}
    {% endifequal %}
@@ -101,7 +101,6 @@ goog.require('goog.dom');
  <option value='rich_text'>Html Text</option>
  <option value='doc_link'>Link</option>
  <option value='video'>Video</option>
- <option value='py_shell'>Python Interpretor</option>
  <option value='widget'>Quiz</option>
  <option value='widget'>Widget</option></td></tr>
 </table>
@@ -150,7 +149,10 @@ goog.require('goog.dom');
   bTag.appendChild(document.createTextNode('Link: '));
   iElement1.setAttribute('name', att_name);
   element3 = document.createElement("DIV");
-  element3.innerHTML = '<a href="' + link +'">'+title + '</a>';
+  element3.innerHTML = '<a href="' + link +'">'+title + '</a>'+
+      '<input type="hidden" name="data_height" value="0">'+
+      '<input type="hidden" name="data_width" value="0">' +
+      '<input type="hidden" name="data_title" value="">';
   col1.appendChild(bTag)
   col2.appendChild(element3)
   col2.appendChild(iElement1)
@@ -191,52 +193,55 @@ goog.require('goog.dom');
     var new_row = document.createElement("TR");
     new_row.id = 'content_row'+global_counter;
     var col1 = document.createElement("TD");
-    var bTag = document.createElement("B");
-    var col2 = document.createElement("TD");
+       var iElement = document.createElement("DIV");
+       var inputHtmlArray = 
+           ['<table><tr><td><b>HTML Text: </b></td>','<td><textarea ',
+            'rows="8" cols="60" name="data_val"/>',
+            '<input type="hidden" name="data_type" value="',value_passed,'">',
+            '<input type="hidden" name="data_height" value="0">',
+            '<input type="hidden" name="data_width" value="0">',
+            '<input type="hidden" name="data_title" value="">',
+            '</td></tr></table><hr/>',
+            ];
+       iElement.innerHTML = inputHtmlArray.join('');
 
     if (value_passed == 'rich_text'){
-          var iElement1 = document.createElement("TEXTAREA")
-          iElement1.setAttribute('cols', '40')
-          iElement1.setAttribute('rows', '10')
-          bTag.appendChild(document.createTextNode('HTML Text: '))
     } else if (value_passed == 'video') {
-           var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('Videl Link/Id: '))
+       var iElement = document.createElement("DIV");
+       var inputHtmlArray = 
+           ['<table><tr><td><b>Video Id: </b></td>','<td><input type="text" ',
+            'name="data_val"/></td></tr>','<tr><td><b>Video Height: </b></td>',
+            '<td><input type="text" name="data_height" value="300"/></td></tr>',
+            '<td><b>Video Width: </b></td>','<td><input type="text"',
+            'name="data_width" value="600"/></td></tr>','<td><b>Video Title: </b></td>',
+            '<td><input type="hidden" name="data_type" value="',value_passed,'">',
+            '<input type="text" ', 'name="data_title"/></td></tr></table>','<hr/>'];
+       iElement.innerHTML = inputHtmlArray.join('');
     } else if (value_passed == 'py_shell'){
-           var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('PyShell Link: '))
     } else if (value_passed == 'quiz') {
-          var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('Quiz Link: '))
     } else if (value_passed == 'widget') {
-          var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('Widget/Quiz: '))
+       var iElement = document.createElement("DIV");
+       var inputHtmlArray = 
+           ['<table><tr><td><b>Quiz/Widget Link: </b></td>','<td><input type="text" ',
+            'name="data_val"/></td></tr>','<tr><td><b>Widget Height: </b></td>',
+            '<td><input type="text" name="data_height" value="400px"/></td></tr>',
+            '<td><b>Widget Width: </b></td>','<td><input type="text"',
+            'name="data_width" value="100%"/></td></tr>','<td><b>Widget Title: </b></td>',
+            '<td><input type="hidden" name="data_type" value="',value_passed,'">',
+            '<input type="text" ', 'name="data_title"/></td></tr></table>','<hr/>'];
+       iElement.innerHTML = inputHtmlArray.join('');
+
     }
     else {
           alert('wrong value') 
     } 
-    var att_name = "data_val";
-    var iElement2 = document.createElement("Input"); 
-    iElement2.setAttribute('type', "hidden");
-    iElement2.setAttribute('name', "data_type");
-    iElement2.value = value_passed;
-    
-    iElement1.setAttribute('name', att_name);
-
-    col1.appendChild(bTag)
-    col2.appendChild(iElement1)
-    col2.appendChild(iElement2)
-    var col3 = document.createElement("TD");
-    col3.innerHTML = '<b><a href="javascript:deleteRow(\'content_row'+ 
+    col1.appendChild(iElement)
+    var col2 = document.createElement("TD");
+    col2.innerHTML = '<b><a href="javascript:deleteRow(\'content_row'+ 
                      global_counter + '\');">Delete</a></b>';
 
     new_row.appendChild(col1);
     new_row.appendChild(col2);
-    new_row.appendChild(col3);
     var el1 = document.getElementById('object_menu')
     el1.parentNode.insertBefore(new_row,el1);
 } 

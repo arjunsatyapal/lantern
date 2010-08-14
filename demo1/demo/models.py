@@ -1018,6 +1018,7 @@ class VideoModel(BaseContentModel):
   video_id = db.StringProperty()
   width = db.StringProperty(default='480')
   height = db.StringProperty(default='280')
+  title = db.StringProperty()
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
@@ -1025,7 +1026,8 @@ class VideoModel(BaseContentModel):
       'obj_type': ObjectType.VIDEO,
       'video_video_id': self.video_id,
       'video_width': self.width,
-      'video_height': self.height
+      'video_height': self.height,
+      'video_title': self.title
       }
 
   def ident(self):
@@ -1138,12 +1140,18 @@ class WidgetModel(BaseContentModel):
     widget_url: Url to quiz app to be embedded as an Iframe.
   """
   widget_url = db.StringProperty(required=True)
+  height = db.StringProperty()
+  width = db.StringProperty()
+  title = db.StringProperty()
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
     return {
       'obj_type': ObjectType.WIDGET,
-      'widget_widget_url': self.widget_url
+      'widget_widget_url': self.widget_url,
+      'widget_height': self.height,
+      'widget_width': self.width,
+      'widget_title': self.title
       }
 
   def get_score(self, user):

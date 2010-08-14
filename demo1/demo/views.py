@@ -378,12 +378,19 @@ def collect_data_from_query(request):
 
   content_data_vals = request.POST.getlist('data_val')
   content_data_types = request.POST.getlist('data_type')
+  content_height = request.POST.getlist('data_height')
+  content_width = request.POST.getlist('data_width')
+  content_title = request.POST.getlist('data_title')
 
   content_list = data_dict.setdefault('doc_contents', [])
-  for obj_type, data_val in zip(content_data_types, content_data_vals):
+  for obj_type, data_val, height, width, title in zip(content_data_types, 
+      content_data_vals, content_height, content_width, content_title):
     content_list.append({
         'obj_type': obj_type,
         'val': data_val,
+        'height': height,
+        'width': width,
+        'title': title
         })
   return data_dict
 
@@ -409,6 +416,7 @@ def create_doc(data_dict):
   doc.grade_level = data_dict.get('doc_grade_level',
     constants.DEFAULT_GRADE_LEVEL)
   doc.label = data_dict.get('doc_label', models.AllowedLabels.MODULE)
+
   for element in data_dict['doc_contents']:
     if element.get('obj_type') == 'rich_text':
       rich_text_object = library.insert_with_new_key(models.RichTextModel)
@@ -419,6 +427,9 @@ def create_doc(data_dict):
     elif element.get('obj_type') == 'video':
       video_object = library.insert_with_new_key(models.VideoModel)
       video_object.video_id = str(element.get('val'))
+      video_object.title = str(element.get('title'))
+      video_object.height = str(element.get('height'))
+      video_object.width = str(element.get('width'))
       video_object.put()
       doc.content.append(video_object.key())
 
@@ -440,6 +451,9 @@ def create_doc(data_dict):
       widget_url = str(element.get('val'))
       widget_object = library.insert_with_new_key(models.WidgetModel,
                                                   widget_url=widget_url)
+      widget_object.title = str(element.get('title'))
+      widget_object.height = str(element.get('height'))
+      widget_object.width = str(element.get('width'))
       widget_object.put()
       doc.content.append(widget_object.key())
 
