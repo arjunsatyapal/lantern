@@ -47,7 +47,7 @@ goog.require('goog.dom');
  {% endif %}
  <tr><td><b>Creator : </b></td><td>{{doc.creator}}</td></tr>
  <tr><td><b>Created on : </b></td><td>{{doc.created}}</td></tr>
- <tr><td><b>Title: </b></td><td><input type='text' name='doc_title'/></td></tr>
+ <tr><td><b>Title: </b></td><td><input type='text' name='doc_title' value='{{doc.title}}'/></td></tr>
  <tr><td><b>Label: </b></td><td><select name='doc_label'>
   {% for label in allowed_labels %}
   {% ifequal label doc.label %}

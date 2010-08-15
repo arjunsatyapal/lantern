@@ -30,6 +30,7 @@ import md5
 import operator
 import os
 import re
+import sha
 import time
 
 # AppEngine imports
@@ -954,6 +955,32 @@ class RichTextModel(BaseContentModel):
   # implicit key
   data = db.BlobProperty()
 
+  @classmethod
+  def insert(self, **kwargs):
+    """Creates a new object if not already exists, else returns the 
+    existing object based on content of the object.
+   
+    Inserts with SHA1 hash of the concatanated contentas key_name,
+    if object already exisits with same content, that object is 
+    returned, else new object is created and returned.
+    
+    TODO(mukundjha): Add some random seed as well to prevent collision.
+    Returns:
+      Returns an object of type VideoModel.
+    """
+    data = kwargs.get('data')
+    
+    content = str(data)
+    # Hashing
+    key_name = 'RichTextModel:' + sha.new(content).hexdigest()
+    object = RichTextModel.get_by_key_name(key_name)
+    logging.info('\n --- KEY --- %r', key_name)
+    if not object:
+      logging.info('\n --- CREATING NEW KEY --- %r', key_name)
+      object = RichTextModel.get_or_insert(key_name, **kwargs)
+    return object
+
+
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
     return {
@@ -986,6 +1013,37 @@ class DocLinkModel(BaseContentModel):
   from_trunk_ref = db.ReferenceProperty(TrunkModel, collection_name='from_link')
   from_doc_ref = db.ReferenceProperty(DocModel, collection_name='from_link')
 
+
+  @classmethod
+  def insert(self, **kwargs):
+    """Creates a new object if not already exists, else returns the 
+    existing object based on content of the object.
+   
+    Inserts with SHA1 hash of the concatanated contentas key_name,
+    if object already exisits with same content, that object is 
+    returned, else new object is created and returned.
+    
+    TODO(mukundjha): Add some random seed as well to prevent collision.
+    Returns:
+      Returns an object of type VideoModel.
+    """
+    trunk_ref = kwargs.get('trunk_ref')
+    doc_ref = kwargs.get('doc_ref')
+    default_title = kwargs.get('default_title')
+    from_trunk_ref = kwargs.get('from_trunk_ref')
+    from_doc_ref = kwargs.get('from_doc_ref')
+
+    content = str(trunk_ref) + str(doc_ref) + str(default_title) + str(
+              from_trunk_ref) + str(from_doc_ref)
+    # Hashing
+    key_name = 'DocLinkModel:'+sha.new(content).hexdigest()
+    logging.info('\n --- KEY --- %r', key_name)
+    object = DocLinkModel.get_by_key_name(key_name)
+    if not object:
+      logging.info('\n --- CREATING NEW KEY --- %r', key_name)
+      object = DocLinkModel.get_or_insert(key_name, **kwargs)
+    return object
+   
   def get_score(self, user):
     """Returns progress score for the doc.
 
@@ -1019,6 +1077,35 @@ class VideoModel(BaseContentModel):
   width = db.StringProperty(default='480')
   height = db.StringProperty(default='280')
   title = db.StringProperty()
+
+  @classmethod
+  def insert(self, **kwargs):
+    """Creates a new object if not already exists, else returns the 
+    existing object based on content of the object.
+   
+    Inserts with SHA1 hash of the concatanated contentas key_name,
+    if object already exisits with same content, that object is 
+    returned, else new object is created and returned.
+    
+    TODO(mukundjha): Add some random seed as well to prevent collision.
+    Returns:
+      Returns an object of type VideoModel.
+    """
+    video_id = kwargs.get('video_id')
+    width = kwargs.get('width')
+    height = kwargs.get('height')
+    title = kwargs.get('title')
+    
+    content = video_id+ width + height + title
+    # Hashing
+    key_name = 'VideoModel:'+sha.new(content).hexdigest()
+    object = VideoModel.get_by_key_name(key_name)
+    logging.info('\n --- KEY --- %r', key_name)
+    if not object:
+      object = VideoModel.get_or_insert(key_name, **kwargs)
+      logging.info('\n --- CREATING NEW KEY --- %r', key_name)
+    return object
+   
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
@@ -1143,6 +1230,35 @@ class WidgetModel(BaseContentModel):
   height = db.StringProperty()
   width = db.StringProperty()
   title = db.StringProperty()
+
+  @classmethod
+  def insert(self, **kwargs):
+    """Creates a new object if not already exists, else returns the 
+    existing object based on content of the object.
+   
+    Inserts with SHA1 hash of the concatanated contentas key_name,
+    if object already exisits with same content, that object is 
+    returned, else new object is created and returned.
+    
+    TODO(mukundjha): Add some random seed as well to prevent collision.
+    Returns:
+      Returns an object of type VideoModel.
+    """
+    widget_url = kwargs.get('widget_url')
+    width = kwargs.get('width')
+    height = kwargs.get('height')
+    title = kwargs.get('title')
+    
+    content = widget_url + width + height + title
+    # Hashing
+    key_name = 'WidgetModel:'+sha.new(content).hexdigest()
+    object = WidgetModel.get_by_key_name(key_name)
+    logging.info('\n --- KEY --- %r', key_name)
+    if not object:
+      logging.info('\n --- CREATING NEW KEY --- %r', key_name)
+      object = WidgetModel.get_or_insert(key_name, **kwargs)
+    return object
+   
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""

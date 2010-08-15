@@ -406,6 +406,7 @@ def create_doc(data_dict):
     function.
   TODO(mukundjha): Validate url provided in link object.
   TODO(mukundjha): Move this function into another (content_manager.py) module.
+  TODO(mukundjha): Move insertion (hashing) to model specific method?
   """
   trunk = data_dict.get('trunk_id')
   try:
@@ -419,24 +420,21 @@ def create_doc(data_dict):
     constants.DEFAULT_GRADE_LEVEL)
   doc.label = data_dict.get('doc_label', models.AllowedLabels.MODULE)
 
-  logging.info('logging .............. %r', data_dict)
   for element in data_dict['doc_contents']:
 
-    logging.info('logging .............. %r', element)
     if element.get('obj_type') == 'rich_text':
-      rich_text_object = library.insert_with_new_key(models.RichTextModel)
-      rich_text_object.data= db.Blob(str(element.get('val')))
-      rich_text_object.put()
-      doc.content.append(rich_text_object.key())
+      text = str(element.get('val')) 
+      object = models.RichTextModel.insert(data=text)
+      doc.content.append(object.key())
 
     elif element.get('obj_type') == 'video':
-      video_object = library.insert_with_new_key(models.VideoModel)
-      video_object.video_id = str(element.get('val'))
-      video_object.title = str(element.get('title'))
-      video_object.height = str(element.get('height'))
-      video_object.width = str(element.get('width'))
-      video_object.put()
-      doc.content.append(video_object.key())
+      video_id = str(element.get('val'))
+      title = str(element.get('title'))
+      height = str(element.get('height'))
+      width = str(element.get('width'))
+      object = models.VideoModel.insert(video_id=video_id, width=width,
+                                        height=height, title=title)
+      doc.content.append(object.key())
 
     elif element.get('obj_type') == 'doc_link':
       link = urlparse.urlparse(element.get('val'))
@@ -446,20 +444,20 @@ def create_doc(data_dict):
         referred_doc = db.get(params.get('doc_id'))
         referred_trunk = db.get(params.get('trunk_id'))
 
-        doc_link_object = library.insert_with_new_key(models.DocLinkModel,
-          trunk_ref=referred_trunk.key(), doc_ref=referred_doc.key(),
-          default_title=referred_doc.title, from_trunk_ref=doc.trunk_ref.key(),
-          from_doc_ref=doc.key())
+        doc_link_object = models.DocLinkModel.insert(
+            trunk_ref=referred_trunk.key(), doc_ref=referred_doc.key(),
+            default_title=referred_doc.title, from_trunk_ref=doc.trunk_ref.key(),
+            from_doc_ref=doc.key())
+
         doc.content.append(doc_link_object.key())
 
     elif element.get('obj_type') == 'widget':
       widget_url = str(element.get('val'))
-      widget_object = library.insert_with_new_key(models.WidgetModel,
-                                                  widget_url=widget_url)
-      widget_object.title = str(element.get('title'))
-      widget_object.height = str(element.get('height'))
-      widget_object.width = str(element.get('width'))
-      widget_object.put()
+      title = str(element.get('title'))
+      height = str(element.get('height'))
+      width = str(element.get('width'))
+      widget_object = models.WidgetModel.insert(
+          widget_url=widget_url, height=height, width=width, title=title)
       doc.content.append(widget_object.key())
 
   doc.put()
@@ -677,14 +675,24 @@ def view_doc(request):
 
   
   # Just place holders to check the output, should present in better way.
+  if not use_history:
+    link_to_prev = [
+        '<a href=',
+        '"/view?trunk_id=%s&doc_id=%s&absolute=True&use_history=True">' %
+        (trunk.key(), prev_doc.key()),
+        'Show as it was last time</a> | ']
+  else:
+    link_to_prev =  [
+        '<a href=',
+        '"/view?trunk_id=%s">' % (trunk.key()),
+        'Show latest</a> | ']
+
+  link_to_prev_version = ''.join(link_to_prev)
 
   menu_items = [
     '<a href="/edit">Create New </a> | ',
     '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a> | ' %
-    (trunk.key(), doc.key()),
-    '<a href="/view?trunk_id=%s&doc_id=%s&absolute=True&use_history=True">' %
-    (trunk.key(), prev_doc.key()),
-    'Show as it was last time</a> | ',
+    (trunk.key(), doc.key()), link_to_prev_version,
     '<a href="/history?trunk_id=%s">History</a>' %
     (trunk.key()),
     ]
@@ -697,6 +705,8 @@ def view_doc(request):
     '<b>Progress: %s</b></div>' % (doc_score)
     ]
   title = ''.join(title_items)
+#  for con in doc_contents:
+#    logging.info('\n**** CONTENT %r %r %r\n', con, con.default_title, con.score)
   return respond(request, title, "view.html",
                 {'doc': doc,
                 'doc_score': doc_score,

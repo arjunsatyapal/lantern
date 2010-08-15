@@ -622,12 +622,12 @@ def get_accumulated_score(doc, doc_contents, user, use_history=False, recurse=Fa
   total, count = 0,0
   for element in doc_contents:
     if not isinstance(element, models.DocLinkModel): 
-      element.score = element.get_score(user)
+      score = element.get_score(user)
     else:
-      element.score = get_score_for_link(element, user, use_history, recurse)
+      score = get_score_for_link(element, user, use_history, recurse)
 
-    if element.score is not None:
-      total += element.score
+    if score is not None:
+      total += score
       count += 1
 
   if total and count:
@@ -684,8 +684,8 @@ def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
   else:
     content_list = []
     for el in doc.content:
-      if not isinstance(el, models.DocLinkModel):
-        element = db.get(el)
+      element = db.get(el)
+      if not isinstance(element, models.DocLinkModel):
         if fetch_score:
           element.score = element.get_score(user)
         if isinstance(element, models.WidgetModel):
@@ -694,17 +694,16 @@ def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
           element.base_url = base_url + '/'
         content_list.append(element)
       else:
+        link = element
         if not resolve_links:
-          link = db.get(el)
           doc = fetch_doc(link.trunk_ref.key(), link.doc_ref.key())
         elif use_history:
-          link = db.get(element)
           doc = get_doc_for_user(link.trunk_ref.key(), user)
         else:
-          link = db.get(element)
           doc = fetch_doc(link.trunk_ref.key())
           
-        link.title = doc.title
+        link.default_title = doc.title
+        logging.info('\n###### DOC CONTENT TITLE %r', link.default_title) 
 
         if fetch_score:
           link.score = doc.get_score(user)
