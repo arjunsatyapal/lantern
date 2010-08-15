@@ -760,6 +760,10 @@ class DocModel(BaseContentModel):
     tags: Set of tags (preferably part of some ontology).
     content: Ordered list of references to objects/items as it appears in
       the document.
+    label: Label marks document as course,module or lesson.
+    score_weight: Its a list defining weight each content element contributes
+      towards the score. By default all scorable elements are given equal
+      weight. But this is a provision for later.
 
   TODO(mukundjha): Add required=True for required properties.
   """
@@ -771,6 +775,7 @@ class DocModel(BaseContentModel):
   grade_level = db.IntegerProperty(default=constants.DEFAULT_GRADE_LEVEL)
   content = db.ListProperty(db.Key)
   label = db.StringProperty(default=AllowedLabels.MODULE)
+  score_weight = db.ListProperty(float)
 
   def get_score(self, user):
     """Returns progress score for the doc.
@@ -1302,11 +1307,14 @@ class DocVisitState(UserStateModel):
     doc_ref: Reference to visited doc.
     last_visit: Time stamp for last visit to the document.
     doc_progress_score: Completion score for the visited doc.
+    dirty_bit: Dirty bit is set when the scores down the trunk 
+      may be stale.
   """
   trunk_ref = db.ReferenceProperty(TrunkModel)
   doc_ref = db.ReferenceProperty(DocModel)
   last_visit = db.DateTimeProperty(auto_now=True)
   progress_score = db.RatingProperty(default=0)
+  dirty_bit = db.BooleanProperty(default=False)
 
 
 class QuizProgressState(UserStateModel):

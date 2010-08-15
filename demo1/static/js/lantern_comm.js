@@ -100,7 +100,7 @@ lantern.comm.LanternChannel.prototype.setIframeAttrs = function(iFrameElm){
  */
 lantern.comm.LanternChannel.prototype.processScore = function() {
   var obj = this.xhr_.getResponseJson();
-  alert('updating score : ' + obj); 
+  //alert('updating score : ' + obj); 
   var docProgressContainer = goog.dom.getElement('docProgressContainer');
    progressHtmlArray = [
       '<b>Progress: </b>',
@@ -118,10 +118,10 @@ lantern.comm.LanternChannel.prototype.processScore = function() {
  * param {string} data Incomming payload.
  */
 lantern.comm.LanternChannel.prototype.updateScore = function(data) {
-  alert('I am loop1');
+  //alert('I am loop1');
   if ( lantern.comm.LanternChannelFactory.completed_ 
        && !lantern.comm.LanternChannelFactory.warnedOnce_) {
-    alert('I am loop 2');
+    //alert('I am loop 2');
     lantern.comm.LanternChannelFactory.warnedOnce_ = true;
     var dialog = new goog.ui.Dialog(null, true);
     var content = '<b> Attempting this will reset the score and ' +
@@ -135,13 +135,13 @@ lantern.comm.LanternChannel.prototype.updateScore = function(data) {
     dialog.setButtonSet(buttonSet);
     goog.events.listen(dialog, goog.ui.Dialog.EventType.SELECT, function(e) {
       if( e.key == 'reset_score_button' ){
-        alert('i have chosen reset');
+        //alert('i have chosen reset');
         lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = false;
         lantern.comm.LanternChannelFactory.completed_ = false;
         return;  
       }
       else if ( e.key == 'keep_score_button'){
-        alert('i have chosen to keep scores');
+        //alert('i have chosen to keep scores');
         lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = true;
         lantern.comm.LanternChannelFactory.completed_ = false;
         return;
@@ -152,7 +152,7 @@ lantern.comm.LanternChannel.prototype.updateScore = function(data) {
   if ( lantern.comm.LanternChannelFactory.completed_ == true || 
      lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ == true)
   {
-  alert('I am loop33');
+  //alert('I am loop33');
      return;
   }
   var obj = goog.json.parse(data)
@@ -168,7 +168,7 @@ lantern.comm.LanternChannel.prototype.updateScore = function(data) {
   goog.events.listen(
       this.xhr_, goog.net.EventType.COMPLETE,
       goog.bind(this.processScore, this));
-  alert('sending xhr score\n');
+  //alert('sending xhr score\n');
   this.xhr_.send(uri);
 };
 

@@ -566,7 +566,7 @@ def get_parent(doc):
     return None
 
 
-def get_score_for_link(link_element, user, use_history=False, recurse=False):
+def get_score_for_link(link_element, user, recurse=False):
   """Cacluates score for the DocLink object by selecting 
   correct document based on user's history.
 
@@ -589,15 +589,20 @@ def get_score_for_link(link_element, user, use_history=False, recurse=False):
   Returns: 
     Score for the link object.
   """
-  if use_history:
-    doc = get_doc_for_user(link_element.trunk_ref.key(), user)
-  else:
-    doc = fetch_doc(link_element.trunk_ref.key())
+  doc = link_element.doc_ref
   if recurse:
-    doc_contents = get_doc_contents(doc, True, use_history, user, True)
-    return get_accumulated_score(doc, doc_contents, user, use_history, recurse)
+    doc_contents = get_doc_contents(doc, True, False, user, False)
+    return get_accumulated_score(doc, doc_contents, user, False, recurse)
   else:
-    return doc.get_score(user)
+    visit_state = models.DocVisitState.all().filter('user =', user).filter(
+    'trunk_ref =', doc.trunk_ref).get()
+    if visit_state and visit_state.dirty_bit:
+      doc_contents = get_doc_contents(doc, False, False, user, False)
+      return get_accumulated_score(doc, doc_contents, user, False, recurse)
+    elif visit_state:
+      return visit_state.progress_score
+    else:
+      return 0
 
 
 def get_accumulated_score(doc, doc_contents, user, use_history=False, recurse=False):
@@ -605,7 +610,7 @@ def get_accumulated_score(doc, doc_contents, user, use_history=False, recurse=Fa
   
   Assumption if doc_contents contain score for docLinkElement, it is resolved
   using correct parameters and is preferred over recalculation.
-  Averages score, no weights.
+  Averages score, no weights. It also updates the score for element.
 
   Args:
     doc: Document fetching the score.
@@ -622,12 +627,12 @@ def get_accumulated_score(doc, doc_contents, user, use_history=False, recurse=Fa
   total, count = 0,0
   for element in doc_contents:
     if not isinstance(element, models.DocLinkModel): 
-      score = element.get_score(user)
+      element.score = element.get_score(user)
     else:
-      score = get_score_for_link(element, user, use_history, recurse)
+      element.score = get_score_for_link(element, user, recurse)
 
-    if score is not None:
-      total += score
+    if element.score is not None:
+      total += element.score
       count += 1
 
   if total and count:
@@ -657,6 +662,7 @@ def put_doc_score(doc, user, score):
   if visit_state:
     visit_state.progress_score = score
     visit_state.doc_ref = doc
+    visit_state.dirty_bit = False
     visit_state.put()
   else:
     visit_state = insert_with_new_key(models.DocVisitState, user=user,
@@ -695,18 +701,16 @@ def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
         content_list.append(element)
       else:
         link = element
-        if not resolve_links:
-          doc = fetch_doc(link.trunk_ref.key(), link.doc_ref.key())
-        elif use_history:
+        if resolve_links and use_history:
           doc = get_doc_for_user(link.trunk_ref.key(), user)
-        else:
+          link.default_title = doc.title
+        elif resolve_links:
           doc = fetch_doc(link.trunk_ref.key())
-          
-        link.default_title = doc.title
-        logging.info('\n###### DOC CONTENT TITLE %r', link.default_title) 
+          link.default_title = doc.title
 
         if fetch_score:
           link.score = doc.get_score(user)
+ 
         content_list.append(link)
     return content_list
 
@@ -832,6 +836,38 @@ def get_or_create_session_id(widget, user):
                                       widget_ref=widget, progress_score=None)
   return str(visit_state.key())
 
+
+def set_dirty_bits_for_doc(doc, user):
+  """Sets dirty bit for all the parents in the path used to reach doc.
+
+  Dirty bit indicates the score for the doc are stale and needs to be
+  recomputed.
+   
+  TODO(mukundjha): We should check for the path, or pass path as 
+  parameter.
+
+  TODO(mukundjha): Maybe we should bind this with actual doc rather than
+  trunk.
+
+  Args:
+    doc: Document for which score has just been updated.
+    user: Associated user.
+  """
+  doc_visit_stack =  models.TraversalPath.all().filter(
+      'current_trunk =', doc.trunk_ref).get()
+
+  if not doc_visit_stack:
+    return
+
+  for el in doc_visit_stack.path:
+    parent = db.get(el)
+    visit_entry = models.DocVisitState.all().filter(
+        'trunk_ref =', parent.trunk_ref).filter(
+        'user =', user).get()
+    if visit_entry:
+      visit_entry.dirty_bit = True
+      visit_entry.put()     
+  
 
 def update_visit_stack(doc, parent, user):
   """Updates the visit stack for a particular doc.

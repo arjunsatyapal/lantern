@@ -593,9 +593,6 @@ def view_doc(request):
     is useful in many cases like migrating to latest version, saving an edit
     etc.
   TODO(mukundjha): Merge with /(root) and handle other types in template
-  TODO(mukundjha): Display parent title instead of up_link
-  TODO(mukundjha): Maintain consistent back/parent link, currently it
-   breaks after one.
 
   Args:
     trunk_id: Trunk Id for the required doc.
@@ -641,6 +638,7 @@ def view_doc(request):
   doc_contents = library.get_doc_contents(doc, True, use_history,
                                           users.get_current_user(),
                                           True)
+
   current_doc_score = doc.get_score(users.get_current_user())
   if current_doc_score == 100:
     library.put_doc_score(doc, users.get_current_user(), 100)
@@ -808,6 +806,12 @@ def update_doc_score(request):
   accumulated score for the document from which updates are recieved and
   sends back updated score for the document.
 
+  NOTE(mukundjha): Doc id passed to the widget is of the same doc that is
+  presented to the user, so we can use absolute binding to update the score.
+  If we fetch the appropriate document everytime we update score, there might
+  be a case when document gets updated while user is working on it and the
+  function ends up fetching and updating score according to new document.
+
   TODO(mukundjha): Check for possible race conditions on score updates.
   TODO(mukundjha): Slightly inefficient with many calls to datastore,
     should use mem-cache.
@@ -818,35 +822,30 @@ def update_doc_score(request):
     score: integer between 0-100 indicating score for the widget.
     trunk_id: Key for the trunk associated with doc containing the widget. 
     doc_id: Key of the document.
-    absolute: Boolean value, if set doc_id is used to fetch the document and
-      history of user's visit to the trunk is ignored. This is useful in cases
-      where author always wants user to land on a particular revision of a 
-      trunk.
+    parent_trunk: Key for the trunk associated with parent.
+    parent_doc: Key for the parent doc.
   """
   widget_id = request.GET.get('widget_id')
   progress = int(request.GET.get('progress'))
   score = int(request.GET.get('score'))
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
-  use_absolute_addressing = request.GET.get('absolute')
-  use_history = request.GET.get('use_history', False)
+  parent_trunk =  request.GET.get('parent_trunk')
+  parent_doc = request.GET.get('parent_doc')
 
   widget = db.get(widget_id) 
   library.put_widget_score(widget, users.get_current_user(), progress)
   
-  
-  if use_absolute_addressing:
-    doc = library.fetch_doc(trunk_id, doc_id)
-  elif use_history:
-    doc = library.get_doc_for_user(trunk_id, users.get_current_user())
-  else:
-    doc = fetch_doc(trunk_id)
+  # Using absolute addressing 
+  doc = library.fetch_doc(trunk_id, doc_id)
 
-  doc_contents = library.get_doc_contents(doc, True, use_history,
+  doc_contents = library.get_doc_contents(doc, True, False,
                                           users.get_current_user(), True)
   # No recursive
   doc_score = library.get_accumulated_score(doc, doc_contents,
-                                            users.get_current_user(), use_history, False)
+                                            users.get_current_user(), False,
+                                            False)
+  library.set_dirty_bits_for_doc(doc, users.get_current_user())
 
   return HttpResponse(simplejson.dumps({'doc_score' : doc_score}))
 
