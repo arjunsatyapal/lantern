@@ -375,7 +375,7 @@ def collect_data_from_query(request):
   data_dict['doc_label'] = request.POST.get('doc_label')
   data_dict['doc_grade_level'] = int(request.POST.get('doc_grade_level',
                                      constants.DEFAULT_GRADE_LEVEL))
-
+  data_dict['doc_tags'] = request.POST.get('doc_tags')
   content_data_vals = request.POST.getlist('data_val')
   content_data_types = request.POST.getlist('data_type')
   logging.info('\n.... %r \n', content_data_types)
@@ -419,7 +419,11 @@ def create_doc(data_dict):
   doc.grade_level = data_dict.get('doc_grade_level',
     constants.DEFAULT_GRADE_LEVEL)
   doc.label = data_dict.get('doc_label', models.AllowedLabels.MODULE)
-
+  tags = re.split(',', data_dict.get('doc_tags',''))
+  logging.info('\n\n **** TAGS *** %r', tags)
+  doc.tags = [db.Category(tag) for tag in tags]
+  doc.score_weight = [1.0]
+  logging.info('\n\n ***** TAGS **** \n\n %r %r' , tags, doc.tags) 
   for element in data_dict['doc_contents']:
 
     if element.get('obj_type') == 'rich_text':
@@ -573,13 +577,14 @@ def edit(request):
   doc_contents = library.get_doc_contents(doc, True, False,
                                           users.get_current_user(),
                                           False)
-
+  tags = ','.join(doc.tags)
   return respond(request, constants.DEFAULT_TITLE, "edit.html",
                 {'doc': doc,
                 'doc_contents': doc_contents,
                 'data_valid_range': constants.VALID_GRADE_RANGE,
                 'doc_id': str(doc.key()),
                 'trunk_id': str(doc.trunk_ref.key()),
+                'tags': tags,
                 'allowed_labels': models.AllowedLabels.dump_to_list()
                 })
 
@@ -902,6 +907,17 @@ def temp(request):
   return respond(request, 'SUBJECT', 'temp.html',
                  {})
 
+def fetch_from_tags(request):
+  """Fetches courses with given tag.
+ 
+  TODO(mukundjha): Pick unique courses.
+  """
 
+  tag = request.GET.get('tag')
 
+  course_list = models.DocModel.all().filter('tags =', tag).filter(
+      'label =', models.AllowedLabels.COURSE).order('-created').fetch(10)
+
+  return respond(request, constants.DEFAULT_TITLE, "course_list.html",
+                 {'course_list' : course_list})
 
