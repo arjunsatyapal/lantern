@@ -730,15 +730,24 @@ def get_doc_annotation(doc, user):
   for el in doc.content:
     element = db.get(el)
     anno = (models.AnnotationState.all()
-            .filter('user=', user).filter('doc_ref=', doc)
-            .filter('object_ref=', element)).get()
-    if not anno or not anno.annotation_data:
-      if 1:
-	anno = models.AnnotationState(user=user, doc_ref=doc, object_ref=element)
-	anno.annotation_data = ("Sample Annotation Given To %s" %
-                                element.asText()[:40])
-	anno.put()
-    annotation[str(element.key())] = anno.annotation_data
+            .filter('user =', user)
+            .filter('trunk_ref =', doc.trunk_ref)
+            .filter('doc_ref =', doc)
+            .filter('object_ref =',element))
+    if anno.count() == 0:
+      anno = models.AnnotationState(user=user,
+                                    doc_ref=doc,
+                                    trunk_ref=doc.trunk_ref,
+                                    object_ref=element)
+      anno.annotation_data = ("Sample Annotation Given To %s" %
+                              element.asText()[:40])
+      anno.put()
+    else:
+      anno = anno.get()
+    annotation[str(element.key())] = {
+        'data': anno.annotation_data,
+        'key': str(anno.key()),
+    }
   return annotation
 
 
@@ -1057,3 +1066,15 @@ def expand_path(path, use_history, absolute, user):
 def show_changes(pre, post):
   """Displays diffs between two models."""
   return pre.HtmlDiff(pre, post)
+
+
+def update_notes(name, data):
+  """Update annotation data
+
+  Args:
+    name: key to AnnotationState
+    data: new annotation data
+  """
+  anno = db.get(name)
+  anno.annotation_data = data.encode('utf-8')
+  anno.put()

@@ -284,3 +284,24 @@ td.diff_header {text-align:right}
 .diff_delete, .diff_sub {background-color:#ffaaaa}
 
 table.diff {width: 100%}
+
+button.notestrigger {
+  float: right;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  width: 16;
+  height: 16;
+  background: transparent url('/static/images/note.png') no-repeat center top;
+}
+
+.note {
+  float: right;
+  visibility:hidden;
+  background: lightyellow;
+  color: black;
+  border: 1px solid black;
+  padding: 5px;
+  font: menu;
+  width: 400px;
+}

@@ -37,5 +37,6 @@ urlpatterns = defaults.patterns(
     # Updates progress score for widget and document for the current user
     # and returns updated accumulated score for the document.
     (r'^updateScore$', 'update_doc_score'),
-    (r'^getListAjax$', 'get_list_ajax')
+    (r'^getListAjax$', 'get_list_ajax'),
+    (r'^notes/update$', 'update_notes'),
     )

@@ -65,5 +65,11 @@ indexes:
 - kind: TrunkRevisionModel
   ancestor: yes
   properties:
+  - name: created
+    direction: desc
+
+- kind: TrunkRevisionModel
+  ancestor: yes
+  properties:
   - name: time_stamp
     direction: desc

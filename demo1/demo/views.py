@@ -924,3 +924,22 @@ def fetch_from_tags(request):
 
   return respond(request, constants.DEFAULT_TITLE, "course_list.html",
                  {'course_list' : course_list})
+
+
+@login_required
+def update_notes(request):
+  """Update annotation on a given object"""
+
+  try:
+    data = request.POST.get('data')
+    it = simplejson.loads(data)
+    data = it['data']
+    name = it['name']
+    name = re.sub(r'^[^-]+-', '', name)
+    library.update_notes(name, data)
+  except Exception, e:
+    name = str(e)
+    data = request.POST.get('data')
+
+  return respond(request, "Received", "debugnotes.html",
+                 { 'data': data, 'name': name })

@@ -14,30 +14,9 @@ limitations under the License.
 -->
 {% extends "app/base1col.html" %}
 {% block extra_head %}
-<script>
-  goog.require('goog.ui.Popup');
-</script>
+<script src="{{media_url}}js/notes.js"></script>
 <script type="text/javascript"
  src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
-</script>
-<style>
-.note {
-  position:absolute;
-  visibility:hidden;
-  background: lightyellow;
-  color: black;
-  border: 1px solid black;
-  padding: 5px;
-  font: menu;
-  width: 400px;
-}
-</style>
-<script>
-  function showNote(name) {
-    var noteElt = document.getElementById(name);
-    var note = new goog.ui.Popup(noteElt);
-    note.setVisible(true);
-  }
 </script>
 {% endblock %}
 {% block titlebar %}
