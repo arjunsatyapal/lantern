@@ -37,7 +37,7 @@ lantern.quiz.QuizSession = function(quizTrunkId, quizId) {
   this.quizId_ = quizId;
   this.quizTrunkId_ = quizTrunkId;
   this.widgetChannel_  = new lantern.widget.LanternWidgetChannel();
-  this.widgetChannel_.initializeChannel(goog.bind(this.getSessionId, this));
+  this.widgetChannel_.initializeChannel();
   this.sessionId_ = '';
   this.question_ = {};
   this.attempts_ = 0;
@@ -102,13 +102,16 @@ lantern.quiz.QuizSession.prototype.makeQuizDOM = function(obj) {
   if (obj.current_status) {
     this.updateStatus(obj.current_status)
   }
-  
+  goog.dom.removeChildren(goog.dom.getElement('quizTitle'));  
   goog.dom.removeChildren(goog.dom.getElement('quizButtonContainer'));
   goog.dom.removeChildren(goog.dom.getElement('quizMessage'));
   goog.dom.removeChildren(goog.dom.getElement('nextQuestionBox'));
   goog.dom.removeChildren(goog.dom.getElement('questionBody'));
   goog.dom.removeChildren(goog.dom.getElement('choices'));
   
+  var quizTitleBar = goog.dom.getElement('quizTitle')
+  var title = goog.dom.createDom('h2',{'class': 'quizTitle'},obj.title)
+  quizTitleBar.appendChild(title)
   this.attempts_ = obj.attempts;
   var questionBodyContainer = goog.dom.getElement('questionBody');
   questionBodyContainer.appendChild(
@@ -124,7 +127,6 @@ lantern.quiz.QuizSession.prototype.makeQuizDOM = function(obj) {
                          'Please select among the following choices:'));
 
   choiceContainer.appendChild(goog.dom.createDom('br'));
-  alert(obj.question.choices.length)
   for (var i=0; i< obj.question.choices.length; i++) {
     var choice = goog.dom.createDom('input', {
        'type': 'radio',

@@ -46,8 +46,8 @@ goog.require('goog.net.xpc.CrossPageChannel');
  */
 lantern.widget.LanternWidgetChannel = function() {
   // Get the channel configuration from the URI parameter.
-  // alert('creating widget channel with these params:\n'+ 
-  //    (new goog.Uri(window.location.href)).getParameterValue('xpc'));
+   //alert('creating widget channel with these params:\n'+ 
+     // (new goog.Uri(window.location.href)).getParameterValue('xpc'));
 
   this.cfg_ = goog.json.parse(
       (new goog.Uri(window.location.href)).getParameterValue('xpc'));
@@ -105,7 +105,6 @@ lantern.widget.LanternWidgetChannel.prototype.send = function(
  */ 
 lantern.widget.LanternWidgetChannel.prototype.processData = function(data) {
   var callback = this.activeRequest_[this.KEY_GET_DATA_];
-  alert('processing data ' + data);
   if(callback) {
     //alert('has callback');
     callback(data);

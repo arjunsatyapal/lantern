@@ -28,6 +28,7 @@ import os
 import base64
 import string
 import random
+import re
 
 from google.appengine.api import memcache
 from google.appengine.api import users
@@ -44,6 +45,27 @@ import constants
 # For registering filter and tag libs.
 register = django.template.Library()
 
+
+@register.filter
+def subtract_one(arg):
+  """Subtracts one from the provided number."""
+  num = int(arg)
+  return num-1
+
+
+@register.filter
+def get_element(list, pos):
+  """Subtracts one from the provided number."""
+  return list[pos]
+
+
+@register.filter
+def get_range(upper):
+  """Returns a list with integer between the range provided.
+  
+  Args:
+  """
+  return range(upper)
 
 
 @register.filter
@@ -526,7 +548,8 @@ def get_parent(doc):
   """Returns a parent for a document.
 
   If multiple parents are present, choose one based on ranking function.
-  Currently ranking just picks latest modified parent.
+  Note(mukundjha): Taking history into account makes it a very heavy on
+  datastore.
 
   Args:
     doc: DocModel object from datastore.
@@ -543,10 +566,51 @@ def get_parent(doc):
     return None
 
 
-def get_accumulated_score(doc, doc_contents, user):
-  """Calculate score for a doc by accumulating scores from its objects.
+def get_score_for_link(link_element, user, recurse=False):
+  """Cacluates score for the DocLink object by selecting 
+  correct document based on user's history.
 
-  Averages score, no weights.
+  NOTE(mukundjha): This function is defined because get_score
+  for DocLink model uses absolute address for the link and does
+  not incorporate user's history. Function get_score for DocLink could have
+  been modified, but it is counter intuitive.
+
+  *It is slightly inefficient, because it recomputes score 
+  everytime, even if they have recently been updated.
+
+  *Does not take care of cycles.
+
+  Args:
+    link_element: Link object for which score is required.
+    user: User whose score is desired.
+    recurse: If set True, all the scores will be recursively computed
+      and updated.
+
+  Returns: 
+    Score for the link object.
+  """
+  doc = link_element.doc_ref
+  if recurse:
+    doc_contents = get_doc_contents(doc, True, False, user, False)
+    return get_accumulated_score(doc, doc_contents, user, False, recurse)
+  else:
+    visit_state = models.DocVisitState.all().filter('user =', user).filter(
+    'trunk_ref =', doc.trunk_ref).get()
+    if visit_state and visit_state.dirty_bit:
+      doc_contents = get_doc_contents(doc, False, False, user, False)
+      return get_accumulated_score(doc, doc_contents, user, False, recurse)
+    elif visit_state:
+      return visit_state.progress_score
+    else:
+      return 0
+
+
+def get_accumulated_score(doc, doc_contents, user, use_history=False, recurse=False):
+  """Calculate score for a doc by accumulating scores from its objects.
+  
+  Assumption if doc_contents contain score for docLinkElement, it is resolved
+  using correct parameters and is preferred over recalculation.
+  Averages score, no weights. It also updates the score for element.
 
   Args:
     doc: Document fetching the score.
@@ -554,13 +618,18 @@ def get_accumulated_score(doc, doc_contents, user):
       the list is passed separately to prevent repeated calls to data-store
       for objects.
     user: User associated with the score.
+    recurse: If set True scores are recursively re-computed instead of just
+      picking entries from datastore.
   Returns:
     Average score based on content of the document. Also adds score attribute
     to each 'scorable' element.
   """
   total, count = 0,0
   for element in doc_contents:
-    element.score = element.get_score(user)
+    if not isinstance(element, models.DocLinkModel): 
+      element.score = element.get_score(user)
+    else:
+      element.score = get_score_for_link(element, user, recurse)
 
     if element.score is not None:
       total += element.score
@@ -588,22 +657,29 @@ def put_doc_score(doc, user, score):
   TODO(mukundjha): Determine if this needs to be run in a transaction.
   """
   visit_state = models.DocVisitState.all().filter('user =', user).filter(
-    'doc_ref =', doc).get()
+    'trunk_ref =', doc.trunk_ref).get()
 
   if visit_state:
     visit_state.progress_score = score
+    visit_state.doc_ref = doc
+    visit_state.dirty_bit = False
+    visit_state.put()
   else:
     visit_state = insert_with_new_key(models.DocVisitState, user=user,
       trunk_ref=doc.trunk_ref.key(), doc_ref=doc.key(), progress_score= score)
-  visit_state.put()
 
 
-def get_doc_contents(doc):
+def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
   """Return a list of objects referred by keys in content list of a doc.
 
   NOTE(mukundjha): doc is a DocModel object and not an id.
   Args:
     doc: DocModel used for populating content objects.
+    reslove_links: If reslove_links is true, then links are resolved to
+      get appropriate title for links.
+    use_history: Use history to resolve links.
+    user: User in consideration.
+    fetch_score: If set true score is also appended to all objects.
   Returns:
     An ordered list of objects referenced in content list of passed doc.
   Raises:
@@ -612,11 +688,31 @@ def get_doc_contents(doc):
   if not isinstance(doc, models.DocModel):
     return None
   else:
-    return [db.get(element) for element in doc.content]
+    content_list = []
+    for el in doc.content:
+      element = db.get(el)
+      if not isinstance(element, models.DocLinkModel):
+        if fetch_score:
+          element.score = element.get_score(user)
+        if isinstance(element, models.WidgetModel):
+          temp_array = re.split('/',re.sub('//','__TEMP__', element.widget_url))
+          base_url = re.sub('__TEMP__','//',temp_array[0])
+          element.base_url = base_url + '/'
+        content_list.append(element)
+      else:
+        link = element
+        if resolve_links and use_history:
+          doc = get_doc_for_user(link.trunk_ref.key(), user)
+          link.default_title = doc.title
+        elif resolve_links:
+          doc = fetch_doc(link.trunk_ref.key())
+          link.default_title = doc.title
 
-
-def show_changes(pre, post):
-  return pre.HtmlDiff(pre, post)
+        if fetch_score:
+          link.score = doc.get_score(user)
+ 
+        content_list.append(link)
+    return content_list
 
 
 def put_widget_score(widget, user, score):
@@ -641,6 +737,82 @@ def put_widget_score(widget, user, score):
                                       widget_ref=widget, progress_score=score)
 
 
+def get_path_till_course(doc, path=None, path_trunk_set=None):
+  """Gets a list of parents with root as a course.
+  
+  Useful in cases where a user lands on a random page and page
+  needs to be linked to a course.
+  Currently just picking the most latest parent recursively up
+  until a course is reached or there are no more parents to pick.
+
+  NOTE(mukundjha): This function is very heavy on datastore.
+  * Checking for first 1000 entries for an existing course 
+  is slightly better than checking all entries.
+
+  Args:
+    doc: DocModel object in consideration.
+    path: starting path
+
+  Returns:
+    A list of parents doc_ids with root as a course.
+  """
+  logging.info('****Path RCVD %r', path) 
+  trunk_set = set()
+  if path is None:
+    path = []
+  if path_trunk_set is None:
+    path_trunk_set = set([doc.trunk_ref.key()])
+
+  parent_entry = models.DocLinkModel.all().filter('trunk_ref =', doc.trunk_ref).order(
+      '-created').fetch(1000)
+  # Set if an alternate path is picked for a case where cycle is found.
+  alternate_picked_flag = 0
+  alternate_parent = None
+
+  for parent in parent_entry:
+    if parent.from_trunk_ref.key() not in trunk_set:
+      trunk_set.add(parent.from_trunk_ref.key())
+      if parent.from_trunk_ref.key() not in path_trunk_set:
+        if not alternate_picked_flag:
+          alternate_parent = parent
+          alternate_picked_flag = 1
+
+        if parent.from_doc_ref.label == models.AllowedLabels.COURSE:
+          logging.info(
+              'PARENTLISTPATH LOOP1***\n adding %r to list %r \nand %r to trunk %r\n',
+              parent.from_doc_ref.title, [p.title for p in path],
+              parent.from_trunk_ref.key(), path_trunk_set)
+
+          path_trunk_set.add(parent.from_trunk_ref.key())
+          path.append(parent.from_doc_ref)
+          path.reverse()
+          path_to_return = [el.key() for el in path]
+          logging.info('RETURNING PATH LOOP 1: %r',  [p.title for p in path])
+          return path_to_return
+     
+  
+  if alternate_parent:
+    parent = alternate_parent
+    if parent.from_trunk_ref.key() not in path_trunk_set:
+    
+      logging.info('PARENTLISTPATH LOOP2** adding %r to list %r \nand %r to trunk %r\n',
+                   parent.from_doc_ref.title, [p.title for p in path],
+                   parent.from_trunk_ref.key(), path_trunk_set)
+      path_trunk_set.add(parent.from_trunk_ref.key())
+      path.append(parent.from_doc_ref)
+      logging.info('****Path sent %r', path) 
+      path_to_return = get_path_till_course(parent.from_doc_ref, path, path_trunk_set)
+    else:
+      path.reverse()
+      path_to_return = [el.key() for el in path]
+  else:
+    path.reverse()
+    path_to_return = [el.key() for el in path]
+
+  logging.info('RETURNING PATH LOOP 2: %r',  [p.title for p in path])
+  return path_to_return
+
+
 def get_or_create_session_id(widget, user):
   """Retrieves or creates a new session_id for the widget.
   
@@ -661,5 +833,200 @@ def get_or_create_session_id(widget, user):
 
   if not visit_state:
     visit_state = insert_with_new_key(models.WidgetProgressState, user=user,
-                                      widget_ref=widget, progress_score=0)
+                                      widget_ref=widget, progress_score=None)
   return str(visit_state.key())
+
+
+def set_dirty_bits_for_doc(doc, user):
+  """Sets dirty bit for all the parents in the path used to reach doc.
+
+  Dirty bit indicates the score for the doc are stale and needs to be
+  recomputed.
+   
+  TODO(mukundjha): We should check for the path, or pass path as 
+  parameter.
+
+  TODO(mukundjha): Maybe we should bind this with actual doc rather than
+  trunk.
+
+  Args:
+    doc: Document for which score has just been updated.
+    user: Associated user.
+  """
+  doc_visit_stack =  models.TraversalPath.all().filter(
+      'current_trunk =', doc.trunk_ref).get()
+
+  if not doc_visit_stack:
+    return
+
+  for el in doc_visit_stack.path:
+    parent = db.get(el)
+    visit_entry = models.DocVisitState.all().filter(
+        'trunk_ref =', parent.trunk_ref).filter(
+        'user =', user).get()
+    if visit_entry:
+      visit_entry.dirty_bit = True
+      visit_entry.put()     
+  
+
+def update_visit_stack(doc, parent, user):
+  """Updates the visit stack for a particular doc.
+
+  Path appends parent to parent's path and sets as path for curernt doc.
+  If parent is itself a course, only parent is added to the path as paths
+  are rooted at course level.
+ 
+  NOTE(mukundjha): Currently stack stores doc_ids, we could replace this with,
+  trunk_id, doc_id, doc.title to reduce the datastore load.
+
+
+  Args:
+    doc: DocModel object for which visit stack is to be updated.
+    parent: DocModel object - parent of the provided doc or None.
+    user: Associated user.
+
+  Returns:
+    Updated visit stack entry object.
+  """
+  doc_visit_stack =  models.TraversalPath.all().filter(
+      'current_trunk =', doc.trunk_ref).get()
+
+  if parent:
+    if parent.label == models.AllowedLabels.COURSE:
+      path = [parent.key()]
+    else:
+      parent_visit_stack = models.TraversalPath.all().filter(
+          'current_trunk =', parent.trunk_ref).get()
+      if not parent_visit_stack:
+        path_for_parent = get_path_till_course(parent)
+
+        parent_visit_stack = insert_with_new_key(
+            models.TraversalPath, current_trunk=parent.trunk_ref,
+            current_doc=parent, path=path_for_parent)
+
+      path = []
+      cycle_detected = 0
+      # Checking for loop
+      for el in parent_visit_stack.path:
+        element = db.get(el)
+        if element.trunk_ref.key() == doc.trunk_ref.key():
+          cycle_detected = 1
+          logging.info("\n************DOC CYCLE DETECTED ****************\n")
+          break
+        elif element.trunk_ref.key() == parent.trunk_ref.key():
+          path.append(el)
+          cycle_detected = 1
+          logging.info("\n************PARENT CYCLE DETECTED ****************\n")
+          break
+        else:
+          path.append(el)
+
+      if not cycle_detected:
+        path.append(parent.key())
+      
+    if doc_visit_stack:
+      doc_visit_stack.path = path
+      doc_visit_stack.put()
+    else:
+      doc_visit_stack = insert_with_new_key(
+        models.TraversalPath, current_doc=doc, 
+        current_trunk=doc.trunk_ref, path=path)
+  
+  # If parent is not present
+  elif not doc_visit_stack:
+    # Gets set of parents.
+    path = get_path_till_course(doc)
+    doc_visit_stack = insert_with_new_key(
+        models.TraversalPath, current_trunk=doc.trunk_ref,
+        current_doc=doc, path=path)
+  return doc_visit_stack
+
+
+def update_recent_course_entry(recent_doc, course, user):
+  """Updates the entry for recent course visited/accesed.
+  
+  Note(mukundjha): instead of using course.get_score() we should
+  use the get_accumulated_score() with recurse=True, but it would
+  be too costly to do it on every update. Therefore its better to
+  push the score-change/delta up the tree on every update.
+  
+  Args:
+    recent_doc: Latest doc accessed for the course.
+    course: Course to be updated.
+    user: User for whom update is to be made.
+  """
+  logging.info('*********UPDATING RECENT COURSE ENTRY #******* %r %r %r', course.title, user, course.label)
+  if course.label != models.AllowedLabels.COURSE:
+    logging.error('FUNCTION:update_recent_course_entry- Doc passed not a course')
+    return None
+  course_entry = models.RecentCourseState.all().filter('user =', user).filter(
+      'course_trunk_ref =', course.trunk_ref).get()
+  #getting the latest accessed course
+  course = get_doc_for_user(course.trunk_ref.key(), user)
+
+  if not course_entry:
+    course_entry = insert_with_new_key(models.RecentCourseState,
+                                       course_trunk_ref=course.trunk_ref,
+                                       course_doc_ref=course,
+                                       last_visited_doc_ref=recent_doc,
+                                       course_score=course.get_score(user),
+                                       user=user)
+  else:
+    course_entry.last_visited_doc_ref = recent_doc
+    course_entry.course_doc_ref=course
+    course_entry.course_score = course.get_score(user)
+    logging.info('*******COURSE SCORE %r', course.get_score(user))
+    course_entry.put()
+  return course_entry
+
+
+def get_recent_in_progress_courses(user):
+  """Gets a list of recent courses in progress.
+
+  Args:
+    user: User under consideration.
+  
+  Returns:
+    List of recent course entry.
+  """
+
+  recent_list = models.RecentCourseState.all().filter('user =', user).order(
+      '-time_stamp')
+  in_progress = []
+  num_to_pick = 5
+  for entry in recent_list:
+    logging.info('****** %r %r', entry, entry.course_score)
+    if entry.course_score < 100 and num_to_pick:
+      num_to_pick -= 1
+      in_progress.append(entry)
+      logging.info('****** picked %r', entry)
+  
+  return in_progress
+
+
+def expand_path(path, use_history, absolute, user):
+  """Expands the path into objects based on the parameters.
+
+  Absolute is given preference over others.
+  Args:
+    path: List of doc_ids forming a traversal path.
+    use_history: If set then user's history is used to expand all
+    the links.
+    absolute: If set absolute addressing is used. Docs with same doc_ids in
+      the list are fetched.
+    user: User associated with request.
+  """
+  path = [ db.get(el) for el in path ]
+  if absolute:
+    return path
+  elif use_history:
+    path = [ get_doc_for_user(el.trunk_ref.key(), user) for el in path ]
+  else: 
+    # Fetch latest
+    path = [ fetch_doc(el.trunk_ref.key()) for el in path ]
+  return path
+
+
+def show_changes(pre, post):
+  """Displays diffs between two models."""
+  return pre.HtmlDiff(pre, post)

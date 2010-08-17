@@ -62,8 +62,9 @@ limitations under the License.
         <div id="loading" class="loading" style="display:none;">Loading...
             <span id="loadingCount"></span>
         </div>
-        <div id="title-name" class="title">{{ page_title|safe }}</div>
-         {% block titlebar %}{% endblock %}
+        {% block titlebar %}
+         <div id="title-name" class="title">{{ page_title|safe }}</div>
+        {% endblock %}
       </div>
      </div> <!-- page-title -->
     </div>

@@ -18,23 +18,47 @@ limitations under the License.
  src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
 </script>
 {% endblock %}
-
-{% block title %} {{ title|safe }} {% endblock %}
-
+{% block titlebar %}
+<div id="title-name" class="title">
+{% for i in traversed_path|length|get_range %}
+  {% ifequal i 0 %}
+  {% with traversed_path|get_element:i as current %}
+  <a href='/view?trunk_id={{current.trunk_ref|get_key}}&doc_id={{current|get_key}}'>{{current.title}}</a>&nbsp;>
+  {% endwith %}
+  {% else %}
+  {% with traversed_path|get_element:i as current %}
+  {% with i|subtract_one as prev_index %}
+  {% with traversed_path|get_element:prev_index as prev %}
+  <a href='/view?trunk_id={{current.trunk_ref|get_key}}&doc_id={{current|get_key}}&parent_trunk={{prev.trunk_ref|get_key}}&parent_id={{prev|get_key}}'>{{current.title}}</a>&nbsp;>
+  {% endwith %}
+  {% endwith %}
+  {% endwith %}
+  {% endifequal %}
+{% endfor %}
+  {% if traversed_path|length %}
+  {% with traversed_path|length as temp %}
+  {% with temp|subtract_one as last_index %}
+  {% with traversed_path|get_element:last_index as prev %}
+  <a href='/view?trunk_id={{doc.trunk_ref|get_key}}&doc_id={{doc|get_key}}&parent_trunk={{prev.trunk_ref|get_key}}&parent_id={{prev|get_key}}'>{{doc.title}}</a>
+  {% endwith %}
+  {% endwith %}
+  {% endwith %}
+  {% else %}
+  <a href='/view?trunk_id={{doc.trunk_ref|get_key}}&doc_id={{doc|get_key}}'>{{doc.title}}</a>
+  {% endif %}
+  <div id="docProgressContainer" style="float:right"><b>Progress: </b>
+      <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{doc_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11">
+  </div>
+</div>
+{% endblock %}
 {% block content_main %}
 {% if errorMsg %}
 	{{errorMsg}}
 	<hr/>
 {% endif %}
-
-<table class='commonAttributes' width='50%'>
- <tr class='oddrow'><td><b>Creator: </b></td><td>{{doc.creator}}</td></tr>
- <tr class='evenrow'><td><b>Created on: </b></td><td>{{doc.created}}</td></tr>
- <tr class='oddrow'><td><b>Title: </b></td><td>{{doc.title}}</td></tr>
-<tr><td><b>Grade Level: </b></td><td>{{doc.grade_level}} </td></tr>
-</table>
+<h1>{{doc.title}}</h1>
 <hr/>
-<table width='100%'>
+<table width='100%' class='contentTable'>
 {% for object in doc_contents %}
   <tr class={% cycle '"oddrow"' '"evenrow"' %}>
   {% ifequal object|class_name "RichTextModel" %}
@@ -52,6 +76,7 @@ limitations under the License.
    {% endifequal %}
    {% endifequal %}
  {% endifequal %}
+</tr>
 {% endfor %} 
 </table>
 {% endblock %}
