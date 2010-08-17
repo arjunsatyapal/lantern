@@ -1,0 +1,4 @@
+{% with object|get_key as obj_id %}
+<button onClick="showNote('note-{{ obj_id }}')">My Note...</button>
+<textarea class="note" id="note-{{ obj_id }}"
+>{{ annotation|get_element:obj_id }}</textarea>{% endwith %}

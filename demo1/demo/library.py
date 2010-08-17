@@ -715,6 +715,33 @@ def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
     return content_list
 
 
+def get_doc_annotation(doc, user):
+  """Retrieve annotation for a given doc.
+
+  Args:
+    doc: DocModel that is possibly annotated
+    user: User in consideration
+  Returns:
+    A dictionary of { obj_id: annotation } for component documents in doc
+  """
+  if not isinstance(doc, models.DocModel) or (user is None):
+    return None
+  annotation = {}
+  for el in doc.content:
+    element = db.get(el)
+    anno = (models.AnnotationState.all()
+            .filter('user=', user).filter('doc_ref=', doc)
+            .filter('object_ref=', element)).get()
+    if not anno or not anno.annotation_data:
+      if 1:
+	anno = models.AnnotationState(user=user, doc_ref=doc, object_ref=element)
+	anno.annotation_data = ("Sample Annotation Given To %s" %
+                                element.asText()[:40])
+	anno.put()
+    annotation[str(element.key())] = anno.annotation_data
+  return annotation
+
+
 def put_widget_score(widget, user, score):
   """Stores progress score for a widget.
 

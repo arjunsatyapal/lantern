@@ -710,11 +710,15 @@ def view_doc(request):
   title = ''.join(title_items)
 #  for con in doc_contents:
 #    logging.info('\n**** CONTENT %r %r %r\n', con, con.default_title, con.score)
+
+  annotation = library.get_doc_annotation(doc, users.get_current_user())
+
   return respond(request, title, "view.html",
                 {'doc': doc,
                 'doc_score': doc_score,
                 'doc_contents': doc_contents,
                 'traversed_path': traversed_path,
+                'annotation': annotation,
                 'mainmenu': main_menu
                 })
 
@@ -920,4 +924,3 @@ def fetch_from_tags(request):
 
   return respond(request, constants.DEFAULT_TITLE, "course_list.html",
                  {'course_list' : course_list})
-

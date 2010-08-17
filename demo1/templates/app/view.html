@@ -14,8 +14,30 @@ limitations under the License.
 -->
 {% extends "app/base1col.html" %}
 {% block extra_head %}
+<script>
+  goog.require('goog.ui.Popup');
+</script>
 <script type="text/javascript"
  src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
+</script>
+<style>
+.note {
+  position:absolute;
+  visibility:hidden;
+  background: lightyellow;
+  color: black;
+  border: 1px solid black;
+  padding: 5px;
+  font: menu;
+  width: 400px;
+}
+</style>
+<script>
+  function showNote(name) {
+    var noteElt = document.getElementById(name);
+    var note = new goog.ui.Popup(noteElt);
+    note.setVisible(true);
+  }
 </script>
 {% endblock %}
 {% block titlebar %}
@@ -61,21 +83,22 @@ limitations under the License.
 <table width='100%' class='contentTable'>
 {% for object in doc_contents %}
   <tr class={% cycle '"oddrow"' '"evenrow"' %}>
+  <td>{% include 'include/notes.html' %}
   {% ifequal object|class_name "RichTextModel" %}
-  <td>{% include 'include/rich_text_model.html' %}</td>
+      {% include 'include/rich_text_model.html' %}
   {% else %} 
    {% ifequal object|class_name "VideoModel" %}
-     <td>{% include 'include/video_model.html' %}</td>
+     {% include 'include/video_model.html' %}
    {% else %}
    {% ifequal object|class_name "DocLinkModel" %}
-  <td>{% include 'include/doc_link_model.html' %}</td>
+      {% include 'include/doc_link_model.html' %}
    {% else %}
    {% ifequal object|class_name "WidgetModel" %}
-  <td>{% include 'include/widget_model.html' %}</td>
+      {% include 'include/widget_model.html' %}
    {% endifequal %}
    {% endifequal %}
    {% endifequal %}
- {% endifequal %}
+ {% endifequal %}</td>
 </tr>
 {% endfor %} 
 </table>
