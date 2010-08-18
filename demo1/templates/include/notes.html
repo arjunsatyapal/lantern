@@ -1,7 +1,8 @@
 {% with object|get_key as obj_id %}
 {% with annotation|get_element:obj_id as anno %}
 <div
-><button onClick="showNote('note-{{ anno.key }}')" class="notestrigger"></button>
+><button onClick="showNote('note-{{ anno.key }}')" class="notestrigger"
+><img src="/static/images/note.png" width="16" height="16"></button>
 <textarea class="note" id="note-{{ anno.key }}"
 >{{ anno.data }}</textarea
 ></div>{% endwith %}{% endwith %}

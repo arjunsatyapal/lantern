@@ -461,7 +461,7 @@ def append_to_trunk(quiz_trunk_id, quiz_id, **kwargs):
 def get_quiz_from_trunk(session_id, quiz_trunk_id):
   """Retrieves relevant quiz version based on user's response history.
 
-  Returns the last version user was using, else returns head of the trunk.
+  Returns the last version i.e., head of the trunk.
   
   Args:
     session_id: String representing session_id.
@@ -537,6 +537,15 @@ def fetch_new_question_and_status(session_id, quiz_trunk_id, repeat):
   
   return {'current_status' : {'score' : score, 'progress': progress},
           'question' : question, 'attempts': attempts, 'title': quiz.title}
+
+def remove_question_from_quiz(question, quiz):
+  """Removes question from the quiz.
+  """
+  
+  question_entry = models.QuizQuestionListModel.all().filter(
+      'question =', question).filter('quiz =',quiz).get()
+  if question_entry:
+    db.delete(question_entry)
 
 
 def question_to_json(question_and_status_dict, repeat):

@@ -182,7 +182,7 @@ class GetPathTillCourseTest(unittest.TestCase):
     docs[3].label = models.AllowedLabels.COURSE
     docs[3].put()
     doc = db.get(docs[3].key())
-    logging.info('~~~~~~~~~~~tititle %r',doc.title) 
+    logging.info('~~~~~~~~~~~tititle %r', doc.title) 
     # Graph looks like this
     #  3 -> 1 -> 0
     #  4 -> 2 -> 0
@@ -518,11 +518,13 @@ class GetParentTest(unittest.TestCase):
     doc1 = library.create_new_doc()
     doc2 = library.create_new_doc()
     doc3 = library.create_new_doc()
-    library.insert_with_new_key(models.DocLinkModel, trunk_ref=doc1.trunk_ref.key(),
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=doc1.trunk_ref.key(),
       doc_ref=doc1.key(), from_trunk_ref=doc3.trunk_ref.key(),
       from_doc_ref=doc3.key())
 
-    library.insert_with_new_key(models.DocLinkModel, trunk_ref=doc1.trunk_ref.key(),
+    library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=doc1.trunk_ref.key(),
       doc_ref=doc1.key(), from_trunk_ref=doc2.trunk_ref.key(),
       from_doc_ref=doc2.key())
 
@@ -547,7 +549,8 @@ class GetAccumulatedScoreTest(unittest.TestCase):
     # creating another doc
     doc1 = library.create_new_doc()
     # creating link to previous doc
-    link = library.insert_with_new_key(models.DocLinkModel, trunk_ref=doc.trunk_ref.key(),
+    link = library.insert_with_new_key(models.DocLinkModel,
+      trunk_ref=doc.trunk_ref.key(),
       doc_ref=doc.key(), from_trunk_ref=doc1.trunk_ref.key(),
       from_doc_ref=doc1.key())
     # creating a quiz
@@ -560,7 +563,8 @@ class GetAccumulatedScoreTest(unittest.TestCase):
     doc1.content.append(link.key())
     doc1.content.append(widget.key())
     doc1.put()
-    doc_content = library.get_doc_contents(doc1, True, False, users.get_current_user(),False)
+    doc_content = library.get_doc_contents(doc1, True, False,
+                                           users.get_current_user(), False)
 
     score = library.get_accumulated_score(doc1, doc_content,
                                           users.get_current_user())
@@ -599,7 +603,9 @@ class AppendToTrunkTest(unittest.TestCase):
 
     returned_trunk = library.append_to_trunk(trunk.key(), str(doc.key()))
 
-    trunk_revision_entry = models.TrunkRevisionModel.all().ancestor(trunk).get()
+    trunk_revision_entry = models.TrunkRevisionModel.all().ancestor(
+         trunk).get()
+
     self.assertEquals(str(trunk_revision_entry.parent().key()),
       str(trunk.key()))
     self.assertEquals(str(trunk_revision_entry.obj_ref), str(doc.key()))

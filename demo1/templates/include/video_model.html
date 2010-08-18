@@ -1,20 +1,47 @@
 <center><div class="topic_video">
  {% if object.video_id %}
-  <div id= 'ytapiplayer'>
+  <div id= 'ytapiplayer-{{ object|get_key }}'>
     You need Flash player 8+ and JavaScript enabled to view this video.
   </div>
   <script type="text/javascript"> <!--
+   var videoXhr = new goog.net.XhrIo();
+   var uri = new goog.Uri('/storeVideoStateAjax');
      var params = { allowScriptAccess: 'always' };
      var atts = { id: '{{ object|get_key }}' };
      swfobject.embedSWF(
         'http://www.youtube.com/v/{{object.video_id}}?enablejsapi=1&'
         + 'playerapiid=ytplayer',
-        'ytapiplayer', '{{object.width}}', '{{object.height}}', '8', null, null, params, atts);
+        'ytapiplayer-{{ object|get_key }}', '{{object.width}}', '{{object.height}}', '8', null, null, params, atts);
   // -->
+  function onYouTubePlayerReady(playerId) {
+   var ytplayer = document.getElementById('{{ object|get_key }}');
+   {% if object.current_time %}
+      ytplayer.seekTo({{object.current_time}}, false);
+      ytplayer.pauseVideo();
+   {% endif %}
+   ytplayer.addEventListener('onStateChange', 'onYtplayerStateChange');
+ }  
+  var toggleFlag = 0;
+  function onYtplayerStateChange(newState) {
+    var ytplayer = document.getElementById('{{ object|get_key }}');
+
+    if (newState === 1)
+    {
+       toggleFlag = 1;
+    }
+    else if (newState === 2 && toggleFlag ===1)
+    {
+      toggleFlag = 0;
+      uri.setParameterValue('video_id', '{{ object|get_key }}');
+      uri.setParameterValue('current_time', ytplayer.getCurrentTime());
+      videoXhr.send(uri);
+    }
+  }
+
   </script>
  {% else %}
-  <div id="ytapiplayer">
-     Please select a topic
+  <div id="ytapiplayer-{{ object|get_key }}">
+     Error loading video...
   </div>
  {% endif %}
  </div></center>

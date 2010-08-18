@@ -95,7 +95,7 @@ limitations under the License.
 <script type="text/javascript">
  function onYouTubePlayerReady(playerId) {
    var ytplayer = document.getElementById('myytplayer');
-   ytplayer.addEventListener('onStateChange', 'onYtplayerStateChange');
+   ytplayer.addEventListener('onStateChange', 'onYtplayerStateChange', playerId);
  }
 
  var PLAYER_STATES = {
@@ -106,7 +106,9 @@ limitations under the License.
   3: 'Buffering',
   5: 'Cued'
  };
- function onYtplayerStateChange(newState) {
+ function onYtplayerStateChange(newState, playerId) {
+  var ytplayer = document.getElementById(playerId);
+  alert(' Time : '+ ytplayer.getCurrentTime());
   var debugMsg = document.getElementById('debugMsg');
   debugMsg.innerHTML = 'Player changed state: ' + PLAYER_STATES[newState];
 }

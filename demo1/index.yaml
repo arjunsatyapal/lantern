@@ -22,9 +22,22 @@ indexes:
   - name: time_stamp
     direction: desc
 
+- kind: DocLinkModel
+  properties:
+  - name: trunk_ref
+  - name: created
+    direction: desc
+
 - kind: DocModel
   properties:
   - name: creator
+  - name: created
+    direction: desc
+
+- kind: DocModel
+  properties:
+  - name: label
+  - name: tags
   - name: created
     direction: desc
 
@@ -44,6 +57,13 @@ indexes:
 
 - kind: DocVisitState
   properties:
+  - name: progress_score
+  - name: user
+  - name: last_visit
+    direction: desc
+
+- kind: DocVisitState
+  properties:
   - name: trunk_id
   - name: user
   - name: last_visit
@@ -54,6 +74,12 @@ indexes:
   - name: trunk_ref
   - name: user
   - name: last_visit
+    direction: desc
+
+- kind: RecentCourseState
+  properties:
+  - name: user
+  - name: time_stamp
     direction: desc
 
 - kind: TrunkRevisionModel

@@ -38,8 +38,12 @@ class PresentQuiz(webapp.RequestHandler):
   def get(self):
     quiz_trunk_id = self.request.get('quiz_trunk_id')
     quiz_id = self.request.get('quiz_id')
+    try:
+      quiz = db.get(quiz_id) 
+    except:
+      self.response.out.write('Problem with quiz id '+ str(quiz_id));
+      return
     path = os.path.join(os.path.dirname(__file__), 'template/quiz.html')
-    quiz = db.get(quiz_id) 
     self.response.out.write(template.render(path,
                             {'quiz_trunk_id': quiz_trunk_id,
                             'quiz_id': quiz_id,
@@ -112,7 +116,7 @@ class CollectResponseAjax(webapp.RequestHandler):
     # correct response
     elif check_response:
       choice = db.get(answer_id)
-      message = 'Correct!!<br>%s<br>' % choice.message
+      message = 'Correct!!\n %s ' % choice.message
       library.store_response(session_id, quiz_id, question_id, True, attempts)
       try:
         question = db.get(question_id)
@@ -130,7 +134,7 @@ class CollectResponseAjax(webapp.RequestHandler):
 
     else:
       choice = db.get(answer_id)
-      message = 'Wrong!!<br>%s<br>' % choice.message
+      message = 'Wrong!!\n %s' % choice.message
       library.store_response(session_id, quiz_id, question_id, False, attempts)
       data_dict['accepted'] = False
 
@@ -140,6 +144,25 @@ class CollectResponseAjax(webapp.RequestHandler):
                   simplejson.dumps(data_dict))
     self.response.out.write(simplejson.dumps(data_dict))
 
+
+class EditQuiz(webapp.RequestHandler):
+  """Edit interface for a given quiz."""
+  
+  def get(self):
+    quiz_id = self.request.get('quiz_id')
+    try:
+      quiz = db.get(quiz_id)
+    except db.BadKeyError:
+      self.response.write('Error the quiz id is not valid.')
+
+    query = models.QuizQuestionListModel.all().filter(
+        'quiz =', quiz).order('-time_stamp')
+
+    list_of_questions = [entry.question for entry in query]
+
+    path = os.path.join(os.path.dirname(__file__), 'template/editQuiz.html')
+    self.response.out.write(template.render(path,
+                           {'quiz' : quiz, 'questions': list_of_questions}))
  
 class SubmitNewQuiz(webapp.RequestHandler):
   """Creates a new quiz.
@@ -149,14 +172,52 @@ class SubmitNewQuiz(webapp.RequestHandler):
   """
 
   def post(self):
+    quiz_id = self.request.get('quiz_id')
+    
     title  = self.request.get('quiz_title')
     level = int(self.request.get('quiz_level', 7))
-    quiz_property = library.create_quiz_property()
-    quiz = library.create_quiz(title=title, difficulty_level=level,
-                               quiz_property=quiz_property)
+    if quiz_id:
+      try:
+        quiz = db.get(quiz_id)
+      except db.BadKeyError:
+        self.response.write('BadKeyError: wrong key for quiz, %s',
+                             quiz_id)
+      quiz.title = title
+      quiz.level = level
+      quiz.put()
 
-    redirection_url = '/quiz/addQuestion?quiz_id=%s' % quiz.key()
+    else:
+      quiz_property = library.create_quiz_property()
+      quiz = library.create_quiz(title=title, difficulty_level=level,
+                               quiz_property=quiz_property)
+    if quiz_id:
+      redirection_url = '/quiz/viewQuiz?quiz_id=%s' % quiz.key()
+    else:
+      redirection_url = '/quiz/addQuestion?quiz_id=%s' % quiz.key()
     self.redirect(redirection_url)
+
+
+class DeleteQuestion(webapp.RequestHandler):
+  """Adds a new question to a the quiz.
+  """
+
+  def post(self):
+    question_id  = self.request.get('question_id')
+    quiz_id  = self.request.get('quiz_id')
+
+    try:
+      quiz = db.get(quiz_id)
+    except db.BadKeyError:
+      self.response.write('BadKeyError: wrong key for quiz, %s',
+                           quiz_id)
+
+    if question_id:
+      try:
+        question = db.get(question_id)
+      except db.BadKeyError:
+        self.response.write('BadKeyError while adding question');
+    library.remove_question_from_quiz(question, quiz)
+    self.redirect('/quiz/editQuiz?quiz_id='+quiz_id)
 
 
 class SubmitNewQuestion(webapp.RequestHandler):
@@ -177,10 +238,9 @@ class SubmitNewQuestion(webapp.RequestHandler):
       try:
         question = db.get(question_id)
       except db.BadKeyError:
-        self.response.write('BadKeyError while adding question');
+        self.response.out.write('BadKeyError while adding question');
+      library.remove_question_from_quiz(question, quiz)
 
-      library.add_question(quiz, question)
-   
     shuffle = self.request.get('choice_shuffle', False)
     question_text = self.request.get('question_text')
     hints = self.request.get_all('question_hints')
@@ -209,8 +269,10 @@ class SubmitNewQuestion(webapp.RequestHandler):
 
     library.create_question(quiz, body=question_text, hints=hints,
                             choices=choice_list, shuffle_choices=shuffle); 
-       
-    redirection_url = '/quiz/addQuestion?quiz_id=%s' % quiz.key()
+    if question_id:
+      redirection_url = '/quiz/editQuiz?quiz_id=%s' % quiz.key()
+    else:   
+      redirection_url = '/quiz/addQuestion?quiz_id=%s' % quiz.key()
     self.redirect(redirection_url)
 
 
@@ -240,6 +302,35 @@ class AddQuestion(webapp.RequestHandler):
     self.response.out.write(template.render(path,
                            {'quiz' : quiz,
                             'quiz_key' : quiz.key()}))
+
+class EditQuestion(webapp.RequestHandler):
+  """Presents an edit page for editing questions.
+  TODO(mukundjha): Use filters instead of passing key to the template.
+  """
+
+  def get(self):
+    quiz_id = self.request.get('quiz_id')
+    question_id = self.request.get('question_id')
+    logging.info('\n ****** Question : %r\n', question_id)
+    try:
+      quiz = db.get(quiz_id)
+    except db.BadKeyError:
+      self.response.write('Error the quiz id is not valid.')
+    try:
+      question = db.get(question_id)
+    except db.BadKeyError:
+      self.response.write('Error the question is not valid.')
+    choices = [];
+    for ch in question.choices:
+      choices.append(db.get(ch))
+#    logging.info('\n ****** Question : %r\n', question.choices[0].body)
+    path = os.path.join(os.path.dirname(__file__), 'template/editQuestion.html')
+    self.response.out.write(template.render(path,
+                           {'quiz' : quiz,
+                            'quiz_key' : quiz.key(),
+                            'question': question,
+                            'choices': choices}))
+
   
 
 class ViewQuiz(webapp.RequestHandler):
@@ -273,7 +364,9 @@ application = webapp.WSGIApplication(
     ('/quiz/addQuestion', AddQuestion),
     ('/quiz/submitQuestion',  SubmitNewQuestion),
     ('/quiz/resetQuiz',  ResetQuizAjax),
-    ('/quiz/submitQuiz', SubmitNewQuiz)],
+    ('/quiz/submitQuiz', SubmitNewQuiz),
+    ('/quiz/editQuestion', EditQuestion),
+    ('/quiz/editQuiz', EditQuiz)],
     debug=True)
 
 def main():

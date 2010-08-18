@@ -2,19 +2,31 @@
 <body>
  <h1> {{quiz.title}}</h1>
  <a href='/quiz/editQuiz?quiz_id={{quiz_key}}'>Edit Quiz</a>
- <h3> Add question for quiz</h3>
+ <h3> Edit question for quiz</h3>
  <form id='edit_form' action='/quiz/submitQuestion' method='POST' enctype="application/octet-stream">
  <input type='hidden' name='quiz_id' value='{{ quiz_key }}'/>
- <table class='commonAttributes' width='50%'> 
- <tr><td><b>Question: </b></td><td><textarea name='question_text' rows='5' cols='40'>Enter question here</textarea></td></tr>
+ <input type='hidden' name='question_id' value='{{ question|get_key }}'/>
+ <table class='commonAttributes' width='50%'>
+ <tr><td><b>Question: </b></td><td><textarea name='question_text' rows='5' cols='40'>{{question.body}}</textarea></td></tr>
  </table>
  <hr/>
  <center>
+ <b>Choices:</b>
  <table class='addChoice' id='choice_table'>
+ {% for ch in choices %}
+   <table><tr><td>Choice {{forloop.counter}}:</td><td><input type="text" value="{{ch.body}}" name="choice_texts"></td></tr>
+     <tr><td>Message:</td><td><input type="text" value="{{ch.message}}" name="choice_messages"></td></tr>
+    {% if ch.is_correct %}
+    <tr><td>Correct:</td><td><input type="checkbox" name="is_correct" value="{{forloop.counter}}" checked>Is Correct</input>
+    {% else %}
+    <tr><td>Correct:</td><td><input type="checkbox" name="is_correct" value="{{forloop.counter}}">Is Correct</input>
+    {% endif %}
+    </td></tr></table><hr/>
+ {% endfor %}
  <tr id='object_menu'><td><a href='javascript:insertChoice();'>Add Choice</a></td></tr>
 </table>
  </center>
- <input type='submit' value='Add Question' onSubmit="javascript:setValueForChoices()"/>
+ <input type='submit' value='Done Editing Question' onSubmit="javascript:setValueForChoices()"/>
  </form>
 
 <script type="text/javascript">
@@ -44,12 +56,11 @@ function setValueForChoices(){
    var el = document.getElementByID('is_correct');
    for (i=0; i<el.length; i++){
      if (el[i].checked==true){
-        var num = i+1
+        var num = i+1;
         var key = 'choice'+ num;
         var hiddenInput = document.getElementById(key);
  
 	hiddenInput.value=True;
-
      }  
    }
 

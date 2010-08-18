@@ -1,11 +1,12 @@
 <html>
 <body>
 <strong>{{quiz.title}}</strong>
+<a href='/quiz/editQuiz?quiz_id={{ quiz|get_key }}'>Edit Quiz</a>
 <table border=0>
 {% for question in questions %}
 <tr>        
         <td>{{forloop.counter}}</td>
-	<td>{{question.body}}</td>
+	<td><a href='/quiz/editQuestion?question_id={{ question|get_key }}&quiz_id={{ quiz|get_key }}'>{{question.body}}</td>
 </tr>
 {% endfor %}
 </table>

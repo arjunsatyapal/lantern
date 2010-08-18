@@ -3,19 +3,11 @@
 </div>
 <script> 
 var doc_score = {{doc_score}};
-if ( doc_score == 100) {
+var completed_status = ( doc_score == 100); 
 
   lantern.comm.LanternChannelFactory.registerChannel(
     '{{object.base_url}}',
     '{{object.widget_url|safe}}','{{object|get_key}}','{{doc|get_key}}',
-    '{{doc.trunk_ref|get_key}}','{{object.height}}','{{object.width}}',false,true);
-  }
-else
- {
-   lantern.comm.LanternChannelFactory.registerChannel(
-    '{{object.base_url}}',
-    '{{object.widget_url|safe}}','{{object|get_key}}','{{doc|get_key}}',
-    '{{doc.trunk_ref|get_key}}','{{object.height}}','{{object.width}}',false,false);
- }
+    '{{doc.trunk_ref|get_key}}','{{object.height}}','{{object.width}}',false, completed_status);
 
 </script>

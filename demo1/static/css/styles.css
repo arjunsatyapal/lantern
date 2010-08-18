@@ -285,14 +285,48 @@ td.diff_header {text-align:right}
 
 table.diff {width: 100%}
 
+.lantern-subject-menu.goog-menuitem {
+  padding: 3px 10px;
+}
+
+.lantern-subject-submenu.goog-menuitem-highlight .goog-menuitem-content {
+  text-decoration: underline;
+  color: #006699;
+}
+
+.lantern-subject-submenu .goog-submenu-arrow {
+  color: #999;
+  text-decoration: none;
+}
+
+/* Link Picker */
+
+.linkpicker .modal-dialog-content {
+  max-height: 300px;
+  overflow: auto;
+}
+
+/* Quiz */
+
+
+div.lanternQuizLabel {
+  font-weight: bold; 
+}
+
+div.lanterQuizSuccessMessage {
+  color:green;
+}
+
+div.lanterQuizFaliureMessage {
+  color:red;
+}
+	
 button.notestrigger {
   float: right;
   border: 0;
   margin: 0;
   padding: 0;
-  width: 16;
-  height: 16;
-  background: transparent url('/static/images/note.png') no-repeat center top;
+  background: transparent;
 }
 
 .note {

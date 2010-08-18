@@ -64,8 +64,19 @@ lantern.quiz.QuizSession.prototype.initQuiz = function(session_id) {
   this.sessionId_ = session_id;
   this.getNextQuestion();
 };
-
-
+/**
+ * Parses question body, replacing '\n' with <br> 
+ */
+lantern.quiz.QuizSession.prototype.parseQuestion = function(questionBody) {
+ var htmlArray = questionBody.split('\n');
+ var element = goog.dom.createDom('div');
+ 
+ for(var i=0; i< htmlArray.length; i++) {
+   element.appendChild(goog.dom.createTextNode(htmlArray[i]));
+   element.appendChild(goog.dom.createDom('br'));
+   }
+ return element
+}
 /**
  * Sends an AJAX call to fetch new question.
  */
@@ -110,20 +121,20 @@ lantern.quiz.QuizSession.prototype.makeQuizDOM = function(obj) {
   goog.dom.removeChildren(goog.dom.getElement('choices'));
   
   var quizTitleBar = goog.dom.getElement('quizTitle')
-  var title = goog.dom.createDom('h2',{'class': 'quizTitle'},obj.title)
+  var title = goog.dom.createDom('h2'. {'class': 'quizTitle'}, obj.title)
   quizTitleBar.appendChild(title)
   this.attempts_ = obj.attempts;
   var questionBodyContainer = goog.dom.getElement('questionBody');
   questionBodyContainer.appendChild(
-      goog.dom.createDom('div', {'class': 'lanternQuizLabel'}, 'Question:'));
+      goog.dom.createDom('b', {'class': 'lanternQuizLabel'}, 'Question:'));
+  questionDom = this.parseQuestion(obj.question.body);
   questionBodyContainer.appendChild(
-      goog.dom.createDom('div', {'class': 'lanternQuizQuestion'},
-                         obj.question.body));
+      goog.dom.createDom('div', {'class': 'lanternQuizQuestion'}, questionDom));
   
   var choiceContainer = goog.dom.getElement('choices');
   choiceContainer.appendChild(goog.dom.createDom('br'));
   choiceContainer.appendChild(
-      goog.dom.createDom('div', {'class': 'lanternQuizLabel'},
+      goog.dom.createDom('b', {'class': 'lanternQuizLabel'},
                          'Please select among the following choices:'));
 
   choiceContainer.appendChild(goog.dom.createDom('br'));
@@ -246,7 +257,8 @@ lantern.quiz.QuizSession.prototype.updateQuizDOM = function(obj) {
 
   if (obj.accepted) {
     messageContainer.appendChild(
-        goog.dom.createDom('div', {'class': 'lanterQuizSuccessMessage' },
+        goog.dom.createDom('div', {'class': 'lanterQuizSuccessMessage',
+                                   'style': 'color:green;' },
                             obj.message));
     var nextButton = new goog.ui.Button('Next Question');
     nextButton.render(nextQuestionBox);
@@ -255,7 +267,8 @@ lantern.quiz.QuizSession.prototype.updateQuizDOM = function(obj) {
   }
   else{
     messageContainer.appendChild(
-        goog.dom.createDom('div', {'class': 'lanterQuizFailureMessage' },
+        goog.dom.createDom('div', {'class': 'lanterQuizFailureMessage',
+                                   'style': 'color:red;' },
                             obj.message));
   }
 };
