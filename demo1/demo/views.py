@@ -72,6 +72,7 @@ from django.utils.safestring import mark_safe
 from django.core.urlresolvers import reverse
 
 # Local imports
+from common import subjects
 import constants
 # import forms
 import library
@@ -419,11 +420,22 @@ def create_doc(data_dict):
   doc.grade_level = data_dict.get('doc_grade_level',
     constants.DEFAULT_GRADE_LEVEL)
   doc.label = data_dict.get('doc_label', models.AllowedLabels.MODULE)
-  tags = re.split(',', data_dict.get('doc_tags',''))
-  logging.info('\n\n **** TAGS *** %r', tags)
-  doc.tags = [db.Category(tag) for tag in tags]
+  tags = data_dict.get('doc_tags')
+
+  # Tags are separated by commas (spaces and tabs are removed)
+  tag_separator = re.compile('[ \t]*,[ \t]*')
+  starting_space = re.compile('^[ \t]+')  # Spaces in begining of a tag
+  ending_space = re.compile('[ \t]+$')  # Spaces at end of the tag
+
+  if tags:
+    tags = starting_space.sub('', tags)
+    tags = ending_space.sub('', tags)
+    tag_list = tag_separator.split(tags)
+    logging.info('\n\n **** tsgs %r', tag_list)
+    doc.tags = [db.Category(tag) for tag in tag_list]
+  else:
+    doc.tags = []
   doc.score_weight = [1.0]
-  logging.info('\n\n ***** TAGS **** \n\n %r %r' , tags, doc.tags) 
   for element in data_dict['doc_contents']:
 
     if element.get('obj_type') == 'rich_text':
@@ -524,7 +536,16 @@ def index(request):
   # Fetching the latest version
   for entry in recently_finished:
     entry.doc = library.fetch_doc(entry.trunk_ref.key())
-
+    doc_path_entry = models.TraversalPath.all().filter(
+      'current_trunk =', entry.trunk_ref).filter(
+      'user =', users.get_current_user()).get()
+    if doc_path_entry:
+      entry.path = library.expand_path(doc_path_entry.path, False, False,
+                                       users.get_current_user())
+    else:
+      entry.path = []
+    
+  
   # Course title is stale here 
   in_progress_courses = library.get_recent_in_progress_courses(users.get_current_user())
   return respond(request, constants.DEFAULT_TITLE, "homepage.html",
@@ -574,9 +595,8 @@ def edit(request):
   except (models.InvalidTrunkError, models.InvalidDocumentError):
     return HttpResponse("No such document exists", status=404)
 
-  doc_contents = library.get_doc_contents(doc, True, False,
-                                          users.get_current_user(),
-                                          False)
+  doc_contents = library.get_doc_contents(doc, users.get_current_user(),
+                                          resolve_links=True)
   tags = ','.join(doc.tags)
   return respond(request, constants.DEFAULT_TITLE, "edit.html",
                 {'doc': doc,
@@ -603,15 +623,15 @@ def view_doc(request):
     trunk_id: Trunk Id for the required doc.
     doc_id: Doc Id associated with the doc. This just shows the entry point
       for the request and only plays a role if 'absolute' is set true.
-    parent_trunk: Trunk Id of the parent. Required to build up correct heirarchy. 
+    parent_trunk: Trunk Id of the parent. Required to build up correct hierarchy. 
     parent_id: Doc Id for the parent. Again its just marks an entry point.
-    absolute: If set doc pointed by the doc_id is fetched, irrespective of user's 
+    absolute: If set, doc pointed by the doc_id is fetched, irrespective of user's 
       history or latest version of the doc.
     use_history: If set user's history is used to fetch the doc. If use_history 
       is set user will always land on the same version of the doc he was on last
-      visit, until chooses to move to a newer version.
+      visit, until he chooses to move to a newer version.
     abs_path: Specifies path to be followed to reach the doc. This is useful in
-      cases where links are bookmarks and a particular heirarchy is to be followed.
+      cases where links are bookmarks and a particular hierarchy is to be followed.
   """
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
@@ -640,18 +660,22 @@ def view_doc(request):
     return HttpResponse("No such document exists", status=404)
 
 
-  doc_contents = library.get_doc_contents(doc, True, use_history,
-                                          users.get_current_user(),
-                                          True)
+  doc_contents = library.get_doc_contents(
+      doc, users.get_current_user(), reslove_links=True,
+      use_history=use_history, fetch_score=True, fetch_video_state=True)
 
   current_doc_score = doc.get_score(users.get_current_user())
+
+  # If progress is 100, we don't recompute the score for the page.
+  # until user chooses to reset the score. Here we are just updating
+  # the timestamp of the visit (and recording the visited version).
   if current_doc_score == 100:
     library.put_doc_score(doc, users.get_current_user(), 100)
     doc_score = 100
   else:
-    doc_score = library.get_accumulated_score(doc, doc_contents,
-                                              users.get_current_user(),
-                                              use_history)
+    doc_score = library.get_accumulated_score(doc, users.get_current_user(),
+                                              doc_contents, 
+                                              use_history=use_history)
   trunk = doc.trunk_ref
 
   if parent_trunk:
@@ -660,11 +684,11 @@ def view_doc(request):
     parent = None
 
   updated_stack = library.update_visit_stack(doc, parent,
-                                            users.get_current_user())
+                                             users.get_current_user())
   # page itself is a course
   if doc.label == models.AllowedLabels.COURSE:
     library.update_recent_course_entry(doc, doc,
-                                         users.get_current_user())
+                                       users.get_current_user())
   if updated_stack.path:
     traversed_path = library.expand_path(updated_stack.path, use_history,
                                          use_absolute_mapping_for_path,
@@ -675,27 +699,24 @@ def view_doc(request):
                                          users.get_current_user())
   else:
     traversed_path = []
-
   
   # Just place holders to check the output, should present in better way.
   if not use_history:
-    link_to_prev = [
-        '<a href=',
-        '"/view?trunk_id=%s&doc_id=%s&absolute=True&use_history=True">' %
-        (trunk.key(), prev_doc.key()),
-        'Show as it was last time</a> | ']
+    link_to_prev = (
+        '<a href='
+        '"/view?trunk_id=%s&doc_id=%s&absolute=True&use_history=True">'
+        'Show as it was last time</a> | ' % (trunk.key(), prev_doc.key())
+        )
   else:
-    link_to_prev =  [
-        '<a href=',
-        '"/view?trunk_id=%s">' % (trunk.key()),
-        'Show latest</a> | ']
+    link_to_prev =  (
+        '<a href='
+        '"/view?trunk_id=%s">Show latest</a> |' % trunk.key())
 
-  link_to_prev_version = ''.join(link_to_prev)
 
   menu_items = [
     '<a href="/edit">Create New </a> | ',
     '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a> | ' %
-    (trunk.key(), doc.key()), link_to_prev_version,
+    (trunk.key(), doc.key()), link_to_prev,
     '<a href="/history?trunk_id=%s">History</a>' %
     (trunk.key()),
     ]
@@ -708,8 +729,6 @@ def view_doc(request):
     '<b>Progress: %s</b></div>' % (doc_score)
     ]
   title = ''.join(title_items)
-#  for con in doc_contents:
-#    logging.info('\n**** CONTENT %r %r %r\n', con, con.default_title, con.score)
   return respond(request, title, "view.html",
                 {'doc': doc,
                 'doc_score': doc_score,
@@ -844,12 +863,11 @@ def update_doc_score(request):
   # Using absolute addressing 
   doc = library.fetch_doc(trunk_id, doc_id)
 
-  doc_contents = library.get_doc_contents(doc, True, False,
-                                          users.get_current_user(), True)
+  doc_contents = library.get_doc_contents(doc, users.get_current_user(),
+                                          resolve_links=True)
   # No recursive
-  doc_score = library.get_accumulated_score(doc, doc_contents,
-                                            users.get_current_user(), False,
-                                            False)
+  doc_score = library.get_accumulated_score(doc, users.get_current_user(),
+                                            doc_contents)
   library.set_dirty_bits_for_doc(doc, users.get_current_user())
 
   return HttpResponse(simplejson.dumps({'doc_score' : doc_score}))
@@ -900,24 +918,98 @@ def xsrf_token(request):
   return HttpResponse(models.Account.current_user_account.get_xsrf_token(),
                       mimetype='text/plain')
 
-def temp(request):
-  """/video - Shows video with list of other related videos."""
-
-  # TODO(vchen): Need to convert to the CS chapter
-  return respond(request, 'SUBJECT', 'temp.html',
-                 {})
 
 def fetch_from_tags(request):
   """Fetches courses with given tag.
  
   TODO(mukundjha): Pick unique courses.
   """
-
   tag = request.GET.get('tag')
-
-  course_list = models.DocModel.all().filter('tags =', tag).filter(
-      'label =', models.AllowedLabels.COURSE).order('-created').fetch(10)
-
+  course_list = []
+  courses = models.DocModel.all().filter('tags =', tag).filter(
+      'label =', models.AllowedLabels.COURSE).order('-created').fetch(20)
+  seen = {}
+  for doc in courses:
+    t = doc.trunk_ref
+    k = t.key()
+    if k not in seen:
+      seen[k] = t.head
+      d = db.get(t.head)
+      course_list.append(d)
+      
   return respond(request, constants.DEFAULT_TITLE, "course_list.html",
-                 {'course_list' : course_list})
+                 {'course_list' : course_list, 'tag': tag})
 
+
+def subjectsDemo(request):
+  """/subjectsDemo - Test of the subjects menu."""
+
+  return respond(request, 'SUBJECTS', 'subjects.html', {});
+
+
+# Regex to extract the subject ID.  group(1) should be empty or have the
+# subject ID.
+_SUBJECT_RE = re.compile(r'/subjects/(.*)')
+
+
+def subjectsJson(request):
+  """/subjects/.* - RESTful API for returning subject taxonomy
+
+  By default, returns 2-level hierarchy.
+
+  /subjects/ returns root menu.
+  /subjects/<id> returns children of <id>
+  """
+  match = _SUBJECT_RE.match(request.path)
+  if match:
+    subject_id = match.group(1)
+    taxonomy = subjects.GetSubjectsTaxonomy()
+    if subject_id:
+      subject_id = urllib.unquote_plus(subject_id)
+      response = subjects.GetSubjectsJson(taxonomy, subject_id)
+    else:
+      response = subjects.GetSubjectsJson(taxonomy, None)
+    return HttpResponse(response)
+  return HttpResponse("Invalid subject request: " + request.path,
+                      status=404)
+
+
+def mark_as_read(request):
+  """Marks a page as read and updates score entries."""
+  trunk_id = request.GET.get('trunk_id')
+  doc_id = request.GET.get('doc_id')
+  doc = library.fetch_doc(trunk_id, doc_id)
+
+  library.put_doc_score(doc, users.get_current_user(), 100)
+  library.set_dirty_bits_for_doc(doc, users.get_current_user())
+  return HttpResponse("True")
+
+
+def store_video_state(request):
+  """Stores the state when a video is paused."""
+  video_id = request.GET.get('video_id')
+  current_time = request.GET.get('current_time', 0.0)
+  
+  video = db.get(video_id)
+  video_state = models.VideoState.all().filter(
+      'video_ref =', video).filter('user =', users.get_current_user()).get()
+
+  if video_state:
+    video_state.paused_time = float(current_time)
+    video_state.put()
+  else:
+    library.insert_with_new_key(
+        models.VideoState, video_ref=video, user=users.get_current_user(),
+        paused_time=float(current_time))
+  return HttpResponse('True')
+
+
+def reset_score_for_page(request):
+  """Resets score for a page and updates score entries."""
+  trunk_id = request.GET.get('trunk_id')
+  doc_id = request.GET.get('doc_id')
+  doc = library.fetch_doc(trunk_id, doc_id)
+
+  library.put_doc_score(doc, users.get_current_user(), 0)
+  library.set_dirty_bits_for_doc(doc, users.get_current_user())
+  return HttpResponse("True")

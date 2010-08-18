@@ -648,6 +648,35 @@ class BaseContentModel(BaseModel):
   """
   creator = db.UserProperty(auto_current_user_add=True, required=True)
   created = db.DateTimeProperty(auto_now=True)
+  @classmethod
+  def insert(cls, **kwargs):
+    """Creates a new object if not already exists, else returns the 
+    existing object based on content of the object.
+   
+    Inserts with SHA1 hash of the concatenated contents key_name,
+    if object already exisits with same content, that object is 
+    returned, else new object is created and returned.
+    
+    TODO(mukundjha): Add some random seed as well to prevent collision.
+    Args:
+      cls: Class for which object is to be created.
+
+    Returns:
+      Returns an object of type cls.
+    """
+    content = []
+    for prop in cls.properties():
+      if prop in ('creator', 'created'):  # Skip base properties
+        continue
+      content.append(str(kwargs.get(prop)))
+      txt = '|'.join(content)
+    key_name = cls.__name__ + ':' + sha.new(txt).hexdigest()
+    object = cls.get_by_key_name(key_name)
+
+    if not object:
+      object = cls.get_or_insert(key_name, **kwargs)
+    return object
+
 
   def get_score(self, user):
     """Returns progress score for the model.
@@ -760,8 +789,8 @@ class DocModel(BaseContentModel):
     tags: Set of tags (preferably part of some ontology).
     content: Ordered list of references to objects/items as it appears in
       the document.
-    label: Label marks document as course,module or lesson.
-    score_weight: Its a list defining weight each content element contributes
+    label: Label marks document as course, module or lesson.
+    score_weight: It's a list defining weight each content element contributes
       towards the score. By default all scorable elements are given equal
       weight. But this is a provision for later.
 
@@ -960,32 +989,6 @@ class RichTextModel(BaseContentModel):
   # implicit key
   data = db.BlobProperty()
 
-  @classmethod
-  def insert(self, **kwargs):
-    """Creates a new object if not already exists, else returns the 
-    existing object based on content of the object.
-   
-    Inserts with SHA1 hash of the concatanated contentas key_name,
-    if object already exisits with same content, that object is 
-    returned, else new object is created and returned.
-    
-    TODO(mukundjha): Add some random seed as well to prevent collision.
-    Returns:
-      Returns an object of type VideoModel.
-    """
-    data = kwargs.get('data')
-    
-    content = str(data)
-    # Hashing
-    key_name = 'RichTextModel:' + sha.new(content).hexdigest()
-    object = RichTextModel.get_by_key_name(key_name)
-    logging.info('\n --- KEY --- %r', key_name)
-    if not object:
-      logging.info('\n --- CREATING NEW KEY --- %r', key_name)
-      object = RichTextModel.get_or_insert(key_name, **kwargs)
-    return object
-
-
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
     return {
@@ -1018,37 +1021,6 @@ class DocLinkModel(BaseContentModel):
   from_trunk_ref = db.ReferenceProperty(TrunkModel, collection_name='from_link')
   from_doc_ref = db.ReferenceProperty(DocModel, collection_name='from_link')
 
-
-  @classmethod
-  def insert(self, **kwargs):
-    """Creates a new object if not already exists, else returns the 
-    existing object based on content of the object.
-   
-    Inserts with SHA1 hash of the concatanated contentas key_name,
-    if object already exisits with same content, that object is 
-    returned, else new object is created and returned.
-    
-    TODO(mukundjha): Add some random seed as well to prevent collision.
-    Returns:
-      Returns an object of type VideoModel.
-    """
-    trunk_ref = kwargs.get('trunk_ref')
-    doc_ref = kwargs.get('doc_ref')
-    default_title = kwargs.get('default_title')
-    from_trunk_ref = kwargs.get('from_trunk_ref')
-    from_doc_ref = kwargs.get('from_doc_ref')
-
-    content = str(trunk_ref) + str(doc_ref) + str(default_title) + str(
-              from_trunk_ref) + str(from_doc_ref)
-    # Hashing
-    key_name = 'DocLinkModel:'+sha.new(content).hexdigest()
-    logging.info('\n --- KEY --- %r', key_name)
-    object = DocLinkModel.get_by_key_name(key_name)
-    if not object:
-      logging.info('\n --- CREATING NEW KEY --- %r', key_name)
-      object = DocLinkModel.get_or_insert(key_name, **kwargs)
-    return object
-   
   def get_score(self, user):
     """Returns progress score for the doc.
 
@@ -1082,35 +1054,6 @@ class VideoModel(BaseContentModel):
   width = db.StringProperty(default='480')
   height = db.StringProperty(default='280')
   title = db.StringProperty()
-
-  @classmethod
-  def insert(self, **kwargs):
-    """Creates a new object if not already exists, else returns the 
-    existing object based on content of the object.
-   
-    Inserts with SHA1 hash of the concatanated contentas key_name,
-    if object already exisits with same content, that object is 
-    returned, else new object is created and returned.
-    
-    TODO(mukundjha): Add some random seed as well to prevent collision.
-    Returns:
-      Returns an object of type VideoModel.
-    """
-    video_id = kwargs.get('video_id')
-    width = kwargs.get('width')
-    height = kwargs.get('height')
-    title = kwargs.get('title')
-    
-    content = video_id+ width + height + title
-    # Hashing
-    key_name = 'VideoModel:'+sha.new(content).hexdigest()
-    object = VideoModel.get_by_key_name(key_name)
-    logging.info('\n --- KEY --- %r', key_name)
-    if not object:
-      object = VideoModel.get_or_insert(key_name, **kwargs)
-      logging.info('\n --- CREATING NEW KEY --- %r', key_name)
-    return object
-   
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
@@ -1235,35 +1178,6 @@ class WidgetModel(BaseContentModel):
   height = db.StringProperty()
   width = db.StringProperty()
   title = db.StringProperty()
-
-  @classmethod
-  def insert(self, **kwargs):
-    """Creates a new object if not already exists, else returns the 
-    existing object based on content of the object.
-   
-    Inserts with SHA1 hash of the concatanated contentas key_name,
-    if object already exisits with same content, that object is 
-    returned, else new object is created and returned.
-    
-    TODO(mukundjha): Add some random seed as well to prevent collision.
-    Returns:
-      Returns an object of type VideoModel.
-    """
-    widget_url = kwargs.get('widget_url')
-    width = kwargs.get('width')
-    height = kwargs.get('height')
-    title = kwargs.get('title')
-    
-    content = widget_url + width + height + title
-    # Hashing
-    key_name = 'WidgetModel:'+sha.new(content).hexdigest()
-    object = WidgetModel.get_by_key_name(key_name)
-    logging.info('\n --- KEY --- %r', key_name)
-    if not object:
-      logging.info('\n --- CREATING NEW KEY --- %r', key_name)
-      object = WidgetModel.get_or_insert(key_name, **kwargs)
-    return object
-   
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
@@ -1393,12 +1307,22 @@ class TraversalPath(UserStateModel):
     current_doc: Id for the document for which path is stored.
     path: Ordered list of doc_ids.
   """
-  
   current_doc = db.ReferenceProperty(DocModel)
   current_trunk = db.ReferenceProperty(TrunkModel)
   path = db.ListProperty(db.Key)
 
 
+class VideoState(UserStateModel):
+  """Stores the paused state for a video for a particular user.
+
+  Attributes:
+    video_ref : Id for the video object
+    paused_time: Float value for seconds.
+  """
+  video_ref = db.ReferenceProperty(VideoModel)
+  paused_time = db.FloatProperty(default=0) 
+ 
+  
 class StudentState (db.Model):
   """ Maintains minimal student state.
 

@@ -17,6 +17,9 @@ limitations under the License.
 <script type="text/javascript"
  src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
 </script>
+<script>
+goog.require('goog.net.XhrIo');
+</script>
 {% endblock %}
 {% block titlebar %}
 <div id="title-name" class="title">
@@ -46,8 +49,8 @@ limitations under the License.
   {% else %}
   <a href='/view?trunk_id={{doc.trunk_ref|get_key}}&doc_id={{doc|get_key}}'>{{doc.title}}</a>
   {% endif %}
-  <div id="docProgressContainer" style="float:right"><b>Progress: </b>
-      <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{doc_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11">
+  <div id="docProgressContainer" style="float:right"><table><tr><td><b>Progress: </b></td><td>
+      <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{doc_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>
   </div>
 </div>
 {% endblock %}
@@ -56,8 +59,19 @@ limitations under the License.
 	{{errorMsg}}
 	<hr/>
 {% endif %}
+<table width='100%'>
+<tr>
+<td>
 <h1>{{doc.title}}</h1>
+</td>
+<td>
+<input type='button' class='mark-as-read' id='markAsReadButton' value='Mark as read'  style='float:right' onClick='javascript:markAsRead()'>
+<input type='button' class='reset' id='resetButton' value='Reset Score'  style='float:right' onClick='javascript:resetScores()'>
+</td>
+</tr>
+</table>
 <hr/>
+{% if doc_contents %}
 <table width='100%' class='contentTable'>
 {% for object in doc_contents %}
   <tr class={% cycle '"oddrow"' '"evenrow"' %}>
@@ -79,4 +93,82 @@ limitations under the License.
 </tr>
 {% endfor %} 
 </table>
+{% else %}
+<b>This page is a stub. Please help it by adding some content.</b> Click <a href='/edit?trunk_id={{doc.trunk_ref|get_key}}&doc_id={{doc|get_key}}'>here</a> to add conents.
+{% endif %}
+<script>
+var global_score = {{doc_score}};
+init = function() {
+  if (global_score == 100) {
+     var markAsReadbutton = goog.dom.getElement('markAsReadButton');
+     markAsReadbutton.style.visibility = 'hidden';
+     var resetButton = goog.dom.getElement('resetButton');
+     resetButton.style.visibility = 'visible';
+  }
+  else {
+     var markAsReadbutton = goog.dom.getElement('markAsReadButton');
+     markAsReadbutton.style.visibility = 'visible';
+     var resetButton = goog.dom.getElement('resetButton');
+     resetButton.style.visibility = 'hidden';
+  }
+}
+
+function resetScores(){
+  if(global_score == 100) {
+    var xhr = new goog.net.XhrIo();
+    uri = new goog.Uri('/resetScoreAjax');
+    uri.setParameterValue('trunk_id', '{{doc.trunk_ref|get_key}}');
+    uri.setParameterValue('doc_id', '{{doc|get_key}}');
+  goog.events.listen(
+      xhr, goog.net.EventType.COMPLETE,
+      function(e){
+        global_score = 0;
+        var progressBar = goog.dom.getElement('docProgressContainer');
+        var htmlProgress = '<table><tr><td><b>Progress: </b></td><td><img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:0|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>';
+        progressBar.innerHTML = htmlProgress;
+        var markAsReadbutton = goog.dom.getElement('markAsReadButton');
+        markAsReadbutton.style.visibility = 'visible';
+        var resetButton = goog.dom.getElement('resetButton');
+        resetButton.style.visibility = 'hidden';    
+     });
+   xhr.send(uri);
+  }
+  else {
+    var markAsReadbutton = goog.dom.getElement('markAsReadButton');
+    markAsReadbutton.style.visibility = 'visible';
+    var resetButton = goog.dom.getElement('resetButton');
+    resetButton.style.visibility = 'hidden';
+  }
+   
+}
+
+function markAsRead(){
+  if (global_score != 100) {
+    var xhr = new goog.net.XhrIo();
+    uri = new goog.Uri('/markAsReadAjax');
+    uri.setParameterValue('trunk_id', '{{doc.trunk_ref|get_key}}');
+    uri.setParameterValue('doc_id', '{{doc|get_key}}');
+  goog.events.listen(
+      xhr, goog.net.EventType.COMPLETE,
+      function(e){
+        global_score = 100;
+        var progressBar = goog.dom.getElement('docProgressContainer');
+        var htmlProgress = '<table><tr><td><b>Progress: </b></td><td><img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:100|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>';
+        progressBar.innerHTML = htmlProgress;
+        var markAsReadbutton = goog.dom.getElement('markAsReadButton');
+        markAsReadbutton.style.visibility = 'hidden';
+        var resetButton = goog.dom.getElement('resetButton');
+        resetButton.style.visibility = 'visible'; 
+      });
+  xhr.send(uri);
+  }
+  else {
+    var markAsReadbutton = goog.dom.getElement('markAsReadButton');
+    markAsReadbutton.style.visibility = 'hidden';
+    var resetButton = goog.dom.getElement('resetButton');
+    resetButton.style.visibility = 'hidden';
+  }
+}
+init();
+</script>
 {% endblock %}

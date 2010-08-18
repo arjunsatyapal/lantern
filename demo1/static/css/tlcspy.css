@@ -26,10 +26,6 @@ tt.descname, tt.descclassname, tt.xref {
     border: 0;
 }
 
-hr {
-    border: 1px solid #abc;
-    margin: 2em;
-}
 
 a tt {
     border: 0;

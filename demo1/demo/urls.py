@@ -30,6 +30,7 @@ urlpatterns = defaults.patterns(
     (r'^submitEdits$', 'submit_edits'),
     (r'^temp$', 'temp'),
     (r'^fetchFromTags$', 'fetch_from_tags'),
+    (r'^subjectsDemo$', 'subjectsDemo'),
     # XHR targets
 
     # Gets session id for a widget
@@ -37,5 +38,10 @@ urlpatterns = defaults.patterns(
     # Updates progress score for widget and document for the current user
     # and returns updated accumulated score for the document.
     (r'^updateScore$', 'update_doc_score'),
-    (r'^getListAjax$', 'get_list_ajax')
+    (r'^getListAjax$', 'get_list_ajax'),
+    (r'^markAsReadAjax$', 'mark_as_read'),
+    (r'^storeVideoStateAjax$', 'store_video_state'),
+    (r'^resetScoreAjax$', 'reset_score_for_page'),
+    (r'^subjects/.*$', 'subjectsJson')
+    
     )

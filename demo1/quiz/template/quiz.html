@@ -10,10 +10,19 @@
                    float:center;}
 </style>
 </head>
+<table width="100%">
+<tr>
+<td>
 <div id='quizTitle'>
-<h2>{{title}}<h2>
+<h2>{{title}}</h2>
 </div>
-<hr/>
+</td>
+<td style="float:right">
+<a href="javascript:openEditWindow('{{quiz_id}}')">Edit</a>
+</td>
+</tr>
+</table>
+<hr />
 <div id='questionContainer'>
 <div id='quizButtonContainer'>
 <input type="button" id='quizButton' 
@@ -66,6 +75,9 @@
   var quiz_session = new lantern.quiz.QuizSession('{{quiz_trunk_id}}',
                                                   '{{quiz_id}}');
   /** Function to collect user's response **/
- } 
+ }
+function openEditWindow(id){
+  window.open('/quiz/editQuiz?quiz_id='+id);
+} 
 </script>
 </html>

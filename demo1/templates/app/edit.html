@@ -35,7 +35,7 @@ goog.require('goog.dom');
 {% block content_main %}
 {% if errorMsg %}
   {{errorMsg}}
-  <hr/>
+  <hr />
 {% endif %}
  <form id='edit_form' action='/submitEdits' method='POST' enctype="application/octet-stream">
  <table class='commonAttributes' width='50%'> 
@@ -68,7 +68,7 @@ goog.require('goog.dom');
  </td>
 </tr>
  </table>
- <hr/>
+ <hr />
  <font align='right'>
  <input type='submit' value='submit'>
  </font>
@@ -112,6 +112,7 @@ goog.require('goog.dom');
  var global_counter = 0;
  var xhr = new goog.net.XhrIo();
  var linkDialog = new goog.ui.Dialog(null, true);
+    linkDialog.class = 'linkpicker';
     linkDialog.setTitle('Link Picker');
 
  
@@ -132,10 +133,10 @@ goog.require('goog.dom');
 
  pickLink = function(trunk_id, doc_id, title){
   ++global_counter;
-  var link = '/view?trunk_id='+ trunk_id +'&doc_id='+ doc_id;
+  var link = '/view?trunk_id=' + trunk_id + '&doc_id=' + doc_id;
   var table_body = document.getElementById('content_table');
   var new_row = document.createElement("TR");
-  new_row.id = 'content_row'+global_counter;
+  new_row.id = 'content_row' + global_counter;
   var col1 = document.createElement("TD");
   var bTag = document.createElement("B");
   var col2 = document.createElement("TD");
@@ -159,7 +160,7 @@ goog.require('goog.dom');
   col2.appendChild(iElement1)
   col2.appendChild(iElement2)
   var col3 = document.createElement("TD");
-  col3.innerHTML = '<b><a href="javascript:deleteRow(\'content_row'+ global_counter + '\');">Delete</a></b>';
+  col3.innerHTML = '<b><a href="javascript:deleteRow(\'content_row' + global_counter + '\');">Delete</a></b>';
   
     new_row.appendChild(col1);
     new_row.appendChild(col2);
@@ -174,9 +175,8 @@ goog.require('goog.dom');
     dialogHtml = '<table width="100%">';
     for (var i=0; i<obj.doc_list.length ; i++)
     {
-       dialogHtml += '<tr><td><a href="javascript:pickLink(\''+obj.doc_list[i].trunk_id+'\',\''+ obj.doc_list[i].doc_id+'\',\'' + obj.doc_list[i].doc_title+'\');">'+
-                   obj.doc_list[i].doc_title +'</td><td><input type="button" onclick="javascript:window.open(\'/view?trunk_id='+ obj.doc_list[i].trunk_id +
-                     '&doc_id='+ obj.doc_list[i].doc_id +'&absloute=True\');" value="Preview"/></td></tr>';
+       dialogHtml += '<tr><td><a href="javascript:pickLink(\'' + obj.doc_list[i].trunk_id + '\',\'' + obj.doc_list[i].doc_id+'\',\'' + obj.doc_list[i].doc_title + '\');">'            + obj.doc_list[i].doc_title + '</td><td><input type="button" onclick="javascript:window.open(\'/view?trunk_id=' + obj.doc_list[i].trunk_id +
+           '&doc_id=' + obj.doc_list[i].doc_id + '&absloute=True\');" value="Preview"/></td></tr>';
     }
     dialogHtml += '</table>';
     linkDialog.setContent(dialogHtml)
@@ -198,13 +198,14 @@ goog.require('goog.dom');
     if (value_passed == 'rich_text'){
        var iElement = document.createElement("DIV");
        var inputHtmlArray = 
-           ['<table><tr><td><b>HTML Text: </b></td>','<td><textarea ',
+           ['<table><tr><td><b>HTML Text: </b></td>',
+            '<td><textarea ',
             'rows="8" cols="60" name="data_val"/></textarea>',
             '<input type="hidden" name="data_type" value="rich_text"/>',
             '<input type="hidden" name="data_height" value="0"/>',
             '<input type="hidden" name="data_width" value="0"/>',
             '<input type="hidden" name="data_title" value="no title"/>',
-            '</td></tr></table><hr/>',
+            '</td></tr></table><hr />',
             ];
        iElement.innerHTML = inputHtmlArray.join('');
 
@@ -212,12 +213,14 @@ goog.require('goog.dom');
        var iElement = document.createElement("DIV");
        var inputHtmlArray = 
            ['<table><tr><td><b>Video Id: </b></td>','<td><input type="text" ',
-            'name="data_val"/></td></tr>','<tr><td><b>Video Height: </b></td>',
+            'name="data_val"/></td></tr><tr><td><b>Video Height: </b></td>',
             '<td><input type="text" name="data_height" value="300"/></td></tr>',
-            '<td><b>Video Width: </b></td>','<td><input type="text"',
-            'name="data_width" value="600"/></td></tr>','<td><b>Video Title: </b></td>',
-            '<td><input type="hidden" name="data_type" value="',value_passed,'">',
-            '<input type="text" ', 'name="data_title"/></td></tr></table>','<hr/>'];
+            '<td><b>Video Width: </b></td><td><input type="text"',
+            'name="data_width" value="600"/></td></tr>',
+            '<td><b>Video Title: </b></td>',
+            '<td><input type="hidden" name="data_type" value="',
+            value_passed,
+            '"><input type="text" name="data_title"/></td></tr></table><hr />'];
        iElement.innerHTML = inputHtmlArray.join('');
     } else if (value_passed == 'py_shell'){
     } else if (value_passed == 'quiz') {
@@ -225,16 +228,16 @@ goog.require('goog.dom');
        var iElement = document.createElement("DIV");
        var inputHtmlArray = 
            ['<table><tr><td><b>Quiz/Widget Link: </b></td>','<td><input type="text" ',
-            'name="data_val"/></td></tr>','<tr><td><b>Widget Height: </b></td>',
+            'name="data_val"/></td></tr><tr><td><b>Widget Height: </b></td>',
             '<td><input type="text" name="data_height" value="400px"/></td></tr>',
-            '<td><b>Widget Width: </b></td>','<td><input type="text"',
-            'name="data_width" value="100%"/></td></tr>','<td><b>Widget Title: </b></td>',
-            '<td><input type="hidden" name="data_type" value="',value_passed,'">',
-            '<input type="text" ', 'name="data_title"/></td></tr></table>','<hr/>'];
+            '<td><b>Widget Width: </b></td><td><input type="text"',
+            'name="data_width" value="100%"/></td></tr><td><b>Widget Title: </b></td>',
+            '<td><input type="hidden" name="data_type" value="',
+            value_passed,
+            '"><input type="text" ', 'name="data_title"/></td></tr></table><hr />'];
        iElement.innerHTML = inputHtmlArray.join('');
 
-    }
-    else {
+    } else {
           alert('wrong value') 
     } 
     col1.appendChild(iElement)

@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+    "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <title>Test subject</title>
+  <link rel="stylesheet"
+        href="closure-library-read-only/closure/goog/css/menu.css">
+  <link rel="stylesheet"
+        href="closure-library-read-only/closure/goog/css/menuitem.css">
+  <link rel="stylesheet"
+        href="closure-library-read-only/closure/goog/css/menubutton.css">
+  <link rel="stylesheet"
+        href="closure-library-read-only/closure/goog/css/menuseparator.css">
+
+  <script type="text/javascript"
+    src="closure-library-read-only/closure/goog/base.js">
+  </script>
+  <script type="text/javascript">
+    goog.require('goog.debug');
+    goog.require('goog.events');
+    goog.require('goog.events.Event');
+    goog.require('goog.events.EventTarget');
+    goog.require('goog.ui.Menu');
+    goog.require('goog.ui.MenuButton');
+    goog.require('goog.ui.SubMenu');
+    goog.require('goog.ui.SubMenuRenderer');
+    goog.require('goog.Timer');
+    goog.require('goog.testing.events');
+    goog.require('goog.testing.MockClock');
+    goog.require('goog.testing.jsunit');
+  </script>
+  <script type="text/javascript" src="subject.js"></script>
+  <script type="text/javascript" src="mocksubjects.js"></script>
+  <script type="text/javascript" src="subjectmenu.js"></script>
+</head>
+<body class="body">
+  <div id="menu1"></div>
+  <div id="testmenu" style="right:0px;"></div>
+
+<script type="text/javascript">
+
+var clock = null;
+var provider = null;
+var menu = null;
+
+function setUp() {
+  clock = new goog.testing.MockClock(true);
+  provider = new lantern.subject.MockSubjectProvider();
+  menu = new lantern.ui.SubjectMenu(provider);
+}
+
+function tearDown() {
+  clock.dispose();
+  menu.dispose();
+  provider.dispose();
+}
+
+function testBasicRender() {
+  var el = goog.dom.getElement('testmenu');
+  menu.render(el);
+  clock.tick(100);
+
+  assertEquals(9, menu.getMenu().getItemCount());
+  assertEquals(null, menu.currentRootId_);
+}
+
+function testClickSubmenu() {
+  var el = goog.dom.getElement('testmenu');
+  menu.render(el);
+  clock.tick(100);
+
+  var techMenuItem = menu.getMenu().getItemAt(1);
+
+  assertEquals('technology', techMenuItem.getCaption());
+  var subMenu = techMenuItem.getMenu();
+  assertEquals(6, subMenu.getItemCount());
+
+  var engMenuItem = subMenu.getItemAt(5);
+  assertEquals('engineering', engMenuItem.getCaption());
+
+  var event = new goog.events.Event('action', engMenuItem);
+  menu.onSelection_(event);
+
+  // Verify that menus swapped and last entry is <BACK
+  assertEquals(9, menu.getMenu().getItemCount());
+  assertEquals(lantern.ui.SubjectMenu.MENU_ITEM_BACK,
+               menu.getMenu().getItemAt(8).getCaption());
+
+  assertTrue(menu.getMenu().getItemAt(5).isHighlighted());
+}
+
+function testClickBack() {
+  var el = goog.dom.getElement('testmenu');
+  menu.render(el);
+  clock.tick(100);
+
+  var techMenuItem = menu.getMenu().getItemAt(1);
+  var subMenu = techMenuItem.getMenu();
+  var engMenuItem = subMenu.getItemAt(5);
+  var event = new goog.events.Event('action', engMenuItem);
+  menu.onSelection_(event);
+
+  assertEquals(9, menu.getMenu().getItemCount());
+
+  // Get the <BACK button to select.
+  event = new goog.events.Event('action', menu.getMenu().getItemAt(8));
+  menu.onSelection_(event);
+
+  assertEquals(9, menu.getMenu().getItemCount());
+}
+
+function init() {
+    var provider = new lantern.subject.MockSubjectProvider();
+    var menu1 = new lantern.ui.SubjectMenu(provider);
+    var el = goog.dom.getElement('menu1');
+    menu1.render(el);
+
+    goog.events.listen(menu1, 'action', function(e) {
+      alert('Leaf: ' + e.target.getModel().displayText);
+    });
+}
+//init();  // uncomment to test manually.
+</script>
+</body>
+</html>

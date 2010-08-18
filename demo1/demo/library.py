@@ -566,7 +566,7 @@ def get_parent(doc):
     return None
 
 
-def get_score_for_link(link_element, user, recurse=False):
+def get_score_for_link(link_element, user, **kwargs ):
   """Cacluates score for the DocLink object by selecting 
   correct document based on user's history.
 
@@ -575,41 +575,55 @@ def get_score_for_link(link_element, user, recurse=False):
   not incorporate user's history. Function get_score for DocLink could have
   been modified, but it is counter intuitive.
 
-  *It is slightly inefficient, because it recomputes score 
-  everytime, even if they have recently been updated.
-
   *Does not take care of cycles.
 
   Args:
     link_element: Link object for which score is required.
     user: User whose score is desired.
+
+    These arguments are passed as **kwargs.
+
+    use_history: If set user's history is used to fetch the doc.
     recurse: If set True, all the scores will be recursively computed
       and updated.
 
   Returns: 
     Score for the link object.
   """
+  use_history = kwargs.pop('use_history', False)
+  recurse = kwargs.pop('recurse', False)
+
   doc = link_element.doc_ref
   if recurse:
-    doc_contents = get_doc_contents(doc, True, False, user, False)
-    return get_accumulated_score(doc, doc_contents, user, False, recurse)
+    doc_contents = get_doc_contents(doc, user, resolve_links=True,
+                                    use_history=use_history)
+    return get_accumulated_score(doc, user, doc_contents, use_history=use_history,
+                                 recurse=recurse)
   else:
     visit_state = models.DocVisitState.all().filter('user =', user).filter(
-    'trunk_ref =', doc.trunk_ref).get()
+        'trunk_ref =', doc.trunk_ref).get()
     if visit_state and visit_state.dirty_bit:
-      doc_contents = get_doc_contents(doc, False, False, user, False)
-      return get_accumulated_score(doc, doc_contents, user, False, recurse)
+      if use_history:
+        new_doc = get_doc_for_user(doc.trunk_ref.key(), user)
+      else:
+        new_doc = fetch_doc(doc.trunk_ref.key())
+        doc_contents = get_doc_contents(new_doc, user, resolve_links=True,
+                                      use_history=use_history)
+
+        score =  get_accumulated_score(new_doc, user, doc_contents,
+                                     use_history=use_history,
+                                     recurse=recurse)
+        return score
+
     elif visit_state:
       return visit_state.progress_score
     else:
       return 0
 
 
-def get_accumulated_score(doc, doc_contents, user, use_history=False, recurse=False):
+def get_accumulated_score(doc, user, doc_contents, **kwargs):
   """Calculate score for a doc by accumulating scores from its objects.
   
-  Assumption if doc_contents contain score for docLinkElement, it is resolved
-  using correct parameters and is preferred over recalculation.
   Averages score, no weights. It also updates the score for element.
 
   Args:
@@ -618,18 +632,27 @@ def get_accumulated_score(doc, doc_contents, user, use_history=False, recurse=Fa
       the list is passed separately to prevent repeated calls to data-store
       for objects.
     user: User associated with the score.
+    
+    These arguments are passed in **kwargs.
+    
+    use_history: If set user's history is used to fetch the document.
     recurse: If set True scores are recursively re-computed instead of just
       picking entries from datastore.
   Returns:
     Average score based on content of the document. Also adds score attribute
     to each 'scorable' element.
   """
+  use_history = kwargs.pop('use_history', False)
+  recurse = kwargs.pop('recurse', False)
+   
   total, count = 0,0
   for element in doc_contents:
     if not isinstance(element, models.DocLinkModel): 
       element.score = element.get_score(user)
     else:
-      element.score = get_score_for_link(element, user, recurse)
+      element.score = get_score_for_link(element, user,
+                                         use_history=use_history,
+                                         recurse=recurse)
 
     if element.score is not None:
       total += element.score
@@ -669,35 +692,74 @@ def put_doc_score(doc, user, score):
       trunk_ref=doc.trunk_ref.key(), doc_ref=doc.key(), progress_score= score)
 
 
-def get_doc_contents(doc, resolve_links, use_history, user, fetch_score):
+def get_doc_contents(doc, user, **kwargs):
   """Return a list of objects referred by keys in content list of a doc.
 
   NOTE(mukundjha): doc is a DocModel object and not an id.
   Args:
     doc: DocModel used for populating content objects.
+    user: User in consideration.
+    
+    Arguments below are passed using **kwargs. By default all are set to
+    false.
+
     reslove_links: If reslove_links is true, then links are resolved to
       get appropriate title for links.
     use_history: Use history to resolve links.
-    user: User in consideration.
     fetch_score: If set true score is also appended to all objects.
+    fetch_video_state: If set VideoModel object is appended with video's 
+      state (stored paused time).
+  
   Returns:
     An ordered list of objects referenced in content list of passed doc.
   Raises:
     BadKeyError: If element referred is invalid.
+  
+  TODO(mukundjha): Develop Better method to extract base url.
   """
+  resolve_links = kwargs.pop('resolve_links', False) 
+  use_history = kwargs.pop('use_history', False) 
+  fetch_score = kwargs.pop('fetch_score', False) 
+  fetch_video_state = kwargs.pop('fetch_video_state', False) 
+ 
+   
   if not isinstance(doc, models.DocModel):
     return None
   else:
     content_list = []
+    # Using regex to extract baseurl.
+    # First replace '//' with __TEMP__ and then split on '/'
+    # example http://localhost:8080/exercise/
+    # baseurl = http://localhost:8080
+    # This however does not work if we have '/quiz?'
+    
+    double_slash = re.compile('//') # For double slashes
+    slash = re.compile('/') # Single slash
+    temp = re.compile('__TEMP__')  # Temp symbol to replace // with
+    re_question_mark = re.compile('\?') # For cases like '/quiz?' we split at '?'
+    is_relative_link = re.compile('^/') # Starts with /
+
     for el in doc.content:
       element = db.get(el)
       if not isinstance(element, models.DocLinkModel):
         if fetch_score:
           element.score = element.get_score(user)
         if isinstance(element, models.WidgetModel):
-          temp_array = re.split('/',re.sub('//','__TEMP__', element.widget_url))
-          base_url = re.sub('__TEMP__','//',temp_array[0])
-          element.base_url = base_url + '/'
+          if is_relative_link.match(element.widget_url): 
+            temp_array = re_question_mark.split(element.widget_url)
+            element.base_url = temp_array[0] + '/'
+          else: 
+            temp_array = slash.split(double_slash.sub('__TEMP__',
+                                   element.widget_url))
+            base_url = temp.sub('//',temp_array[0])
+            element.base_url = base_url + '/'
+	  logging.info('\n******* BASE URL *** %r\n', base_url);
+        elif isinstance(element, models.VideoModel):
+          video_state = models.VideoState.all().filter(
+              'video_ref =', element).filter(
+              'user =', users.get_current_user()).get()
+          if video_state:
+            element.current_time = video_state.paused_time
         content_list.append(element)
       else:
         link = element
@@ -866,7 +928,7 @@ def set_dirty_bits_for_doc(doc, user):
         'user =', user).get()
     if visit_entry:
       visit_entry.dirty_bit = True
-      visit_entry.put()     
+      visit_entry.put()  
   
 
 def update_visit_stack(doc, parent, user):
@@ -889,20 +951,22 @@ def update_visit_stack(doc, parent, user):
     Updated visit stack entry object.
   """
   doc_visit_stack =  models.TraversalPath.all().filter(
-      'current_trunk =', doc.trunk_ref).get()
+      'current_trunk =', doc.trunk_ref).filter(
+      'user =', user).get()
 
   if parent:
     if parent.label == models.AllowedLabels.COURSE:
       path = [parent.key()]
     else:
       parent_visit_stack = models.TraversalPath.all().filter(
-          'current_trunk =', parent.trunk_ref).get()
+          'current_trunk =', parent.trunk_ref).filter(
+          'user =', user).get()
       if not parent_visit_stack:
         path_for_parent = get_path_till_course(parent)
 
         parent_visit_stack = insert_with_new_key(
             models.TraversalPath, current_trunk=parent.trunk_ref,
-            current_doc=parent, path=path_for_parent)
+            current_doc=parent, path=path_for_parent, user=user)
 
       path = []
       cycle_detected = 0
@@ -911,12 +975,10 @@ def update_visit_stack(doc, parent, user):
         element = db.get(el)
         if element.trunk_ref.key() == doc.trunk_ref.key():
           cycle_detected = 1
-          logging.info("\n************DOC CYCLE DETECTED ****************\n")
           break
         elif element.trunk_ref.key() == parent.trunk_ref.key():
           path.append(el)
           cycle_detected = 1
-          logging.info("\n************PARENT CYCLE DETECTED ****************\n")
           break
         else:
           path.append(el)
@@ -930,7 +992,7 @@ def update_visit_stack(doc, parent, user):
     else:
       doc_visit_stack = insert_with_new_key(
         models.TraversalPath, current_doc=doc, 
-        current_trunk=doc.trunk_ref, path=path)
+        current_trunk=doc.trunk_ref, path=path, user=user)
   
   # If parent is not present
   elif not doc_visit_stack:
@@ -938,7 +1000,7 @@ def update_visit_stack(doc, parent, user):
     path = get_path_till_course(doc)
     doc_visit_stack = insert_with_new_key(
         models.TraversalPath, current_trunk=doc.trunk_ref,
-        current_doc=doc, path=path)
+        current_doc=doc, path=path, user=user)
   return doc_visit_stack
 
 
@@ -955,27 +1017,32 @@ def update_recent_course_entry(recent_doc, course, user):
     course: Course to be updated.
     user: User for whom update is to be made.
   """
-  logging.info('*********UPDATING RECENT COURSE ENTRY #******* %r %r %r', course.title, user, course.label)
   if course.label != models.AllowedLabels.COURSE:
     logging.error('FUNCTION:update_recent_course_entry- Doc passed not a course')
     return None
   course_entry = models.RecentCourseState.all().filter('user =', user).filter(
       'course_trunk_ref =', course.trunk_ref).get()
-  #getting the latest accessed course
-  course = get_doc_for_user(course.trunk_ref.key(), user)
+
+  visit_state = models.DocVisitState.all().filter('user =', user).filter(
+        'trunk_ref =', course.trunk_ref).get()
+
+  if visit_state and visit_state.dirty_bit:
+    doc_contents = get_doc_contents(course, user, resolve_links=True)
+    score =  get_accumulated_score(course, user, doc_contents)
+  else:
+    score = course.get_score(user)
 
   if not course_entry:
     course_entry = insert_with_new_key(models.RecentCourseState,
                                        course_trunk_ref=course.trunk_ref,
                                        course_doc_ref=course,
                                        last_visited_doc_ref=recent_doc,
-                                       course_score=course.get_score(user),
+                                       course_score=score,
                                        user=user)
   else:
     course_entry.last_visited_doc_ref = recent_doc
     course_entry.course_doc_ref=course
-    course_entry.course_score = course.get_score(user)
-    logging.info('*******COURSE SCORE %r', course.get_score(user))
+    course_entry.course_score = score
     course_entry.put()
   return course_entry
 
@@ -995,26 +1062,41 @@ def get_recent_in_progress_courses(user):
   in_progress = []
   num_to_pick = 5
   for entry in recent_list:
-    logging.info('****** %r %r', entry, entry.course_score)
-    if entry.course_score < 100 and num_to_pick:
+    visit_state = models.DocVisitState.all().filter('user =', user).filter(
+        'trunk_ref =', entry.course_trunk_ref).get()
+
+    if visit_state and visit_state.dirty_bit:
+      course = fetch_doc(entry.course_trunk_ref.key())
+      doc_contents = get_doc_contents(course, user, resolve_links=True)
+      score =  get_accumulated_score(course, user, doc_contents)
+      entry.course_score = score
+      entry.put()
+    else:
+      score = entry.course_score
+    
+    if score < 100 and num_to_pick:
       num_to_pick -= 1
       in_progress.append(entry)
-      logging.info('****** picked %r', entry)
   
   return in_progress
 
 
-def expand_path(path, use_history, absolute, user):
+def expand_path(path, user, use_history, absolute):
   """Expands the path into objects based on the parameters.
 
   Absolute is given preference over others.
+
   Args:
     path: List of doc_ids forming a traversal path.
-    use_history: If set then user's history is used to expand all
-    the links.
     absolute: If set absolute addressing is used. Docs with same doc_ids in
       the list are fetched.
     user: User associated with request.
+    use_history: If set then user's history is used to expand all
+    the links.
+
+  Returns:
+    Returns list of DocModel objects corresponding to the doc_ids in the path 
+    passed. 
   """
   path = [ db.get(el) for el in path ]
   if absolute:
