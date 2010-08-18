@@ -200,7 +200,7 @@ lantern.comm.LanternChannel.prototype.requestScore = function(data) {
 lantern.comm.LanternChannel.prototype.sendSessionId = function() {
   var obj = this.xhr_.getResponseJson();
   this.channel_.send('process_data', obj.session_id);
-  alert('sending data from trunk');
+  //alert('sending data from trunk');
 };
 
 
