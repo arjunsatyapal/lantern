@@ -16,7 +16,7 @@
 
 # Constants for Lantern
 
-DEFAULT_TITLE = 'Learn Python'
+DEFAULT_TITLE = 'Lantern'
 HOME_DOMAIN = 'www.khanacademy.org'
 YAML_TYPE_KEY = 'doc_type'
 GROUP_TEMPLATE = 'group.html'

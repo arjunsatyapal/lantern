@@ -353,6 +353,28 @@ class ViewQuiz(webapp.RequestHandler):
                            {'quiz' : quiz, 'questions': list_of_questions}))
 
 
+class SendWidgetList(webapp.RequestHandler):
+  """Sends a list of quizes available and other widgets.
+  TODO(mukundjha): Move this to lantern and replace with 
+    widget registration.
+  """
+  def get(self):
+    quiz_list = models.QuizModel.all().fetch(50)
+    widget_list = []
+    py_shell = {'title': 'Python Shell',
+                'link': 'http://pythonshell1.appspot.com'}
+
+    khan_exercise = {'title': 'Khan Academy- Basic Trigonometry',
+        'link': 'http://tempkhanacadquiz.appspot.com/exercises?exid=trigonometry_1'}
+    
+    widget_list.append(py_shell)
+    widget_list.append(khan_exercise)
+    for quiz in quiz_list:
+      quiz_entry = {'title': 'Lantern Quiz: '+ quiz.title, 
+         'link': '/quiz?quiz_id=%s&quiz_trunk_id=%s' % (quiz.key(), quiz.trunk.key())}
+      widget_list.append(quiz_entry)
+
+    self.response.out.write(simplejson.dumps({'widget_list': widget_list}))
 
     
 application = webapp.WSGIApplication(
@@ -366,6 +388,7 @@ application = webapp.WSGIApplication(
     ('/quiz/resetQuiz',  ResetQuizAjax),
     ('/quiz/submitQuiz', SubmitNewQuiz),
     ('/quiz/editQuestion', EditQuestion),
+    ('/quiz/widgetList', SendWidgetList),
     ('/quiz/editQuiz', EditQuiz)],
     debug=True)
 

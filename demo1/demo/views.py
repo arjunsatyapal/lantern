@@ -729,11 +729,13 @@ def view_doc(request):
     '<b>Progress: %s</b></div>' % (doc_score)
     ]
   title = ''.join(title_items)
+  annotation = library.get_doc_annotation(doc, users.get_current_user())
   return respond(request, title, "view.html",
                 {'doc': doc,
                 'doc_score': doc_score,
                 'doc_contents': doc_contents,
                 'traversed_path': traversed_path,
+                'annotation': annotation,
                 'mainmenu': main_menu
                 })
 
@@ -1013,3 +1015,23 @@ def reset_score_for_page(request):
   library.put_doc_score(doc, users.get_current_user(), 0)
   library.set_dirty_bits_for_doc(doc, users.get_current_user())
   return HttpResponse("True")
+
+
+@login_required
+def update_notes(request):
+  """Update annotation on a given object"""
+
+  try:
+    data = request.POST.get('data')
+    it = simplejson.loads(data)
+    data = it['data']
+    name = it['name']
+    name = re.sub(r'^[^-]+-', '', name)
+    library.update_notes(name, data)
+  except Exception, e:
+    name = str(e)
+    data = request.POST.get('data')
+
+  return respond(request, "Received", "debugnotes.html",
+                 { 'data': data, 'name': name })
+

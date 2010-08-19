@@ -89,8 +89,8 @@ div#content-header div#logo {
 }
 
 div#content-header div#logo img {
-  width:180px;
-  height:80px;
+  width: 108px;
+  height: 80px;
   border:0;
 }
 
@@ -153,7 +153,7 @@ div#content-footer div#copyright-link {
 /* Column layouts */
 
 div#container.base1col {
-  width: 800px;
+  width: 1000px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -319,5 +319,38 @@ div.lanterQuizSuccessMessage {
 
 div.lanterQuizFaliureMessage {
   color:red;
+}
+
+button.notestrigger {
+  float: right;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  width: 16;
+  height: 16;
+  background: transparent url('/static/images/note.png') no-repeat center top;
+}
+
+.note.hidden {
+  float: right;
+  display: none;
+}
+
+.note {
+  float: right;
+  visibility: hidden;
+  z-index: 1000;
+  background: lightyellow;
+  color: black;
+  border: 1px solid black;
+  padding: 5px;
+  font: menu;
+  width: 400px;
+}
+/* Widget Frame */
+
+.widgetFrame {
+  overflow: hidden;
+  border: 1px solid #ccc;
 }
 	

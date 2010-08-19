@@ -24,6 +24,7 @@ goog.provide('lantern.comm.LanternChannelFactory');
 goog.provide('lantern.comm.LanternChannel');
 
 goog.require('goog.dom');
+goog.require('goog.dom.classes');
 goog.require('goog.json');
 goog.require('goog.net.XhrIo');
 goog.require('goog.net.xpc.CrossPageChannel');
@@ -87,9 +88,11 @@ lantern.comm.LanternChannel = function(
 /**
  * Sets attributes for Iframe before loading.
  * @param {IFrameElement} iFrameElm Iframe element.
+ * TODO(mukundjha): Replace 'widgetFrame' with some parameter to be passed.
  */
 lantern.comm.LanternChannel.prototype.setIframeAttrs = function(iFrameElm){
   goog.style.setSize(iFrameElm, this.width_, this.height_);
+  goog.dom.classes.add(iFrameElm,'widgetFrame');
 };
 
 

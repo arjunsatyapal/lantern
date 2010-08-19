@@ -17,6 +17,7 @@ limitations under the License.
 <script type="text/javascript"
  src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
 </script>
+<script src="{{media_url}}js/notes.js"></script>
 <script>
 goog.require('goog.net.XhrIo');
 </script>
@@ -75,21 +76,24 @@ goog.require('goog.net.XhrIo');
 <table width='100%' class='contentTable'>
 {% for object in doc_contents %}
   <tr class={% cycle '"oddrow"' '"evenrow"' %}>
+  <td>
+  {% include 'include/notes.html' %}
   {% ifequal object|class_name "RichTextModel" %}
-  <td>{% include 'include/rich_text_model.html' %}</td>
+    {% include 'include/rich_text_model.html' %}
   {% else %} 
    {% ifequal object|class_name "VideoModel" %}
-     <td>{% include 'include/video_model.html' %}</td>
+     {% include 'include/video_model.html' %}
    {% else %}
    {% ifequal object|class_name "DocLinkModel" %}
-  <td>{% include 'include/doc_link_model.html' %}</td>
+     {% include 'include/doc_link_model.html' %}
    {% else %}
    {% ifequal object|class_name "WidgetModel" %}
-  <td>{% include 'include/widget_model.html' %}</td>
+      {% include 'include/widget_model.html' %}
    {% endifequal %}
    {% endifequal %}
    {% endifequal %}
- {% endifequal %}
+ {% endifequal %}</td>
+ </td>
 </tr>
 {% endfor %} 
 </table>
@@ -98,18 +102,23 @@ goog.require('goog.net.XhrIo');
 {% endif %}
 <script>
 var global_score = {{doc_score}};
+
+var markAsReadButton = goog.dom.getElement('markAsReadButton');
+var resetButton = goog.dom.getElement('resetButton');
+
+function toggleShow(elToHide, elToShow) {
+    elToHide.style.visibility = 'hidden';
+    goog.style.showElement(elToHide, false);
+    elToShow.style.visibility = 'visible'; 
+    goog.style.showElement(elToShow, true);
+}
+
 init = function() {
   if (global_score == 100) {
-     var markAsReadbutton = goog.dom.getElement('markAsReadButton');
-     markAsReadbutton.style.visibility = 'hidden';
-     var resetButton = goog.dom.getElement('resetButton');
-     resetButton.style.visibility = 'visible';
+     toggleShow(markAsReadButton, resetButton);
   }
   else {
-     var markAsReadbutton = goog.dom.getElement('markAsReadButton');
-     markAsReadbutton.style.visibility = 'visible';
-     var resetButton = goog.dom.getElement('resetButton');
-     resetButton.style.visibility = 'hidden';
+     toggleShow(resetButton, markAsReadButton);
   }
 }
 
@@ -126,21 +135,16 @@ function resetScores(){
         var progressBar = goog.dom.getElement('docProgressContainer');
         var htmlProgress = '<table><tr><td><b>Progress: </b></td><td><img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:0|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>';
         progressBar.innerHTML = htmlProgress;
-        var markAsReadbutton = goog.dom.getElement('markAsReadButton');
-        markAsReadbutton.style.visibility = 'visible';
-        var resetButton = goog.dom.getElement('resetButton');
-        resetButton.style.visibility = 'hidden';    
+        toggleShow(resetButton, markAsReadButton);
      });
    xhr.send(uri);
   }
   else {
-    var markAsReadbutton = goog.dom.getElement('markAsReadButton');
-    markAsReadbutton.style.visibility = 'visible';
-    var resetButton = goog.dom.getElement('resetButton');
-    resetButton.style.visibility = 'hidden';
+        toggleShow(markAsReadButton, resetButton);
   }
    
 }
+
 
 function markAsRead(){
   if (global_score != 100) {
@@ -155,18 +159,12 @@ function markAsRead(){
         var progressBar = goog.dom.getElement('docProgressContainer');
         var htmlProgress = '<table><tr><td><b>Progress: </b></td><td><img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:100|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>';
         progressBar.innerHTML = htmlProgress;
-        var markAsReadbutton = goog.dom.getElement('markAsReadButton');
-        markAsReadbutton.style.visibility = 'hidden';
-        var resetButton = goog.dom.getElement('resetButton');
-        resetButton.style.visibility = 'visible'; 
+        toggleShow(markAsReadButton, resetButton);
       });
   xhr.send(uri);
   }
   else {
-    var markAsReadbutton = goog.dom.getElement('markAsReadButton');
-    markAsReadbutton.style.visibility = 'hidden';
-    var resetButton = goog.dom.getElement('resetButton');
-    resetButton.style.visibility = 'hidden';
+     toggleShow(resetButton, markAsReadButton);
   }
 }
 init();

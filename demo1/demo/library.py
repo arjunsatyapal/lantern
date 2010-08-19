@@ -753,7 +753,6 @@ def get_doc_contents(doc, user, **kwargs):
                                    element.widget_url))
             base_url = temp.sub('//',temp_array[0])
             element.base_url = base_url + '/'
-	  logging.info('\n******* BASE URL *** %r\n', base_url);
         elif isinstance(element, models.VideoModel):
           video_state = models.VideoState.all().filter(
               'video_ref =', element).filter(
@@ -1112,3 +1111,50 @@ def expand_path(path, user, use_history, absolute):
 def show_changes(pre, post):
   """Displays diffs between two models."""
   return pre.HtmlDiff(pre, post)
+
+
+def get_doc_annotation(doc, user):
+  """Retrieve annotation for a given doc.
+
+  Args:
+    doc: DocModel that is possibly annotated
+    user: User in consideration
+  Returns:
+    A dictionary of { obj_id: annotation } for component documents in doc
+  """
+  if not isinstance(doc, models.DocModel) or (user is None):
+    return None
+  annotation = {}
+  for el in doc.content:
+    element = db.get(el)
+    anno = (models.AnnotationState.all()
+            .filter('user =', user)
+            .filter('trunk_ref =', doc.trunk_ref)
+            .filter('doc_ref =', doc)
+            .filter('object_ref =',element))
+    if anno.count() == 0:
+      anno = models.AnnotationState(user=user,
+                                    doc_ref=doc,
+                                    trunk_ref=doc.trunk_ref,
+                                    object_ref=element)
+      anno.annotation_data = "Type your notes here..."
+      anno.put()
+    else:
+      anno = anno.get()
+    annotation[str(element.key())] = {
+        'data': anno.annotation_data,
+        'key': str(anno.key()),
+    }
+  return annotation
+
+
+def update_notes(name, data):
+  """Update annotation data
+
+  Args:
+    name: key to AnnotationState
+    data: new annotation data
+  """
+  anno = db.get(name)
+  anno.annotation_data = data.encode('utf-8')
+  anno.put()

@@ -115,7 +115,15 @@ goog.require('goog.dom');
     linkDialog.class = 'linkpicker';
     linkDialog.setTitle('Link Picker');
 
- 
+ launchWidgetPicker = function(){
+    url = '/quiz/widgetList'
+    goog.events.removeAll(xhr);
+    goog.events.listen(xhr, goog.net.EventType.COMPLETE,
+                       process_widget_list);
+
+    xhr.send(url);
+ }
+
  launchPicker = function(){
     url = '/getListAjax'
     goog.events.removeAll(xhr);
@@ -124,6 +132,7 @@ goog.require('goog.dom');
 
     xhr.send(url);
  }
+
  deleteRow = function(passed_id) {
    element =  document.getElementById(passed_id);
    if (element) {
@@ -183,13 +192,53 @@ goog.require('goog.dom');
     linkDialog.setVisible(true);
  }
 
+  process_widget_list = function(){
+    obj = xhr.getResponseJson();
+    dialogHtml = '<table width="100%">';
+    for (var i=0; i<obj.widget_list.length ; i++)
+    {
+       dialogHtml += '<tr><td><a href="javascript:pickWidgetLink(\'' + obj.widget_list[i].link + '\');">' + obj.widget_list[i].title + '</td></tr>';
+    }
+    dialogHtml += '</table>';
+    linkDialog.setContent(dialogHtml)
+    linkDialog.setVisible(true);
+ }
+  pickWidgetLink = function (link)  {
+    ++global_counter;
+
+    var table_body = document.getElementById('content_table');
+    var new_row = document.createElement("TR");
+    new_row.id = 'content_row'+global_counter;
+    var col1 = document.createElement("TD");
+    var iElement = document.createElement("DIV");
+       var inputHtmlArray = 
+           ['<table><tr><td><b>Quiz/Widget Link: </b></td>','<td><input type="text" ',
+            'name="data_val" value="'+ link +'"/></td></tr><tr><td><b>Widget Height: </b></td>',
+            '<td><input type="text" name="data_height" value="400px"/></td></tr>',
+            '<td><b>Widget Width: </b></td><td><input type="text"',
+            'name="data_width" value="100%"/></td></tr><td><b>Widget Title: </b></td>',
+            '<td><input type="hidden" name="data_type" value="widget',
+            '"><input type="text" ', 'name="data_title"/></td></tr></table><hr />'];
+    iElement.innerHTML = inputHtmlArray.join('');
+    col1.appendChild(iElement)
+    var col2 = document.createElement("TD");
+    col2.innerHTML = '<b><a href="javascript:deleteRow(\'content_row'+ 
+                     global_counter + '\');">Delete</a></b>';
+
+    new_row.appendChild(col1);
+    new_row.appendChild(col2);
+    var el1 = document.getElementById('object_menu')
+    el1.parentNode.insertBefore(new_row,el1);
+    linkDialog.setVisible(false);
+ }
+ 
  function add_content(value_passed){
     /*
      *@param
      *  value_passed: type of object selected for insertion
      */
     
-    ++global_counter
+    ++global_counter;
     var table_body = document.getElementById('content_table');
     var new_row = document.createElement("TR");
     new_row.id = 'content_row'+global_counter;
@@ -258,6 +307,10 @@ goog.require('goog.dom');
   this.selectedIndex = 0
   if (option.value == 'doc_link'){
     launchPicker();
+          return;
+  }
+  else if (option.value == 'widget'){
+    launchWidgetPicker();
           return;
   }
   else {

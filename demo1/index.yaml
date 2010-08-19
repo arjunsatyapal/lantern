@@ -22,9 +22,28 @@ indexes:
   - name: time_stamp
     direction: desc
 
+- kind: DocLinkModel
+  properties:
+  - name: trunk_ref
+  - name: created
+    direction: desc
+
 - kind: DocModel
   properties:
   - name: creator
+  - name: created
+    direction: desc
+
+- kind: DocModel
+  properties:
+  - name: label
+  - name: tags
+  - name: created
+    direction: desc
+
+- kind: DocModel
+  properties:
+  - name: tags
   - name: created
     direction: desc
 
@@ -44,6 +63,13 @@ indexes:
 
 - kind: DocVisitState
   properties:
+  - name: progress_score
+  - name: user
+  - name: last_visit
+    direction: desc
+
+- kind: DocVisitState
+  properties:
   - name: trunk_id
   - name: user
   - name: last_visit
@@ -56,6 +82,32 @@ indexes:
   - name: last_visit
     direction: desc
 
+- kind: QuizQuestionListModel
+  properties:
+  - name: quiz
+  - name: time_stamp
+    direction: desc
+
+- kind: RecentCourseState
+  properties:
+  - name: user
+  - name: time_stamp
+    direction: desc
+
+- kind: ResponseModel
+  properties:
+  - name: quiz
+  - name: session_id
+  - name: time_stamp
+    direction: desc
+
+- kind: ResponseModel
+  properties:
+  - name: quiz_trunk
+  - name: session_id
+  - name: time_stamp
+    direction: desc
+
 - kind: TrunkRevisionModel
   properties:
   - name: trunk_ref
@@ -65,5 +117,18 @@ indexes:
 - kind: TrunkRevisionModel
   ancestor: yes
   properties:
+  - name: created
+    direction: desc
+
+- kind: TrunkRevisionModel
+  ancestor: yes
+  properties:
+  - name: time_stamp
+    direction: desc
+
+- kind: WidgetProgressState
+  properties:
+  - name: user
+  - name: widget_ref
   - name: time_stamp
     direction: desc
