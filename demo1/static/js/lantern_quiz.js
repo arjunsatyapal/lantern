@@ -121,7 +121,7 @@ lantern.quiz.QuizSession.prototype.makeQuizDOM = function(obj) {
   goog.dom.removeChildren(goog.dom.getElement('choices'));
   
   var quizTitleBar = goog.dom.getElement('quizTitle')
-  var title = goog.dom.createDom('h2'. {'class': 'quizTitle'}, obj.title)
+  var title = goog.dom.createDom('h2', {'class': 'quizTitle'}, obj.title)
   quizTitleBar.appendChild(title)
   this.attempts_ = obj.attempts;
   var questionBodyContainer = goog.dom.getElement('questionBody');
