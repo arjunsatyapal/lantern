@@ -1321,15 +1321,3 @@ class VideoState(UserStateModel):
   """
   video_ref = db.ReferenceProperty(VideoModel)
   paused_time = db.FloatProperty(default=0) 
- 
-  
-class StudentState (db.Model):
-  """ Maintains minimal student state.
-
-  TODO(mukundjha) : expand the model and use proper references
-  """
-  #student = db.ReferenceProperty(Account)
-  student = db.UserProperty()
-  #doc = db.ReferenceProperty(DocModel)
-  doc = db.StringProperty()
-  status = db.RatingProperty()

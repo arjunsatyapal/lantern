@@ -323,8 +323,6 @@ def gen_random_string(num_chars=16):
   # Uses base64 encoding, which has roughly 4/3 size of underlying data.
   first_letter = random.choice(string.letters)
   num_chars -= 1
-#  remainder = num_chars % 4
-#  num_bytes = ((num_chars + remainder) / 4) * 3
   num_bytes = ((num_chars + 3) / 4) * 3
   random_byte = os.urandom(num_bytes)
   random_str = base64.b64encode(random_byte, altchars='-_')
@@ -490,7 +488,7 @@ def fetch_doc(trunk_id, doc_id=None):
 
     trunk_revisions = models.TrunkRevisionModel.all().ancestor(trunk)
     trunk_revision_with_doc = trunk_revisions.filter('obj_ref =',
-      str(doc.key()))
+                                                      str(doc.key()))
 
     if trunk_revision_with_doc.count():
       return doc
@@ -534,7 +532,7 @@ def get_doc_for_user(trunk_id, user):
     raise models.InvalidTrunkError('Invalid trunk %s', trunk_id)
 
   query = models.DocVisitState.all().filter('user =', user).filter(
-    'trunk_ref =', trunk).order('-last_visit')
+      'trunk_ref =', trunk).order('-last_visit')
 
   if query.count():
     doc_entry = query.get()
@@ -558,7 +556,7 @@ def get_parent(doc):
     parents.
   """
   parent_entry = models.DocLinkModel.all().filter('doc_ref =', doc).order(
-    '-created').get()
+       '-created').get()
 
   if parent_entry:
     return parent_entry.from_doc_ref
@@ -567,15 +565,14 @@ def get_parent(doc):
 
 
 def get_score_for_link(link_element, user, **kwargs ):
-  """Cacluates score for the DocLink object by selecting 
-  correct document based on user's history.
-
-  NOTE(mukundjha): This function is defined because get_score
-  for DocLink model uses absolute address for the link and does
-  not incorporate user's history. Function get_score for DocLink could have
-  been modified, but it is counter intuitive.
-
-  *Does not take care of cycles.
+  """Cacluates score for the DocLink object.
+  
+  Score for a link is essentially score for the trunk pointed by the link.
+  If dirty bit is set for the visit entry for the referred trunk scores 
+  for the doc are re-computed by calling get_accumulated_score, else
+  score entry for the trunk is fetched.
+  
+  NOTE(mukundjha): Does not take care of cycles.
 
   Args:
     link_element: Link object for which score is required.
@@ -593,24 +590,30 @@ def get_score_for_link(link_element, user, **kwargs ):
   use_history = kwargs.pop('use_history', False)
   recurse = kwargs.pop('recurse', False)
 
-  doc = link_element.doc_ref
   if recurse:
+    if use_history:
+      doc = get_doc_for_user(link_element.trunk_ref.key(), user)
+    else:
+      doc = fetch_doc(link_element.trunk_ref.key())
     doc_contents = get_doc_contents(doc, user, resolve_links=True,
                                     use_history=use_history)
-    return get_accumulated_score(doc, user, doc_contents, use_history=use_history,
+
+    return get_accumulated_score(doc, user, doc_contents,
+                                 use_history=use_history,
                                  recurse=recurse)
   else:
     visit_state = models.DocVisitState.all().filter('user =', user).filter(
-        'trunk_ref =', doc.trunk_ref).get()
+        'trunk_ref =', link_element.trunk_ref).get()
+
     if visit_state and visit_state.dirty_bit:
       if use_history:
-        new_doc = get_doc_for_user(doc.trunk_ref.key(), user)
+        new_doc = get_doc_for_user(link_element.trunk_ref.key(), user)
       else:
-        new_doc = fetch_doc(doc.trunk_ref.key())
+        new_doc = fetch_doc(link_element.trunk_ref.key())
         doc_contents = get_doc_contents(new_doc, user, resolve_links=True,
                                       use_history=use_history)
 
-        score =  get_accumulated_score(new_doc, user, doc_contents,
+        score = get_accumulated_score(new_doc, user, doc_contents,
                                      use_history=use_history,
                                      recurse=recurse)
         return score
@@ -645,7 +648,7 @@ def get_accumulated_score(doc, user, doc_contents, **kwargs):
   use_history = kwargs.pop('use_history', False)
   recurse = kwargs.pop('recurse', False)
    
-  total, count = 0,0
+  total, count = 0, 0
   for element in doc_contents:
     if not isinstance(element, models.DocLinkModel): 
       element.score = element.get_score(user)
@@ -689,7 +692,8 @@ def put_doc_score(doc, user, score):
     visit_state.put()
   else:
     visit_state = insert_with_new_key(models.DocVisitState, user=user,
-      trunk_ref=doc.trunk_ref.key(), doc_ref=doc.key(), progress_score= score)
+                                      trunk_ref=doc.trunk_ref.key(),
+                                      doc_ref=doc.key(), progress_score= score)
 
 
 def get_doc_contents(doc, user, **kwargs):
@@ -721,7 +725,6 @@ def get_doc_contents(doc, user, **kwargs):
   use_history = kwargs.pop('use_history', False) 
   fetch_score = kwargs.pop('fetch_score', False) 
   fetch_video_state = kwargs.pop('fetch_video_state', False) 
- 
    
   if not isinstance(doc, models.DocModel):
     return None
@@ -744,6 +747,10 @@ def get_doc_contents(doc, user, **kwargs):
       if not isinstance(element, models.DocLinkModel):
         if fetch_score:
           element.score = element.get_score(user)
+
+        # If widget : extract the base url, base url are passed to channel
+        # to locate blank.html and relay.html pages.
+
         if isinstance(element, models.WidgetModel):
           if is_relative_link.match(element.widget_url): 
             temp_array = re_question_mark.split(element.widget_url)
@@ -751,8 +758,10 @@ def get_doc_contents(doc, user, **kwargs):
           else: 
             temp_array = slash.split(double_slash.sub('__TEMP__',
                                    element.widget_url))
-            base_url = temp.sub('//',temp_array[0])
+            base_url = temp.sub('//', temp_array[0])
             element.base_url = base_url + '/'
+        
+        # If video object and fetch_video_status is true, status is fetched.
         elif isinstance(element, models.VideoModel):
           video_state = models.VideoState.all().filter(
               'video_ref =', element).filter(
@@ -824,9 +833,11 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
   if path_trunk_set is None:
     path_trunk_set = set([doc.trunk_ref.key()])
 
-  parent_entry = models.DocLinkModel.all().filter('trunk_ref =', doc.trunk_ref).order(
+  parent_entry = models.DocLinkModel.all().filter(
+      'trunk_ref =', doc.trunk_ref).order(
       '-created').fetch(1000)
-  # Set if an alternate path is picked for a case where cycle is found.
+
+  # Flag is set if an alternate path is picked.
   alternate_picked_flag = 0
   alternate_parent = None
 
@@ -839,16 +850,10 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
           alternate_picked_flag = 1
 
         if parent.from_doc_ref.label == models.AllowedLabels.COURSE:
-          logging.info(
-              'PARENTLISTPATH LOOP1***\n adding %r to list %r \nand %r to trunk %r\n',
-              parent.from_doc_ref.title, [p.title for p in path],
-              parent.from_trunk_ref.key(), path_trunk_set)
-
           path_trunk_set.add(parent.from_trunk_ref.key())
           path.append(parent.from_doc_ref)
           path.reverse()
           path_to_return = [el.key() for el in path]
-          logging.info('RETURNING PATH LOOP 1: %r',  [p.title for p in path])
           return path_to_return
      
   
@@ -856,13 +861,10 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
     parent = alternate_parent
     if parent.from_trunk_ref.key() not in path_trunk_set:
     
-      logging.info('PARENTLISTPATH LOOP2** adding %r to list %r \nand %r to trunk %r\n',
-                   parent.from_doc_ref.title, [p.title for p in path],
-                   parent.from_trunk_ref.key(), path_trunk_set)
       path_trunk_set.add(parent.from_trunk_ref.key())
       path.append(parent.from_doc_ref)
-      logging.info('****Path sent %r', path) 
-      path_to_return = get_path_till_course(parent.from_doc_ref, path, path_trunk_set)
+      path_to_return = get_path_till_course(parent.from_doc_ref,
+                                            path, path_trunk_set)
     else:
       path.reverse()
       path_to_return = [el.key() for el in path]
@@ -870,7 +872,6 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
     path.reverse()
     path_to_return = [el.key() for el in path]
 
-  logging.info('RETURNING PATH LOOP 2: %r',  [p.title for p in path])
   return path_to_return
 
 
@@ -881,7 +882,8 @@ def get_or_create_session_id(widget, user):
   for the widget. We have separate model to store data for the user 
   per widget but since we need only one unique id we can reutilize 
   the id assigned by appstore instead of creating new one for 
-  every sesssion. If no entry is present, a new entry is made.
+  every sesssion. If no entry is present, a new entry is made. Currently,
+  we are setting dirty bits to report stale scores.
 
   Args:
     widget: WidgetModel object for which session id is required.
@@ -1016,9 +1018,10 @@ def update_recent_course_entry(recent_doc, course, user):
     course: Course to be updated.
     user: User for whom update is to be made.
   """
+  # Update course entry only if the doc passed is a course.
   if course.label != models.AllowedLabels.COURSE:
-    logging.error('FUNCTION:update_recent_course_entry- Doc passed not a course')
     return None
+
   course_entry = models.RecentCourseState.all().filter('user =', user).filter(
       'course_trunk_ref =', course.trunk_ref).get()
 
@@ -1047,7 +1050,9 @@ def update_recent_course_entry(recent_doc, course, user):
 
 
 def get_recent_in_progress_courses(user):
-  """Gets a list of recent courses in progress.
+  """Gets a list of recent courses in progress. 
+ 
+  Recomputes scores if score entry for course is stale.
 
   Args:
     user: User under consideration.
@@ -1131,7 +1136,7 @@ def get_doc_annotation(doc, user):
             .filter('user =', user)
             .filter('trunk_ref =', doc.trunk_ref)
             .filter('doc_ref =', doc)
-            .filter('object_ref =',element))
+            .filter('object_ref =', element))
     if anno.count() == 0:
       anno = models.AnnotationState(user=user,
                                     doc_ref=doc,

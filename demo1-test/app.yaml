@@ -10,9 +10,9 @@ handlers:
   static_files: static/images/favicon.ico
   upload: static/images/favicon.ico
 
-- url: /static/images/lantern-logo.png
-  static_files: static/images/lantern-logo.png
-  upload: static/images/lantern-logo.png
+- url: /static/images/(.*)
+  static_files: static/images/\1
+  upload: static/images/(.*)
 
 - url: /static/(css/.*|js/.*)
   static_files: static/\1

@@ -106,67 +106,6 @@ class InvalidIncomingEmailError(Exception):
 # redirects.  Rendered by templates/base.html.
 counter = 0
 
-
-# Helper functions to fetch student's status (per module)
-# from the data store
-
-def get_user_status(request, data_dict):
-  """ Populates the parameter dict with student's module status.
-
-  Args:
-    data_dict: yaml dictionary mapped with attributes of group/collection of
-      modules.
-  Returns:
-    dictionary with per module status info appended to the dictionary passed.
-  """
-
-  # Status only for groups
-  if data_dict.get(constants.YAML_TYPE_KEY) == "group":
-
-    state_list = models.gql(models.StudentState, 'WHERE student = :1', request.user)
-
-    # Store all the status info in a new dictionary
-    temp_dict = {}
-    for state in state_list:
-      try :
-        current_status = int(state.status)
-      except (TypeError, ValueError):
-        current_status = 0
-      temp_dict[state.doc] = current_status
-
-    # If module is present in the content,
-    # and has a status record, update it else set to zero.
-    for module in data_dict.get('doc_content'):
-      if module['key'] in temp_dict:
-         module['rating'] = temp_dict.get(module['key'], 0)
-  return data_dict
-
-
-def initialize(request):
-  """ Temp function to initialize datastore.
-
-  Initialize the data store with some values to experiment.
-  """
-
-  docList = ['AlRG3wQOBqMc2nIwjoHZZ8', 'Des7BVODdcptnOdWhsWXeK',
-    'BQYVV1KayQ2xjccQgIXfP+', 'BkT/Nqi4HTkpn3qPHeV+Xx', 'CE9inaE8SU6kMS05xno8Qg',
-    'DOI0PIFb+0qIAdYlswlgX6']
-
-  docRating = [100, 80, 80, 70, 90, 80]
-
-  i = 0
-  for id in docList:
-    doc = models.DocModel()
-    doc.doc_id = id
-    dKey = doc.put()
-    studState = models.StudentState()
-    studState.student = request.user
-    studState.doc = id
-    studState.status = docRating[i]
-    studState.put()
-    i += 1
-
-
 def respond(request, page_title, template, params=None):
   """Helper to render a response, passing standard stuff to the response.
 
@@ -187,7 +126,6 @@ def respond(request, page_title, template, params=None):
   """
   global counter
   counter += 1
- # initialize(request)
   if params is None:
     params = {}
   must_choose_nickname = False
@@ -379,8 +317,6 @@ def collect_data_from_query(request):
   data_dict['doc_tags'] = request.POST.get('doc_tags')
   content_data_vals = request.POST.getlist('data_val')
   content_data_types = request.POST.getlist('data_type')
-  logging.info('\n.... %r \n', content_data_types)
-  logging.info('\n.... %r \n', content_data_vals)
   content_height = request.POST.getlist('data_height')
   content_width = request.POST.getlist('data_width')
   content_title = request.POST.getlist('data_title')
@@ -431,7 +367,6 @@ def create_doc(data_dict):
     tags = starting_space.sub('', tags)
     tags = ending_space.sub('', tags)
     tag_list = tag_separator.split(tags)
-    logging.info('\n\n **** tsgs %r', tag_list)
     doc.tags = [db.Category(tag) for tag in tag_list]
   else:
     doc.tags = []
@@ -481,54 +416,11 @@ def create_doc(data_dict):
 
 ### Request handlers ###
 
-def content_handler(request, title, template, file_path, node_type):
-  """Handels request and renders template with content, based on type of data.
-
-  Helper function which loads the provided template with data extracted from
-  file  provided in file_path or renders an error page if error occurs.
-
-  Args:
-     request: The HTTP request object
-     title: Default title for the page
-     template: Template to be used to render the page
-     file_path: Path to yaml file to be parsed
-     node_type: String describing the type of content file (node/leaf)
-
-  Returns:
-     Whatever render_to_response(template, params) returns if no error, else
-     displays an error page.
-
-  Raises:
-     Whatever render_to_response(template, params) raises.
-  """
-  _MAIN_MENU = """
-  <a href = "http://www.khanacademy.org">Video Library</a> |
-  <a href = "/">Exercises (Requires Login)</a>
-  """
-  # Parse according to type
-  if node_type == 'leaf':
-    data_dict = library.parse_leaf(file_path)
-  elif node_type == 'node':
-    data_dict = library.parse_node(file_path)
-  else:
-    data_dict = {'errorMsg': 'Invalid Type passed to content_handler'}
-
-  data_dict['mainmenu'] = _MAIN_MENU
-
-  if 'errorMsg' in data_dict:
-    logging.error(data_dict['errorMsg'])
-    return HttpResponse(data_dict['errorMsg'], status = 500)
-
-  data_dict = get_user_status(request, data_dict)
-
-  return respond(request, title, template, data_dict)
-
-
 @login_required
 def index(request):
   """/ - Show the initial Homepage. Redirect to login page if required.
   """
-  #recently finished pages.
+  # Recently finished pages.
   recently_finished = models.DocVisitState.all().filter(
       'user =', users.get_current_user()).filter(
       'progress_score =', 100).order('-last_visit').fetch(5)
@@ -547,7 +439,8 @@ def index(request):
     
   
   # Course title is stale here 
-  in_progress_courses = library.get_recent_in_progress_courses(users.get_current_user())
+  in_progress_courses = library.get_recent_in_progress_courses(
+      users.get_current_user())
   return respond(request, constants.DEFAULT_TITLE, "homepage.html",
                  {'recently_finished': recently_finished,
                  'in_progress_courses': in_progress_courses})
@@ -625,8 +518,8 @@ def view_doc(request):
       for the request and only plays a role if 'absolute' is set true.
     parent_trunk: Trunk Id of the parent. Required to build up correct hierarchy. 
     parent_id: Doc Id for the parent. Again its just marks an entry point.
-    absolute: If set, doc pointed by the doc_id is fetched, irrespective of user's 
-      history or latest version of the doc.
+    absolute: If set, doc pointed by the doc_id is fetched, irrespective 
+      of user's history or latest version of the doc.
     use_history: If set user's history is used to fetch the doc. If use_history 
       is set user will always land on the same version of the doc he was on last
       visit, until he chooses to move to a newer version.
@@ -685,7 +578,7 @@ def view_doc(request):
 
   updated_stack = library.update_visit_stack(doc, parent,
                                              users.get_current_user())
-  # page itself is a course
+  # Page itself is a course
   if doc.label == models.AllowedLabels.COURSE:
     library.update_recent_course_entry(doc, doc,
                                        users.get_current_user())
@@ -700,7 +593,6 @@ def view_doc(request):
   else:
     traversed_path = []
   
-  # Just place holders to check the output, should present in better way.
   if not use_history:
     link_to_prev = (
         '<a href='
@@ -1020,7 +912,6 @@ def reset_score_for_page(request):
 @login_required
 def update_notes(request):
   """Update annotation on a given object"""
-
   try:
     data = request.POST.get('data')
     it = simplejson.loads(data)
