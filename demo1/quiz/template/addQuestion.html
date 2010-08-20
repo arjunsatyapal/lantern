@@ -21,10 +21,6 @@
  var global_counter = 0;
 
  function insertChoice(){
-    /*
-     *@param
-     *  value_passed: type of object selected for insertion
-     */
     global_counter++;
     //not recommended but a shortcut
     var textHTML = '<b>Choice '+ global_counter +':<b><br><table><tr><td>Choice:</td><td><input type="text" value="Enter Choice" name="choice_texts"></td></tr>'+
@@ -42,7 +38,7 @@
 
 function setValueForChoices(){
    var el = document.getElementByID('is_correct');
-   for (i=0; i<el.length; i++){
+   for (var i=0; i<el.length; i++){
      if (el[i].checked==true){
         var num = i+1
         var key = 'choice'+ num;

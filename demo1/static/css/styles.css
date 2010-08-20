@@ -331,11 +331,6 @@ button.notestrigger {
   background: transparent url('/static/images/note.png') no-repeat center top;
 }
 
-.note.hidden {
-  float: right;
-  display: none;
-}
-
 .note {
   float: right;
   visibility: hidden;

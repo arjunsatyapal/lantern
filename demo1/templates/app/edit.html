@@ -102,7 +102,7 @@ goog.require('goog.dom');
  <option value='rich_text'>Html Text</option>
  <option value='doc_link'>Link</option>
  <option value='video'>Video</option>
- <option value='widget'>Quiz</option>
+ <option value='quiz'>Quiz</option>
  <option value='widget'>Widget</option></td></tr>
 </table>
  </center>
@@ -180,27 +180,38 @@ goog.require('goog.dom');
  }
 
  process_list = function(){
-    obj = xhr.getResponseJson();
-    dialogHtml = '<table width="100%">';
+    var obj = xhr.getResponseJson();
+    var dialogHtml = ['<table width="100%">'];
     for (var i=0; i<obj.doc_list.length ; i++)
     {
-       dialogHtml += '<tr><td><a href="javascript:pickLink(\'' + obj.doc_list[i].trunk_id + '\',\'' + obj.doc_list[i].doc_id+'\',\'' + obj.doc_list[i].doc_title + '\');">'            + obj.doc_list[i].doc_title + '</td><td><input type="button" onclick="javascript:window.open(\'/view?trunk_id=' + obj.doc_list[i].trunk_id +
-           '&doc_id=' + obj.doc_list[i].doc_id + '&absloute=True\');" value="Preview"/></td></tr>';
+       dialogHtml.push('<tr><td><a href="javascript:pickLink(\'',
+                       obj.doc_list[i].trunk_id,
+                       '\',\'',
+                       obj.doc_list[i].doc_id,
+                       '\',\'',
+                       obj.doc_list[i].doc_title, '\');">',
+                       obj.doc_list[i].doc_title,
+                       '</td><td><input type="button" onclick="javascript:window.open(\'/view?trunk_id=',
+                       obj.doc_list[i].trunk_id, '&doc_id=', obj.doc_list[i].doc_id,
+                       '&absloute=True\');" value="Preview"/></td></tr>');
     }
-    dialogHtml += '</table>';
-    linkDialog.setContent(dialogHtml)
+    dialogHtml.push('</table>');
+    
+    linkDialog.setContent(dialogHtml.join(''));
     linkDialog.setVisible(true);
  }
 
   process_widget_list = function(){
-    obj = xhr.getResponseJson();
-    dialogHtml = '<table width="100%">';
+    var obj = xhr.getResponseJson();
+    var dialogHtml = ['<table width="100%">'];
     for (var i=0; i<obj.widget_list.length ; i++)
     {
-       dialogHtml += '<tr><td><a href="javascript:pickWidgetLink(\'' + obj.widget_list[i].link + '\');">' + obj.widget_list[i].title + '</td></tr>';
+       dialogHtml.push('<tr><td><a href="javascript:pickWidgetLink(\'',
+                        obj.widget_list[i].link, '\');">', 
+                        obj.widget_list[i].title, '</td></tr>');
     }
-    dialogHtml += '</table>';
-    linkDialog.setContent(dialogHtml)
+    dialogHtml.push('</table>');
+    linkDialog.setContent(dialogHtml.join(''));
     linkDialog.setVisible(true);
  }
   pickWidgetLink = function (link)  {
@@ -212,7 +223,8 @@ goog.require('goog.dom');
     var col1 = document.createElement("TD");
     var iElement = document.createElement("DIV");
        var inputHtmlArray = 
-           ['<table><tr><td><b>Quiz/Widget Link: </b></td>','<td><input type="text" ',
+           ['<table><tr><td><b>Quiz/Widget Link: </b></td>',
+            '<td><input type="text" ',
             'name="data_val" value="'+ link +'"/></td></tr><tr><td><b>Widget Height: </b></td>',
             '<td><input type="text" name="data_height" value="400px"/></td></tr>',
             '<td><b>Widget Width: </b></td><td><input type="text"',
@@ -261,7 +273,8 @@ goog.require('goog.dom');
     } else if (value_passed == 'video') {
        var iElement = document.createElement("DIV");
        var inputHtmlArray = 
-           ['<table><tr><td><b>Video Id: </b></td>','<td><input type="text" ',
+           ['<table><tr><td><b>Video Id: </b></td>',
+            '<td><input type="text" ',
             'name="data_val"/></td></tr><tr><td><b>Video Height: </b></td>',
             '<td><input type="text" name="data_height" value="300"/></td></tr>',
             '<td><b>Video Width: </b></td><td><input type="text"',
@@ -304,16 +317,14 @@ goog.require('goog.dom');
  var edit_menu = document.getElementById("object_type")
  edit_menu.onchange = function(){ 
   var option = this.options[this.selectedIndex];
-  this.selectedIndex = 0
+  this.selectedIndex = 0;
   if (option.value == 'doc_link'){
     launchPicker();
           return;
-  }
-  else if (option.value == 'widget'){
+  } else if (option.value == 'quiz'){
     launchWidgetPicker();
           return;
-  }
-  else {
+  } else {
     add_content(option.value)
   }
  }

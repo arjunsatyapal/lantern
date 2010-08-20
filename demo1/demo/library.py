@@ -565,7 +565,7 @@ def get_parent(doc):
 
 
 def get_score_for_link(link_element, user, **kwargs ):
-  """Cacluates score for the DocLink object.
+  """Calculates score for the DocLink object.
   
   Score for a link is essentially score for the trunk pointed by the link.
   If dirty bit is set for the visit entry for the referred trunk scores 

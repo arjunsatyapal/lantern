@@ -17,6 +17,7 @@ goog.require('goog.net.XhrIo');
 goog.require('goog.Uri');
 goog.require('goog.json');
 goog.provide('lantern.Notes');
+goog.provide('lantern.Notes.showNote');
 
 lantern.Notes.showNote = function(name) {
   var noteElt = document.getElementById(name);

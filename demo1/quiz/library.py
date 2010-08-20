@@ -69,8 +69,6 @@ def gen_random_string(num_chars=16):
   # Uses base64 encoding, which has roughly 4/3 size of underlying data.
   first_letter = random.choice(string.letters)
   num_chars -= 1
-#  remainder = num_chars % 4
-#  num_bytes = ((num_chars + remainder) / 4) * 3
   num_bytes = ((num_chars + 3) / 4) * 3
   random_byte = os.urandom(num_bytes)
   random_str = base64.b64encode(random_byte, altchars='-_')
@@ -541,7 +539,6 @@ def fetch_new_question_and_status(session_id, quiz_trunk_id, repeat):
 def remove_question_from_quiz(question, quiz):
   """Removes question from the quiz.
   """
-  
   question_entry = models.QuizQuestionListModel.all().filter(
       'question =', question).filter('quiz =',quiz).get()
   if question_entry:
@@ -580,7 +577,6 @@ def question_to_json(question_and_status_dict, repeat):
   else:
     question_dict = question.dump_to_dict()
     gen_message = None
-  logging.info('**((*(((**(((())))))*****\n %r \n',  question_and_status_dict)
   data_dict = {'current_status' : question_and_status_dict['current_status'],
                'question' : question_dict,
                'attempts': question_and_status_dict['attempts'],

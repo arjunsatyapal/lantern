@@ -54,7 +54,7 @@
 
 function setValueForChoices(){
    var el = document.getElementByID('is_correct');
-   for (i=0; i<el.length; i++){
+   for (var i=0; i<el.length; i++){
      if (el[i].checked==true){
         var num = i+1;
         var key = 'choice'+ num;

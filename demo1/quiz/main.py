@@ -303,6 +303,7 @@ class AddQuestion(webapp.RequestHandler):
                            {'quiz' : quiz,
                             'quiz_key' : quiz.key()}))
 
+
 class EditQuestion(webapp.RequestHandler):
   """Presents an edit page for editing questions.
   TODO(mukundjha): Use filters instead of passing key to the template.
@@ -354,8 +355,8 @@ class ViewQuiz(webapp.RequestHandler):
 
 
 class SendWidgetList(webapp.RequestHandler):
-  """Sends a list of quizes available and other widgets
-.
+  """Sends a list of quizes available and other widgets.
+
   TODO(mukundjha): Move this to lantern and replace with 
     widget registration.
   """
@@ -367,7 +368,7 @@ class SendWidgetList(webapp.RequestHandler):
 
     khan_exercise = {'title': 'Khan Academy- Basic Trigonometry',
         'link': 
-        'http://tempkhanacadquiz.appspot.com/exercises?exid=trigonometry_1'}
+            'http://tempkhanacadquiz.appspot.com/exercises?exid=trigonometry_1'}
     
     widget_list.append(py_shell)
     widget_list.append(khan_exercise)
