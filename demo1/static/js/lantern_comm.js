@@ -108,7 +108,7 @@ lantern.comm.LanternChannel.prototype.processScore = function() {
       '<img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:',
       obj.doc_score,
       '|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||',
-      '&chm=N,000000,0,-1,11"'];
+      '&chm=N,000000,0,-1,11">'];
 
   docProgressContainer.innerHTML = progressHtmlArray.join('');
 };
