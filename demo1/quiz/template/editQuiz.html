@@ -1,0 +1,21 @@
+<html>
+<body>
+<h2>Edit Quiz:</h2>
+<form action='submitQuiz' method='POST'>
+Quiz Title:<input type='text' name='quiz_title' value='{{quiz.title}}'/>
+<input type='hidden' name='quiz_id' value='{{ quiz|get_key }}'/>
+<h3>Questoin List:</h3>
+<a href='/quiz/addQuestion?quiz_id={{ quiz|get_key }}'>Add a new question</a>
+<table border=0>
+{% for question in questions %}
+<tr>        
+        <td>{{forloop.counter}}</td>
+	<td>{{question.body}}</td>
+        <td><a href="/quiz/deleteQuestion?question_id={{ question|get_key }}&quiz_id={{ quiz|get_key }}">Delete</a></td>
+        <td><a href="/quiz/editQuestion?question_id={{ question|get_key }}&quiz_id={{ quiz|get_key }}">Edit</a></td>
+</tr>
+{% endfor %}
+</table>
+<input type='submit' name='Done Editing' value='Done Editing'/>
+
+</form>

@@ -64,6 +64,11 @@
   padding: 8px;
 }
 
+.modal-dialog-content {
+  max-height: 400px;
+  overflow: auto;
+}
+
 .goog-buttonset-default {
   font-weight: bold;
 }

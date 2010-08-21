@@ -17,11 +17,17 @@ limitations under the License.
 {% block extra_head %}
 
 <script LANGUAGE='JavaScript'>
-<!--
+goog.require('goog.json');
+goog.require('goog.net.XhrIo');
+goog.require('goog.ui.Dialog');
+goog.require('goog.dom');
 
- 
- }-->
 </script>
+ <style>
+  .modal-dialog {
+    width: 400px;
+  }
+  </style>
 {% endblock %}
 
 {% block title %} {{ title }} {% endblock %}
@@ -29,7 +35,7 @@ limitations under the License.
 {% block content_main %}
 {% if errorMsg %}
   {{errorMsg}}
-  <hr/>
+  <hr />
 {% endif %}
  <form id='edit_form' action='/submitEdits' method='POST' enctype="application/octet-stream">
  <table class='commonAttributes' width='50%'> 
@@ -42,6 +48,15 @@ limitations under the License.
  <tr><td><b>Creator : </b></td><td>{{doc.creator}}</td></tr>
  <tr><td><b>Created on : </b></td><td>{{doc.created}}</td></tr>
  <tr><td><b>Title: </b></td><td><input type='text' name='doc_title' value='{{doc.title}}'/></td></tr>
+ <tr><td><b>Tags: </b></td><td><input type='text' name='doc_tags' value='{{tags}}'/></td></tr>
+ <tr><td><b>Label: </b></td><td><select name='doc_label'>
+  {% for label in allowed_labels %}
+  {% ifequal label doc.label %}
+  <option value='{{label}}' selected>{{label}}</option>
+  {% else %}
+  <option value='{{label}}'>{{label}}</option>
+  {% endifequal %}
+  {% endfor %}
  <tr><td><b>Grade Level: </b></td><td><select name='doc_grade_level'>
  {% for i in data_valid_range %}
  {% ifequal i doc.grade_level %}
@@ -53,7 +68,7 @@ limitations under the License.
  </td>
 </tr>
  </table>
- <hr/>
+ <hr />
  <font align='right'>
  <input type='submit' value='submit'>
  </font>
@@ -61,18 +76,24 @@ limitations under the License.
  <table class='addItem' id='content_table'>
  {% if doc_contents %}
  {% for object in doc_contents %}
-  <tr class={% cycle '"oddrow"' '"evenrow"' %}>
+  <tr class={% cycle '"oddrow"' '"evenrow"' %} id='{{ object|get_key }}'>
   {% ifequal object|class_name "RichTextModel" %}
-  <td>{% include 'include/edit_rich_text_model.html' %}</td>
+  <td><div>{% include 'include/edit_rich_text_model.html' %}<hr></div></td>
   {% else %}
    {% ifequal object|class_name "VideoModel" %}
-     <td>{% include 'include/edit_video_model.html' %}</td>
+     <td><div>{% include 'include/edit_video_model.html' %}<hr></div></td>
    {% else %}
    {% ifequal object|class_name "DocLinkModel" %}
-  <td>{% include 'include/edit_doc_link_model.html' %}</td>
+  <td><div>{% include 'include/edit_doc_link_model.html' %}<hr></div></td>
+   {% else %}
+   {% ifequal object|class_name "WidgetModel" %}
+  <td><div>{% include 'include/edit_widget_model.html' %}<hr></div></td>
+
+   {% endifequal %}
    {% endifequal %}
    {% endifequal %}
  {% endifequal %}
+  <td><b><a href="javascript:deleteRow('{{ object|get_key }}');">Delete</a></b></td>
 </tr>
 {% endfor %}
 {% endif %}
@@ -81,7 +102,6 @@ limitations under the License.
  <option value='rich_text'>Html Text</option>
  <option value='doc_link'>Link</option>
  <option value='video'>Video</option>
- <option value='py_shell'>Python Interpretor</option>
  <option value='quiz'>Quiz</option>
  <option value='widget'>Widget</option></td></tr>
 </table>
@@ -90,60 +110,202 @@ limitations under the License.
 
 <script type="text/javascript">
  var global_counter = 0;
+ var xhr = new goog.net.XhrIo();
+ var linkDialog = new goog.ui.Dialog(null, true);
+    linkDialog.class = 'linkpicker';
+    linkDialog.setTitle('Link Picker');
 
+ launchWidgetPicker = function(){
+    url = '/quiz/widgetList'
+    goog.events.removeAll(xhr);
+    goog.events.listen(xhr, goog.net.EventType.COMPLETE,
+                       process_widget_list);
+
+    xhr.send(url);
+ }
+
+ launchPicker = function(){
+    url = '/getListAjax'
+    goog.events.removeAll(xhr);
+    goog.events.listen(xhr, goog.net.EventType.COMPLETE,
+                       process_list);
+
+    xhr.send(url);
+ }
+
+ deleteRow = function(passed_id) {
+   element =  document.getElementById(passed_id);
+   if (element) {
+     goog.dom.removeChildren(element);
+   }
+ }
+
+ pickLink = function(trunk_id, doc_id, title){
+  ++global_counter;
+  var link = '/view?trunk_id=' + trunk_id + '&doc_id=' + doc_id;
+  var table_body = document.getElementById('content_table');
+  var new_row = document.createElement("TR");
+  new_row.id = 'content_row' + global_counter;
+  var col1 = document.createElement("TD");
+  var bTag = document.createElement("B");
+  var col2 = document.createElement("TD");
+  var att_name = "data_val";
+  var iElement2 = document.createElement("Input"); 
+  iElement2.setAttribute('type', "hidden");
+  iElement2.setAttribute('name', "data_type");
+  iElement2.value = 'doc_link';
+  var iElement1 = document.createElement("Input");
+  iElement1.setAttribute('type', 'hidden');
+  iElement1.value = link;
+  bTag.appendChild(document.createTextNode('Link: '));
+  iElement1.setAttribute('name', att_name);
+  element3 = document.createElement("DIV");
+  element3.innerHTML = '<a href="' + link +'">'+title + '</a>'+
+      '<input type="hidden" name="data_height" value="0">'+
+      '<input type="hidden" name="data_width" value="0">' +
+      '<input type="hidden" name="data_title" value="">';
+  col1.appendChild(bTag)
+  col2.appendChild(element3)
+  col2.appendChild(iElement1)
+  col2.appendChild(iElement2)
+  var col3 = document.createElement("TD");
+  col3.innerHTML = '<b><a href="javascript:deleteRow(\'content_row' + global_counter + '\');">Delete</a></b>';
+  
+    new_row.appendChild(col1);
+    new_row.appendChild(col2);
+    new_row.appendChild(col3);
+    var el1 = document.getElementById('object_menu')
+    el1.parentNode.insertBefore(new_row,el1);
+    linkDialog.setVisible(false);
+ }
+
+ process_list = function(){
+    var obj = xhr.getResponseJson();
+    var dialogHtml = ['<table width="100%">'];
+    for (var i=0; i<obj.doc_list.length ; i++)
+    {
+       dialogHtml.push('<tr><td><a href="javascript:pickLink(\'',
+                       obj.doc_list[i].trunk_id,
+                       '\',\'',
+                       obj.doc_list[i].doc_id,
+                       '\',\'',
+                       obj.doc_list[i].doc_title, '\');">',
+                       obj.doc_list[i].doc_title,
+                       '</td><td><input type="button" onclick="javascript:window.open(\'/view?trunk_id=',
+                       obj.doc_list[i].trunk_id, '&doc_id=', obj.doc_list[i].doc_id,
+                       '&absloute=True\');" value="Preview"/></td></tr>');
+    }
+    dialogHtml.push('</table>');
+    
+    linkDialog.setContent(dialogHtml.join(''));
+    linkDialog.setVisible(true);
+ }
+
+  process_widget_list = function(){
+    var obj = xhr.getResponseJson();
+    var dialogHtml = ['<table width="100%">'];
+    for (var i=0; i<obj.widget_list.length ; i++)
+    {
+       dialogHtml.push('<tr><td><a href="javascript:pickWidgetLink(\'',
+                        obj.widget_list[i].link, '\');">', 
+                        obj.widget_list[i].title, '</td></tr>');
+    }
+    dialogHtml.push('</table>');
+    linkDialog.setContent(dialogHtml.join(''));
+    linkDialog.setVisible(true);
+ }
+  pickWidgetLink = function (link)  {
+    ++global_counter;
+
+    var table_body = document.getElementById('content_table');
+    var new_row = document.createElement("TR");
+    new_row.id = 'content_row'+global_counter;
+    var col1 = document.createElement("TD");
+    var iElement = document.createElement("DIV");
+       var inputHtmlArray = 
+           ['<table><tr><td><b>Quiz/Widget Link: </b></td>',
+            '<td><input type="text" ',
+            'name="data_val" value="'+ link +'"/></td></tr><tr><td><b>Widget Height: </b></td>',
+            '<td><input type="text" name="data_height" value="400px"/></td></tr>',
+            '<td><b>Widget Width: </b></td><td><input type="text"',
+            'name="data_width" value="100%"/></td></tr><td><b>Widget Title: </b></td>',
+            '<td><input type="hidden" name="data_type" value="widget',
+            '"><input type="text" ', 'name="data_title"/></td></tr></table><hr />'];
+    iElement.innerHTML = inputHtmlArray.join('');
+    col1.appendChild(iElement)
+    var col2 = document.createElement("TD");
+    col2.innerHTML = '<b><a href="javascript:deleteRow(\'content_row'+ 
+                     global_counter + '\');">Delete</a></b>';
+
+    new_row.appendChild(col1);
+    new_row.appendChild(col2);
+    var el1 = document.getElementById('object_menu')
+    el1.parentNode.insertBefore(new_row,el1);
+    linkDialog.setVisible(false);
+ }
+ 
  function add_content(value_passed){
     /*
      *@param
      *  value_passed: type of object selected for insertion
      */
     
+    ++global_counter;
     var table_body = document.getElementById('content_table');
     var new_row = document.createElement("TR");
+    new_row.id = 'content_row'+global_counter;
     var col1 = document.createElement("TD");
-    var bTag = document.createElement("B");
-    var col2 = document.createElement("TD");
-
+       
     if (value_passed == 'rich_text'){
-          var iElement1 = document.createElement("TEXTAREA")
-          iElement1.setAttribute('cols', '40')
-          iElement1.setAttribute('rows', '10')
-          bTag.appendChild(document.createTextNode('HTML Text: '))
-    } else if (value_passed == 'doc_link'){
-          var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('Link: '))
+       var iElement = document.createElement("DIV");
+       var inputHtmlArray = 
+           ['<table><tr><td><b>HTML Text: </b></td>',
+            '<td><textarea ',
+            'rows="8" cols="60" name="data_val"/></textarea>',
+            '<input type="hidden" name="data_type" value="rich_text"/>',
+            '<input type="hidden" name="data_height" value="0"/>',
+            '<input type="hidden" name="data_width" value="0"/>',
+            '<input type="hidden" name="data_title" value="no title"/>',
+            '</td></tr></table><hr />',
+            ];
+       iElement.innerHTML = inputHtmlArray.join('');
+
     } else if (value_passed == 'video') {
-          var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('Videl Link/Id: '))
+       var iElement = document.createElement("DIV");
+       var inputHtmlArray = 
+           ['<table><tr><td><b>Video Id: </b></td>',
+            '<td><input type="text" ',
+            'name="data_val"/></td></tr><tr><td><b>Video Height: </b></td>',
+            '<td><input type="text" name="data_height" value="300"/></td></tr>',
+            '<td><b>Video Width: </b></td><td><input type="text"',
+            'name="data_width" value="600"/></td></tr>',
+            '<td><b>Video Title: </b></td>',
+            '<td><input type="hidden" name="data_type" value="',
+            value_passed,
+            '"><input type="text" name="data_title"/></td></tr></table><hr />'];
+       iElement.innerHTML = inputHtmlArray.join('');
     } else if (value_passed == 'py_shell'){
-           var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('PyShell Link: '))
     } else if (value_passed == 'quiz') {
-          var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('Quiz Link: '))
     } else if (value_passed == 'widget') {
-          var iElement1 = document.createElement("Input")
-          iElement1.setAttribute('type', 'text')
-          bTag.appendChild(document.createTextNode('Widget/Quiz: '))
-    }
-    else {
+       var iElement = document.createElement("DIV");
+       var inputHtmlArray = 
+           ['<table><tr><td><b>Quiz/Widget Link: </b></td>','<td><input type="text" ',
+            'name="data_val"/></td></tr><tr><td><b>Widget Height: </b></td>',
+            '<td><input type="text" name="data_height" value="400px"/></td></tr>',
+            '<td><b>Widget Width: </b></td><td><input type="text"',
+            'name="data_width" value="100%"/></td></tr><td><b>Widget Title: </b></td>',
+            '<td><input type="hidden" name="data_type" value="',
+            value_passed,
+            '"><input type="text" ', 'name="data_title"/></td></tr></table><hr />'];
+       iElement.innerHTML = inputHtmlArray.join('');
+
+    } else {
           alert('wrong value') 
     } 
-    ++global_counter
-    var att_name = "data_val";
-    var iElement2 = document.createElement("Input"); 
-    iElement2.setAttribute('type', "hidden");
-    iElement2.setAttribute('name', "data_type");
-    iElement2.value = value_passed;
-    
-    iElement1.setAttribute('name', att_name);
-
-    col1.appendChild(bTag)
-    col2.appendChild(iElement1)
-    col2.appendChild(iElement2)
+    col1.appendChild(iElement)
+    var col2 = document.createElement("TD");
+    col2.innerHTML = '<b><a href="javascript:deleteRow(\'content_row'+ 
+                     global_counter + '\');">Delete</a></b>';
 
     new_row.appendChild(col1);
     new_row.appendChild(col2);
@@ -154,9 +316,17 @@ limitations under the License.
 
  var edit_menu = document.getElementById("object_type")
  edit_menu.onchange = function(){ 
-  var option = this.options[this.selectedIndex]
-   add_content(option.value)
-   this.selectedIndex = 0
+  var option = this.options[this.selectedIndex];
+  this.selectedIndex = 0;
+  if (option.value == 'doc_link'){
+    launchPicker();
+          return;
+  } else if (option.value == 'quiz'){
+    launchWidgetPicker();
+          return;
+  } else {
+    add_content(option.value)
+  }
  }
 
 </script>

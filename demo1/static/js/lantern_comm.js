@@ -24,12 +24,13 @@ goog.provide('lantern.comm.LanternChannelFactory');
 goog.provide('lantern.comm.LanternChannel');
 
 goog.require('goog.dom');
+goog.require('goog.dom.classes');
 goog.require('goog.json');
 goog.require('goog.net.XhrIo');
 goog.require('goog.net.xpc.CrossPageChannel');
 goog.require('goog.Uri');
 goog.require('goog.style');
-
+goog.require('goog.ui.Dialog');
 /**
  * Constructor for Lantern Channel.
  * @param {string} thirdPartyBaseUri Base uri for the thirdparty.
@@ -48,7 +49,7 @@ goog.require('goog.style');
  */
 lantern.comm.LanternChannel = function(
     thirdPartyBaseUri, iframeUri, iframeContainerId, doc_id, trunk_id,
-    height, width, absolute) {
+    height, width, absolute, completed) {
   var ownUri = '/'
   this.iframeId_ = iframeContainerId;
   this.cfg_ = {};
@@ -87,9 +88,11 @@ lantern.comm.LanternChannel = function(
 /**
  * Sets attributes for Iframe before loading.
  * @param {IFrameElement} iFrameElm Iframe element.
+ * TODO(mukundjha): Replace 'widgetFrame' with some parameter to be passed.
  */
 lantern.comm.LanternChannel.prototype.setIframeAttrs = function(iFrameElm){
   goog.style.setSize(iFrameElm, this.width_, this.height_);
+  goog.dom.classes.add(iFrameElm,'widgetFrame');
 };
 
 
@@ -98,9 +101,16 @@ lantern.comm.LanternChannel.prototype.setIframeAttrs = function(iFrameElm){
  */
 lantern.comm.LanternChannel.prototype.processScore = function() {
   var obj = this.xhr_.getResponseJson();
+  //alert('updating score : ' + obj); 
   var docProgressContainer = goog.dom.getElement('docProgressContainer');
-  var progressHtml = '<b> Progress: ' + obj.doc_score + '</b>';
-  docProgressContainer.innerHTML = progressHtml;
+   progressHtmlArray = [
+      '<b>Progress: </b>',
+      '<img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:',
+      obj.doc_score,
+      '|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||',
+      '&chm=N,000000,0,-1,11">'];
+
+  docProgressContainer.innerHTML = progressHtmlArray.join('');
 };
 
 
@@ -109,6 +119,43 @@ lantern.comm.LanternChannel.prototype.processScore = function() {
  * param {string} data Incomming payload.
  */
 lantern.comm.LanternChannel.prototype.updateScore = function(data) {
+  //alert('I am loop1');
+  if ( lantern.comm.LanternChannelFactory.completed_ 
+       && !lantern.comm.LanternChannelFactory.warnedOnce_) {
+    //alert('I am loop 2');
+    lantern.comm.LanternChannelFactory.warnedOnce_ = true;
+    var dialog = new goog.ui.Dialog(null, true);
+    var content = '<b> Attempting this will reset the score and '
+        + 'progress for this module.<br/>' + 'If you wish to keep the current scores '
+        + ' please click \'Keep scores\'. <br/>you will still be able to attempt but it will'
+        + ' not reflect on this module.<br/> Or click Reset scores to reset it </b>';
+    dialog.setContent(content);
+    var buttonSet = new goog.ui.Dialog.ButtonSet();
+    buttonSet.set('keep_score_button', 'Keep scores');
+    buttonSet.set('reset_score_button', 'Reset scores');
+    dialog.setButtonSet(buttonSet);
+    goog.events.listen(dialog, goog.ui.Dialog.EventType.SELECT, function(e) {
+      if (e.key == 'reset_score_button'){
+        //alert('i have chosen reset');
+        lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = false;
+        lantern.comm.LanternChannelFactory.completed_ = false;
+        return;  
+      }
+      else if (e.key == 'keep_score_button'){
+        //alert('i have chosen to keep scores');
+        lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = true;
+        lantern.comm.LanternChannelFactory.completed_ = false;
+        return;
+      }
+    });
+   dialog.setVisible(true);
+  }
+  if ( lantern.comm.LanternChannelFactory.completed_ || 
+     lantern.comm.LanternChannelFactory.ignoreUpdateRequest_)
+  {
+  //alert('I am loop33');
+     return;
+  }
   var obj = goog.json.parse(data)
   var uri = new goog.Uri('/updateScore');
   uri.setParameterValue('widget_id', this.iframeId_);
@@ -122,7 +169,7 @@ lantern.comm.LanternChannel.prototype.updateScore = function(data) {
   goog.events.listen(
       this.xhr_, goog.net.EventType.COMPLETE,
       goog.bind(this.processScore, this));
-
+  //alert('sending xhr score\n');
   this.xhr_.send(uri);
 };
 
@@ -156,6 +203,7 @@ lantern.comm.LanternChannel.prototype.requestScore = function(data) {
 lantern.comm.LanternChannel.prototype.sendSessionId = function() {
   var obj = this.xhr_.getResponseJson();
   this.channel_.send('process_data', obj.session_id);
+  //alert('sending data from trunk');
 };
 
 
@@ -210,6 +258,30 @@ lantern.comm.LanternChannelFactory.channelMap_ = {};
 
 
 /**
+ * Global variable to maintain state controlling if the update has to be made.
+ * @type Boolean
+ * @private
+ */
+lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = false;
+
+
+/**
+ * Global variable indicating if progress is 100% for the current doc.
+ * @type Boolean
+ * @private
+ */
+lantern.comm.LanternChannelFactory.completed_ = false;
+
+
+/**
+ * Global variable set true if warning has already been issued
+ * @type Boolean
+ * @private
+ */
+lantern.comm.LanternChannelFactory.warnedOnce_ = false;
+
+
+/**
  * Factory method for creating a new channel.
  * To be called in view.html
  * @param {string} thirdPartyBaseUri Base uri for the thirdparty.
@@ -222,15 +294,17 @@ lantern.comm.LanternChannelFactory.channelMap_ = {};
  * @param {boolean} absolute If true absolute doc_id is used while fetching
  *   document. This is passed based on if absolute parameter was set while
  *   loading the document.
+ * @param {boolean} completed If true implies module is already completed.
  */
 lantern.comm.LanternChannelFactory.registerChannel = function(
     thirdPartyBaseUri, iframeUri, iframeContainerId, doc_id,
-    trunk_id, height, width, absolute) {
-
+    trunk_id, height, width, absolute, completed) {
+   
+  lantern.comm.LanternChannelFactory.completed_ = completed;
   lantern.comm.LanternChannelFactory.channelMap_[iframeContainerId] =
   new lantern.comm.LanternChannel(
       thirdPartyBaseUri, iframeUri, iframeContainerId,
-      doc_id, trunk_id, height, width, absolute);
+      doc_id, trunk_id, height, width, absolute, completed);
 
   lantern.comm.LanternChannelFactory.channelMap_[
       iframeContainerId].initializeChannel();

@@ -30,6 +30,7 @@ import md5
 import operator
 import os
 import re
+import sha
 import time
 
 # AppEngine imports
@@ -118,7 +119,7 @@ class PedagogyModel(db.Model):
 
   title = db.StringProperty(required=True)
   creator = db.UserProperty(auto_current_user_add=True, required=True)
-  created = db.DateTimeProperty(auto_now_add=True)
+  created = db.DateTimeProperty(auto_now=True)
   modified = db.DateTimeProperty(auto_now=True)
   description = db.TextProperty();
   authors = db.ListProperty(users.User)  # Multiple authors allowed
@@ -429,7 +430,7 @@ class Account(db.Model):
   user_id = db.StringProperty(required=True)  # key == <user_id>
   email = db.EmailProperty(required=True)
   nickname = db.StringProperty(required=True)
-  created = db.DateTimeProperty(auto_now_add=True)
+  created = db.DateTimeProperty(auto_now=True)
   modified = db.DateTimeProperty(auto_now=True)
   stars = db.ListProperty(str)  # key names of all starred modules.
   fresh = db.BooleanProperty()
@@ -646,7 +647,36 @@ class BaseContentModel(BaseModel):
     created: Time of creation.
   """
   creator = db.UserProperty(auto_current_user_add=True, required=True)
-  created = db.DateTimeProperty(auto_now_add=True)
+  created = db.DateTimeProperty(auto_now=True)
+  @classmethod
+  def insert(cls, **kwargs):
+    """Creates a new object if not already exists, else returns the 
+    existing object based on content of the object.
+   
+    Inserts with SHA1 hash of the concatenated contents key_name,
+    if object already exisits with same content, that object is 
+    returned, else new object is created and returned.
+    
+    TODO(mukundjha): Add some random seed as well to prevent collision.
+    Args:
+      cls: Class for which object is to be created.
+
+    Returns:
+      Returns an object of type cls.
+    """
+    content = []
+    for prop in cls.properties():
+      if prop in ('creator', 'created'):  # Skip base properties
+        continue
+      content.append(str(kwargs.get(prop)))
+      txt = '|'.join(content)
+    key_name = cls.__name__ + ':' + sha.new(txt).hexdigest()
+    object = cls.get_by_key_name(key_name)
+
+    if not object:
+      object = cls.get_or_insert(key_name, **kwargs)
+    return object
+
 
   def get_score(self, user):
     """Returns progress score for the model.
@@ -731,6 +761,18 @@ class ObjectType(object):
   WIDGET = 'widget'
 
 
+class AllowedLabels(object):
+  """Stores constants string defining various allowed labels for DocModel."""
+  MODULE = 'MODULE'
+  LESSON = 'LESSON'
+  COURSE = 'COURSE'
+
+  @classmethod
+  def dump_to_list(self):
+    """Dumps all the allowed types."""
+    return ['MODULE', 'LESSON', 'COURSE']
+
+
 class DocModel(BaseContentModel):
   """Representation of a document.
 
@@ -747,6 +789,10 @@ class DocModel(BaseContentModel):
     tags: Set of tags (preferably part of some ontology).
     content: Ordered list of references to objects/items as it appears in
       the document.
+    label: Label marks document as course, module or lesson.
+    score_weight: It's a list defining weight each content element contributes
+      towards the score. By default all scorable elements are given equal
+      weight. But this is a provision for later.
 
   TODO(mukundjha): Add required=True for required properties.
   """
@@ -757,6 +803,8 @@ class DocModel(BaseContentModel):
   predecessors = db.ListProperty(db.Key)
   grade_level = db.IntegerProperty(default=constants.DEFAULT_GRADE_LEVEL)
   content = db.ListProperty(db.Key)
+  label = db.StringProperty(default=AllowedLabels.MODULE)
+  score_weight = db.ListProperty(float)
 
   def get_score(self, user):
     """Returns progress score for the doc.
@@ -770,14 +818,8 @@ class DocModel(BaseContentModel):
     Raises:
      InvalidDocumentError: If doc is invalid.
     """
-    try:
-      doc_key = self.key()
-    except (db.NotSavedError, AttributeError):
-        raise InvalidDocumentError(
-            'Invalid DocModel: It has not been saved yet.')
-
     visit_state = DocVisitState.all().filter('user =', user).filter(
-      'doc_ref =', doc_key).order('-last_visit').get()
+      'trunk_ref =', self.trunk_ref).order('-last_visit').get()
 
     if visit_state:
       return visit_state.progress_score
@@ -800,6 +842,7 @@ class DocModel(BaseContentModel):
       'doc_grade_level': str(self.grade_level),
       'doc_creator': str(self.creator),
       'doc_created': str(self.created),
+      'doc_label': self.label
       }
 
     if self.trunk_ref:
@@ -1010,6 +1053,7 @@ class VideoModel(BaseContentModel):
   video_id = db.StringProperty()
   width = db.StringProperty(default='480')
   height = db.StringProperty(default='280')
+  title = db.StringProperty()
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
@@ -1017,7 +1061,8 @@ class VideoModel(BaseContentModel):
       'obj_type': ObjectType.VIDEO,
       'video_video_id': self.video_id,
       'video_width': self.width,
-      'video_height': self.height
+      'video_height': self.height,
+      'video_title': self.title
       }
 
   def ident(self):
@@ -1130,12 +1175,18 @@ class WidgetModel(BaseContentModel):
     widget_url: Url to quiz app to be embedded as an Iframe.
   """
   widget_url = db.StringProperty(required=True)
+  height = db.StringProperty()
+  width = db.StringProperty()
+  title = db.StringProperty()
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
     return {
       'obj_type': ObjectType.WIDGET,
-      'widget_widget_url': self.widget_url
+      'widget_widget_url': self.widget_url,
+      'widget_height': self.height,
+      'widget_width': self.width,
+      'widget_title': self.title
       }
 
   def get_score(self, user):
@@ -1170,11 +1221,14 @@ class DocVisitState(UserStateModel):
     doc_ref: Reference to visited doc.
     last_visit: Time stamp for last visit to the document.
     doc_progress_score: Completion score for the visited doc.
+    dirty_bit: Dirty bit is set when the scores down the trunk 
+      may be stale.
   """
   trunk_ref = db.ReferenceProperty(TrunkModel)
   doc_ref = db.ReferenceProperty(DocModel)
-  last_visit = db.DateTimeProperty(auto_now_add=True)
+  last_visit = db.DateTimeProperty(auto_now=True)
   progress_score = db.RatingProperty(default=0)
+  dirty_bit = db.BooleanProperty(default=False)
 
 
 class QuizProgressState(UserStateModel):
@@ -1187,7 +1241,7 @@ class QuizProgressState(UserStateModel):
   """
   quiz_ref = db.ReferenceProperty(QuizModel)
   progress_score = db.RatingProperty(default=0)
-  time_stamp = db.DateTimeProperty(auto_now_add=True)
+  time_stamp = db.DateTimeProperty(auto_now=True)
 
 
 class WidgetProgressState(UserStateModel):
@@ -1200,7 +1254,7 @@ class WidgetProgressState(UserStateModel):
   """
   widget_ref = db.ReferenceProperty(WidgetModel)
   progress_score = db.RatingProperty(default=0)
-  time_stamp = db.DateTimeProperty(auto_now_add=True)
+  time_stamp = db.DateTimeProperty(auto_now=True)
 
 
 class AnnotationState(UserStateModel):
@@ -1217,17 +1271,53 @@ class AnnotationState(UserStateModel):
   object_ref = db.ReferenceProperty(reference_class=None)
   trunk_ref = db.ReferenceProperty(TrunkModel, collection_name='annotation')
   doc_ref = db.ReferenceProperty(DocModel, collection_name='annotation')
-  last_modified = db.DateTimeProperty(auto_now_add=True)
+  last_modified = db.DateTimeProperty(auto_now=True)
   annotation_data = db.BlobProperty()
 
 
-class StudentState (db.Model):
-  """ Maintains minimal student state.
+class RecentCourseState(UserStateModel):
+  """Maintains list of recent courses accessed by user.
 
-  TODO(mukundjha) : expand the model and use proper references
+  Useful in building homepage.
+  
+  Attributes:
+    time_stamp = Time of last visit.
+    course_trunk_ref = Trunk id of the course.
+    course_doc_ref = Doc_id of the course.
+    course_score = Course progress state.
+    last_visited_doc_ref = Doc last visited for the course.
   """
-  #student = db.ReferenceProperty(Account)
-  student = db.UserProperty()
-  #doc = db.ReferenceProperty(DocModel)
-  doc = db.StringProperty()
-  status = db.RatingProperty()
+  time_stamp = db.DateTimeProperty(auto_now=True)
+  course_trunk_ref = db.ReferenceProperty(TrunkModel)
+  course_doc_ref = db.ReferenceProperty(DocModel)
+  course_score = db.RatingProperty()
+  last_visited_doc_ref = db.ReferenceProperty(
+      DocModel, collection_name='recent_course_state')
+
+
+class TraversalPath(UserStateModel):
+  """Maintains path that user traversed to reach the document.
+  Sequential list of doc_ids, referring to the path down the
+  tree followed to reach the current doc.
+
+  NOTE(mukundjha): We no longer are required to store trunk ids,
+  because all the docs in the path are added based on the history.
+
+  Attributes:
+    current_doc: Id for the document for which path is stored.
+    path: Ordered list of doc_ids.
+  """
+  current_doc = db.ReferenceProperty(DocModel)
+  current_trunk = db.ReferenceProperty(TrunkModel)
+  path = db.ListProperty(db.Key)
+
+
+class VideoState(UserStateModel):
+  """Stores the paused state for a video for a particular user.
+
+  Attributes:
+    video_ref : Id for the video object
+    paused_time: Float value for seconds.
+  """
+  video_ref = db.ReferenceProperty(VideoModel)
+  paused_time = db.FloatProperty(default=0) 

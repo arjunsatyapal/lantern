@@ -1,5 +1,5 @@
 application: k16-8888
-version: 1
+version: 2
 runtime: python
 api_version: 1
 
@@ -10,25 +10,25 @@ handlers:
   static_files: static/images/favicon.ico
   upload: static/images/favicon.ico
 
+- url: /static/images/(.*)
+  static_files: static/images/\1
+  upload: static/images/(.*)
+
 - url: /static/(css/.*|js/.*)
   static_files: static/\1
   upload: static/(css/.*|js/.*)
-  expiration: 1h  # Shorter expiration
+  expiration: 1m  # Shorter expiration
 
-- url: /static
-  static_dir: static
+- url: /blank.html
+  static_files: static/blank.html
+  upload: static/blank.html
+
+- url: /relay.html
+  static_files: /static/relay.html
+  upload: static/relay.html
 
 - url: /content
   static_dir: content
-
-- url:/quiz/blank.html
-  static_files: /quiz/blank.html
-
-- url:/quiz/relay.html
-  static_files: /quiz/relay.html
-
-- url: /quiz.*
-  script: quiz/main.py
 
 - url: /remote_api
   script: $PYTHON_LIB/google/appengine/ext/remote_api/handler.py
@@ -37,8 +37,25 @@ handlers:
 - url: /stats.*
   script: $PYTHON_LIB/google/appengine/ext/appstats/ui.py
 
+- url: /quiz/static/(css/.*|js/.*)
+  static_files: quiz/static/\1
+  upload: quiz/static/(css/.*|js/.*)
+  expiration: 1m  # Shorter expiration
+
+- url: /quiz/blank.html
+  static_files: quiz/static/blank.html
+  upload: quiz/static/blank.html
+
+- url: /quiz/relay.html
+  static_files: quiz/static/relay.html
+  upload: quiz/static/relay.html
+
+- url: /quiz.*
+  script: quiz/main.py
+
 - url: /.*
   script: main.py
+  login: required
 
 # inbound_services:
 # - xmpp_message

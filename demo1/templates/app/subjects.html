@@ -1,0 +1,73 @@
+<!-- Copyright 2010 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+{% extends "app/base1col.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet"
+      href="/static/js/closure-library-read-only/closure/goog/css/common.css">
+<link rel="stylesheet"
+      href="/static/js/closure-library-read-only/closure/goog/css/menu.css">
+<link rel="stylesheet"
+    href="/static/js/closure-library-read-only/closure/goog/css/menubutton.css">
+<link rel="stylesheet"
+      href="/static/js/closure-library-read-only/closure/goog/css/menuitem.css">
+<link rel="stylesheet"
+ href="/static/js/closure-library-read-only/closure/goog/css/menuseparator.css">
+
+<script type="text/javascript"
+        src="/static/js/closure-library-read-only/closure/goog/base.js">
+</script>
+<script type="text/javascript"> <!--
+ goog.require('goog.events');
+ goog.require('goog.ui.Component');
+ goog.require('goog.ui.MenuButton');
+-->
+</script>
+<script type="text/javascript" src="/static/js/subject.js"></script>
+<script type="text/javascript" src="/static/js/mocksubjects.js"></script>
+<script type="text/javascript" src="/static/js/subjectmenu.js"></script>
+<script type="text/javascript" src="/static/js/subjectxhr.js"></script>
+{% endblock %}
+
+{% block title %}{{title}}{% endblock %}
+
+{% block content_main %}
+<div id="subjectMenu"></div>
+{% endblock %}
+
+{% block end_script %}
+<script type="text/javascript"> <!--
+ function init() {
+   //var provider = new lantern.subject.MockSubjectProvider();
+
+   var menuButton = new lantern.ui.SubjectMenuButton('Subjects');
+   var provider = new lantern.subject.SubjectProviderXhr();
+   var menu1 = new lantern.ui.SubjectMenu(provider, menuButton);
+
+   var el = goog.dom.getElement('subjectMenu');
+   menu1.render(el);
+
+   goog.events.listen(menu1, 'action', function(e) {
+     var tag = e.target.getModel().displayText
+     var uri = new goog.Uri('/fetchFromTags');
+     uri.setParameterValue('tag', tag);
+     window.location = uri;
+   });
+ }
+
+ init();
+// -->
+</script>
+{% endblock end_script %}

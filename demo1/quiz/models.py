@@ -87,6 +87,7 @@ class QuizModel(QuizBaseModel):
     title: Title of the quiz.
     tags: Associated tags with quiz.
     trunk: Reference to asscociated trunk with the quiz.
+    introduction: Introduction text to be shown on the start page for quiz.
   """
   # implicit id
   difficulty_level = db.RatingProperty(default=5)
@@ -94,6 +95,7 @@ class QuizModel(QuizBaseModel):
   title = db.StringProperty()
   tags = db.ListProperty(db.Category)
   trunk = db.ReferenceProperty(QuizTrunkModel)
+  introduction = db.StringProperty()
   
 
 class ChoiceModel(QuizBaseModel):

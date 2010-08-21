@@ -72,6 +72,7 @@ from django.utils.safestring import mark_safe
 from django.core.urlresolvers import reverse
 
 # Local imports
+from common import subjects
 import constants
 # import forms
 import library
@@ -105,67 +106,6 @@ class InvalidIncomingEmailError(Exception):
 # redirects.  Rendered by templates/base.html.
 counter = 0
 
-
-# Helper functions to fetch student's status (per module)
-# from the data store
-
-def get_user_status(request, data_dict):
-  """ Populates the parameter dict with student's module status.
-
-  Args:
-    data_dict: yaml dictionary mapped with attributes of group/collection of
-      modules.
-  Returns:
-    dictionary with per module status info appended to the dictionary passed.
-  """
-
-  # Status only for groups
-  if data_dict.get(constants.YAML_TYPE_KEY) == "group":
-
-    state_list = models.gql(models.StudentState, 'WHERE student = :1', request.user)
-
-    # Store all the status info in a new dictionary
-    temp_dict = {}
-    for state in state_list:
-      try :
-        current_status = int(state.status)
-      except (TypeError, ValueError):
-        current_status = 0
-      temp_dict[state.doc] = current_status
-
-    # If module is present in the content,
-    # and has a status record, update it else set to zero.
-    for module in data_dict.get('doc_content'):
-      if module['key'] in temp_dict:
-         module['rating'] = temp_dict.get(module['key'], 0)
-  return data_dict
-
-
-def initialize(request):
-  """ Temp function to initialize datastore.
-
-  Initialize the data store with some values to experiment.
-  """
-
-  docList = ['AlRG3wQOBqMc2nIwjoHZZ8', 'Des7BVODdcptnOdWhsWXeK',
-    'BQYVV1KayQ2xjccQgIXfP+', 'BkT/Nqi4HTkpn3qPHeV+Xx', 'CE9inaE8SU6kMS05xno8Qg',
-    'DOI0PIFb+0qIAdYlswlgX6']
-
-  docRating = [100, 80, 80, 70, 90, 80]
-
-  i = 0
-  for id in docList:
-    doc = models.DocModel()
-    doc.doc_id = id
-    dKey = doc.put()
-    studState = models.StudentState()
-    studState.student = request.user
-    studState.doc = id
-    studState.status = docRating[i]
-    studState.put()
-    i += 1
-
-
 def respond(request, page_title, template, params=None):
   """Helper to render a response, passing standard stuff to the response.
 
@@ -186,7 +126,6 @@ def respond(request, page_title, template, params=None):
   """
   global counter
   counter += 1
- # initialize(request)
   if params is None:
     params = {}
   must_choose_nickname = False
@@ -372,17 +311,25 @@ def collect_data_from_query(request):
   data_dict['doc_title'] = request.POST.get('doc_title')
   data_dict['trunk_id'] = request.POST.get('trunk_id')
   data_dict['doc_id'] = request.POST.get('doc_id')
+  data_dict['doc_label'] = request.POST.get('doc_label')
   data_dict['doc_grade_level'] = int(request.POST.get('doc_grade_level',
-    constants.DEFAULT_GRADE_LEVEL))
-
+                                     constants.DEFAULT_GRADE_LEVEL))
+  data_dict['doc_tags'] = request.POST.get('doc_tags')
   content_data_vals = request.POST.getlist('data_val')
   content_data_types = request.POST.getlist('data_type')
+  content_height = request.POST.getlist('data_height')
+  content_width = request.POST.getlist('data_width')
+  content_title = request.POST.getlist('data_title')
 
   content_list = data_dict.setdefault('doc_contents', [])
-  for obj_type, data_val in zip(content_data_types, content_data_vals):
+  for obj_type, data_val, height, width, title in zip(content_data_types, 
+      content_data_vals, content_height, content_width, content_title):
     content_list.append({
         'obj_type': obj_type,
         'val': data_val,
+        'height': height,
+        'width': width,
+        'title': title
         })
   return data_dict
 
@@ -396,6 +343,7 @@ def create_doc(data_dict):
     function.
   TODO(mukundjha): Validate url provided in link object.
   TODO(mukundjha): Move this function into another (content_manager.py) module.
+  TODO(mukundjha): Move insertion (hashing) to model specific method?
   """
   trunk = data_dict.get('trunk_id')
   try:
@@ -407,19 +355,37 @@ def create_doc(data_dict):
   doc.title = data_dict.get('doc_title', 'Add a title')
   doc.grade_level = data_dict.get('doc_grade_level',
     constants.DEFAULT_GRADE_LEVEL)
+  doc.label = data_dict.get('doc_label', models.AllowedLabels.MODULE)
+  tags = data_dict.get('doc_tags')
 
+  # Tags are separated by commas (spaces and tabs are removed)
+  tag_separator = re.compile('[ \t]*,[ \t]*')
+  starting_space = re.compile('^[ \t]+')  # Spaces in begining of a tag
+  ending_space = re.compile('[ \t]+$')  # Spaces at end of the tag
+
+  if tags:
+    tags = starting_space.sub('', tags)
+    tags = ending_space.sub('', tags)
+    tag_list = tag_separator.split(tags)
+    doc.tags = [db.Category(tag) for tag in tag_list]
+  else:
+    doc.tags = []
+  doc.score_weight = [1.0]
   for element in data_dict['doc_contents']:
+
     if element.get('obj_type') == 'rich_text':
-      rich_text_object = library.insert_with_new_key(models.RichTextModel)
-      rich_text_object.data= db.Blob(str(element.get('val')))
-      rich_text_object.put()
-      doc.content.append(rich_text_object.key())
+      text = str(element.get('val')) 
+      object = models.RichTextModel.insert(data=text)
+      doc.content.append(object.key())
 
     elif element.get('obj_type') == 'video':
-      video_object = library.insert_with_new_key(models.VideoModel)
-      video_object.video_id = str(element.get('val'))
-      video_object.put()
-      doc.content.append(video_object.key())
+      video_id = str(element.get('val'))
+      title = str(element.get('title'))
+      height = str(element.get('height'))
+      width = str(element.get('width'))
+      object = models.VideoModel.insert(video_id=video_id, width=width,
+                                        height=height, title=title)
+      doc.content.append(object.key())
 
     elif element.get('obj_type') == 'doc_link':
       link = urlparse.urlparse(element.get('val'))
@@ -429,17 +395,20 @@ def create_doc(data_dict):
         referred_doc = db.get(params.get('doc_id'))
         referred_trunk = db.get(params.get('trunk_id'))
 
-        doc_link_object = library.insert_with_new_key(models.DocLinkModel,
-          trunk_ref=referred_trunk.key(), doc_ref=referred_doc.key(),
-          default_title=referred_doc.title, from_trunk_ref=doc.trunk_ref.key(),
-          from_doc_ref=doc.key())
+        doc_link_object = models.DocLinkModel.insert(
+            trunk_ref=referred_trunk.key(), doc_ref=referred_doc.key(),
+            default_title=referred_doc.title, from_trunk_ref=doc.trunk_ref.key(),
+            from_doc_ref=doc.key())
+
         doc.content.append(doc_link_object.key())
 
     elif element.get('obj_type') == 'widget':
       widget_url = str(element.get('val'))
-      widget_object = library.insert_with_new_key(models.WidgetModel,
-                                                  widget_url=widget_url)
-      widget_object.put()
+      title = str(element.get('title'))
+      height = str(element.get('height'))
+      width = str(element.get('width'))
+      widget_object = models.WidgetModel.insert(
+          widget_url=widget_url, height=height, width=width, title=title)
       doc.content.append(widget_object.key())
 
   doc.put()
@@ -447,99 +416,34 @@ def create_doc(data_dict):
 
 ### Request handlers ###
 
-def content_handler(request, title, template, file_path, node_type):
-  """Handels request and renders template with content, based on type of data.
-
-  Helper function which loads the provided template with data extracted from
-  file  provided in file_path or renders an error page if error occurs.
-
-  Args:
-     request: The HTTP request object
-     title: Default title for the page
-     template: Template to be used to render the page
-     file_path: Path to yaml file to be parsed
-     node_type: String describing the type of content file (node/leaf)
-
-  Returns:
-     Whatever render_to_response(template, params) returns if no error, else
-     displays an error page.
-
-  Raises:
-     Whatever render_to_response(template, params) raises.
-  """
-  _MAIN_MENU = """
-  <a href = "http://www.khanacademy.org">Video Library</a> |
-  <a href = "/">Exercises (Requires Login)</a>
-  """
-  # Parse according to type
-  if node_type == 'leaf':
-    data_dict = library.parse_leaf(file_path)
-  elif node_type == 'node':
-    data_dict = library.parse_node(file_path)
-  else:
-    data_dict = {'errorMsg': 'Invalid Type passed to content_handler'}
-
-  data_dict['mainmenu'] = _MAIN_MENU
-
-  if 'errorMsg' in data_dict:
-    logging.error(data_dict['errorMsg'])
-    return HttpResponse(data_dict['errorMsg'], status = 500)
-
-  data_dict = get_user_status(request, data_dict)
-
-  return respond(request, title, template, data_dict)
-
-
 @login_required
 def index(request):
-  """/ - Show the initial page. Redirect to login page if required.
-
-  Calls content_handler function with appropriate parameter based on parameters
-  in get request
+  """/ - Show the initial Homepage. Redirect to login page if required.
   """
+  # Recently finished pages.
+  recently_finished = models.DocVisitState.all().filter(
+      'user =', users.get_current_user()).filter(
+      'progress_score =', 100).order('-last_visit').fetch(5)
 
-  # Required parameters to render page
-  doc_id = request.GET.get('docId');
-  doc_type = request.GET.get('docType');
-
-  # Initial course page
-  # TODO(mukundjha) : point to correct page
-
-  _INIT_PAGE = os.path.join(settings.ROOT_PATH, 'demo/content/course-template');
-  _PATH_ = os.path.join(settings.ROOT_PATH, 'demo/content');
-
-  # If doc_id is not specified, redirect to default initial page
-  if not doc_id:
-    # Initial page
-    return content_handler(request, constants.DEFAULT_TITLE,
-      constants.GROUP_TEMPLATE, _INIT_PAGE, 'node')
-
-  elif not doc_type:
-    # Get the doc_type before redirecting to the current page.
-    page_path = _INIT_PAGE
-    return content_handler(request, constants.DEFAULT_TITLE,
-      constants.GROUP_TEMPLATE, _INIT_PAGE, 'node')
-
-  else:
-    # If group page.
-    if doc_type == "g":
-      # Render as group
-      page_path = os.path.join(_PATH_, doc_id)
-      logging.info('Rendering group page\n')
-      return content_handler(request, constants.DEFAULT_TITLE,
-        constants.GROUP_TEMPLATE, page_path, 'node')
-
-    # If content
-    elif doc_type == "c":
-      # Render as content page
-      page_path = os.path.join(_PATH_, doc_id)
-      return content_handler(request, constants.DEFAULT_TITLE,
-        constants.CONTENT_TEMPLATE, page_path, 'leaf')
-
-    # Default page
+  # Fetching the latest version
+  for entry in recently_finished:
+    entry.doc = library.fetch_doc(entry.trunk_ref.key())
+    doc_path_entry = models.TraversalPath.all().filter(
+      'current_trunk =', entry.trunk_ref).filter(
+      'user =', users.get_current_user()).get()
+    if doc_path_entry:
+      entry.path = library.expand_path(doc_path_entry.path, False, False,
+                                       users.get_current_user())
     else:
-      return content_handler(request, constants.DEFAULT_TITLE,
-        constants.GROUP_TEMPLATE, _INIT_PAGE, 'node')
+      entry.path = []
+    
+  
+  # Course title is stale here 
+  in_progress_courses = library.get_recent_in_progress_courses(
+      users.get_current_user())
+  return respond(request, constants.DEFAULT_TITLE, "homepage.html",
+                 {'recently_finished': recently_finished,
+                 'in_progress_courses': in_progress_courses})
 
 
 def list_docs(request):
@@ -576,21 +480,25 @@ def edit(request):
   if not trunk_id:
     doc = models.DocModel()
     return respond(request, 'Edit', 'edit.html',
-      {'doc': doc, 'data_valid_range': constants.VALID_GRADE_RANGE})
+      {'doc': doc, 'data_valid_range': constants.VALID_GRADE_RANGE,
+       'allowed_labels': models.AllowedLabels.dump_to_list()})
 
   try:
     doc = library.fetch_doc(trunk_id, doc_id)
   except (models.InvalidTrunkError, models.InvalidDocumentError):
     return HttpResponse("No such document exists", status=404)
 
-  doc_contents = library.get_doc_contents(doc)
-
+  doc_contents = library.get_doc_contents(doc, users.get_current_user(),
+                                          resolve_links=True)
+  tags = ','.join(doc.tags)
   return respond(request, constants.DEFAULT_TITLE, "edit.html",
                 {'doc': doc,
                 'doc_contents': doc_contents,
                 'data_valid_range': constants.VALID_GRADE_RANGE,
                 'doc_id': str(doc.key()),
-                'trunk_id': str(doc.trunk_ref.key())
+                'trunk_id': str(doc.trunk_ref.key()),
+                'tags': tags,
+                'allowed_labels': models.AllowedLabels.dump_to_list()
                 })
 
 
@@ -603,60 +511,123 @@ def view_doc(request):
     is useful in many cases like migrating to latest version, saving an edit
     etc.
   TODO(mukundjha): Merge with /(root) and handle other types in template
-  TODO(mukundjha): Display parent title instead of up_link
-  TODO(mukundjha): Maintain consistent back/parent link, currently it
-   breaks after one.
+
+  Args:
+    trunk_id: Trunk Id for the required doc.
+    doc_id: Doc Id associated with the doc. This just shows the entry point
+      for the request and only plays a role if 'absolute' is set true.
+    parent_trunk: Trunk Id of the parent. Required to build up correct hierarchy. 
+    parent_id: Doc Id for the parent. Again its just marks an entry point.
+    absolute: If set, doc pointed by the doc_id is fetched, irrespective 
+      of user's history or latest version of the doc.
+    use_history: If set user's history is used to fetch the doc. If use_history 
+      is set user will always land on the same version of the doc he was on last
+      visit, until he chooses to move to a newer version.
+    abs_path: Specifies path to be followed to reach the doc. This is useful in
+      cases where links are bookmarks and a particular hierarchy is to be followed.
   """
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
   parent_trunk = request.GET.get('parent_trunk')
-  absolute_address_mapping = request.GET.get('absolute')
+  parent_id = request.GET.get('parent_id')
+  use_absolute_addressing = request.GET.get('absolute')
+  use_history = request.GET.get('use_history')
+  # This would be set true if path argument is present
+  abs_path = request.GET.get('abs_path')
 
+  if abs_path:
+    use_absolute_mapping_for_path = True
+  else:
+    use_absolute_mapping_for_path = False
+ 
+  prev_doc = library.get_doc_for_user(trunk_id, users.get_current_user()) 
   try:
-    if absolute_address_mapping:
+    if use_absolute_addressing:
       doc = library.fetch_doc(trunk_id, doc_id)
-    else:
+    elif use_history:
       doc = library.get_doc_for_user(trunk_id, users.get_current_user())
+    else:
+      doc = library.fetch_doc(trunk_id)
 
   except (models.InvalidTrunkError, models.InvalidDocumentError):
     return HttpResponse("No such document exists", status=404)
 
-  if not parent_trunk:
-    parent = library.get_parent(doc)
-    if parent:
-      parent_trunk = parent.trunk_ref.key()
 
-  doc_contents = library.get_doc_contents(doc)
-  doc_score = library.get_accumulated_score(doc, doc_contents,
-                                            users.get_current_user())
+  doc_contents = library.get_doc_contents(
+      doc, users.get_current_user(), reslove_links=True,
+      use_history=use_history, fetch_score=True, fetch_video_state=True)
+
+  current_doc_score = doc.get_score(users.get_current_user())
+
+  # If progress is 100, we don't recompute the score for the page.
+  # until user chooses to reset the score. Here we are just updating
+  # the timestamp of the visit (and recording the visited version).
+  if current_doc_score == 100:
+    library.put_doc_score(doc, users.get_current_user(), 100)
+    doc_score = 100
+  else:
+    doc_score = library.get_accumulated_score(doc, users.get_current_user(),
+                                              doc_contents, 
+                                              use_history=use_history)
   trunk = doc.trunk_ref
 
-  # Just place holders to check the output, should present in better way.
+  if parent_trunk:
+    parent = library.fetch_doc(parent_trunk, parent_id)
+  else:
+    parent = None
+
+  updated_stack = library.update_visit_stack(doc, parent,
+                                             users.get_current_user())
+  # Page itself is a course
+  if doc.label == models.AllowedLabels.COURSE:
+    library.update_recent_course_entry(doc, doc,
+                                       users.get_current_user())
+  if updated_stack.path:
+    traversed_path = library.expand_path(updated_stack.path, use_history,
+                                         use_absolute_mapping_for_path,
+                                         users.get_current_user())
+    root_doc = traversed_path[0]
+    if root_doc.label == models.AllowedLabels.COURSE:
+      library.update_recent_course_entry(doc, root_doc,
+                                         users.get_current_user())
+  else:
+    traversed_path = []
+  
+  if not use_history:
+    link_to_prev = (
+        '<a href='
+        '"/view?trunk_id=%s&doc_id=%s&absolute=True&use_history=True">'
+        'Show as it was last time</a> | ' % (trunk.key(), prev_doc.key())
+        )
+  else:
+    link_to_prev =  (
+        '<a href='
+        '"/view?trunk_id=%s">Show latest</a> |' % trunk.key())
+
+
   menu_items = [
-    '<a href="/edit">Create New </a>',
-    '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a>' %
-    (trunk.key(), doc.key()),
-    '<a href="/view?trunk_id=%s&absolute=True">Show latest</a>' %
-    (trunk.key(),),
+    '<a href="/edit">Create New </a> | ',
+    '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a> | ' %
+    (trunk.key(), doc.key()), link_to_prev,
     '<a href="/history?trunk_id=%s">History</a>' %
     (trunk.key()),
     ]
 
-  main_menu = ' | '.join(menu_items)
+  main_menu = ''.join(menu_items)
+
   title_items = [
     constants.DEFAULT_TITLE,
     '<div id="docProgressContainer">',
     '<b>Progress: %s</b></div>' % (doc_score)
     ]
-
-  if parent_trunk:
-    title_items.append('|'+'<a href="/view?trunk_id=%s">UP</a>' %(parent_trunk))
-
   title = ''.join(title_items)
+  annotation = library.get_doc_annotation(doc, users.get_current_user())
   return respond(request, title, "view.html",
                 {'doc': doc,
                 'doc_score': doc_score,
                 'doc_contents': doc_contents,
+                'traversed_path': traversed_path,
+                'annotation': annotation,
                 'mainmenu': main_menu
                 })
 
@@ -753,6 +724,12 @@ def update_doc_score(request):
   accumulated score for the document from which updates are recieved and
   sends back updated score for the document.
 
+  NOTE(mukundjha): Doc id passed to the widget is of the same doc that is
+  presented to the user, so we can use absolute binding to update the score.
+  If we fetch the appropriate document everytime we update score, there might
+  be a case when document gets updated while user is working on it and the
+  function ends up fetching and updating score according to new document.
+
   TODO(mukundjha): Check for possible race conditions on score updates.
   TODO(mukundjha): Slightly inefficient with many calls to datastore,
     should use mem-cache.
@@ -763,32 +740,52 @@ def update_doc_score(request):
     score: integer between 0-100 indicating score for the widget.
     trunk_id: Key for the trunk associated with doc containing the widget. 
     doc_id: Key of the document.
-    absolute: Boolean value, if set doc_id is used to fetch the document and
-      history of user's visit to the trunk is ignored. This is useful in cases
-      where author always wants user to land on a particular revision of a 
-      trunk.
+    parent_trunk: Key for the trunk associated with parent.
+    parent_doc: Key for the parent doc.
   """
   widget_id = request.GET.get('widget_id')
   progress = int(request.GET.get('progress'))
   score = int(request.GET.get('score'))
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
-  absolute_address_mapping = request.GET.get('absolute')
+  parent_trunk =  request.GET.get('parent_trunk')
+  parent_doc = request.GET.get('parent_doc')
 
   widget = db.get(widget_id) 
   library.put_widget_score(widget, users.get_current_user(), progress)
   
-  
-  if absolute_address_mapping:
-    doc = library.fetch_doc(trunk_id, doc_id)
-  else:
-    doc = library.get_doc_for_user(trunk_id, users.get_current_user())
+  # Using absolute addressing 
+  doc = library.fetch_doc(trunk_id, doc_id)
 
-  doc_contents = library.get_doc_contents(doc)
-  doc_score = library.get_accumulated_score(doc, doc_contents,
-                                            users.get_current_user())
+  doc_contents = library.get_doc_contents(doc, users.get_current_user(),
+                                          resolve_links=True)
+  # No recursive
+  doc_score = library.get_accumulated_score(doc, users.get_current_user(),
+                                            doc_contents)
+  library.set_dirty_bits_for_doc(doc, users.get_current_user())
 
   return HttpResponse(simplejson.dumps({'doc_score' : doc_score}))
+
+
+def get_list_ajax(request):
+  """Sends a list of documents present in data store.
+  
+  Useful in populating list for Link Picker while editing the document.
+  """
+  doc_list = []
+  seen = {}
+  for doc in models.DocModel.all():
+    t = doc.trunk_ref
+    k = t.key()
+    if k not in seen:
+      seen[k] = t.head
+      d = db.get(t.head)
+      doc_list.append({
+          'doc_title': d.title,
+          'trunk_id': str(k),
+          'doc_id': str(d.key()),
+          })
+  return HttpResponse(simplejson.dumps({'doc_list' : doc_list}))
 
 
 def video(request):
@@ -814,3 +811,118 @@ def xsrf_token(request):
                         '(its content doesn\'t matter).', status=404)
   return HttpResponse(models.Account.current_user_account.get_xsrf_token(),
                       mimetype='text/plain')
+
+
+def fetch_from_tags(request):
+  """Fetches courses with given tag.
+ 
+  TODO(mukundjha): Pick unique courses.
+  """
+  tag = request.GET.get('tag')
+  course_list = []
+  courses = models.DocModel.all().filter('tags =', tag).filter(
+      'label =', models.AllowedLabels.COURSE).order('-created').fetch(20)
+  seen = {}
+  for doc in courses:
+    t = doc.trunk_ref
+    k = t.key()
+    if k not in seen:
+      seen[k] = t.head
+      d = db.get(t.head)
+      course_list.append(d)
+      
+  return respond(request, constants.DEFAULT_TITLE, "course_list.html",
+                 {'course_list' : course_list, 'tag': tag})
+
+
+def subjectsDemo(request):
+  """/subjectsDemo - Test of the subjects menu."""
+
+  return respond(request, 'SUBJECTS', 'subjects.html', {});
+
+
+# Regex to extract the subject ID.  group(1) should be empty or have the
+# subject ID.
+_SUBJECT_RE = re.compile(r'/subjects/(.*)')
+
+
+def subjectsJson(request):
+  """/subjects/.* - RESTful API for returning subject taxonomy
+
+  By default, returns 2-level hierarchy.
+
+  /subjects/ returns root menu.
+  /subjects/<id> returns children of <id>
+  """
+  match = _SUBJECT_RE.match(request.path)
+  if match:
+    subject_id = match.group(1)
+    taxonomy = subjects.GetSubjectsTaxonomy()
+    if subject_id:
+      subject_id = urllib.unquote_plus(subject_id)
+      response = subjects.GetSubjectsJson(taxonomy, subject_id)
+    else:
+      response = subjects.GetSubjectsJson(taxonomy, None)
+    return HttpResponse(response)
+  return HttpResponse("Invalid subject request: " + request.path,
+                      status=404)
+
+
+def mark_as_read(request):
+  """Marks a page as read and updates score entries."""
+  trunk_id = request.GET.get('trunk_id')
+  doc_id = request.GET.get('doc_id')
+  doc = library.fetch_doc(trunk_id, doc_id)
+
+  library.put_doc_score(doc, users.get_current_user(), 100)
+  library.set_dirty_bits_for_doc(doc, users.get_current_user())
+  return HttpResponse("True")
+
+
+def store_video_state(request):
+  """Stores the state when a video is paused."""
+  video_id = request.GET.get('video_id')
+  current_time = request.GET.get('current_time', 0.0)
+  
+  video = db.get(video_id)
+  video_state = models.VideoState.all().filter(
+      'video_ref =', video).filter('user =', users.get_current_user()).get()
+
+  if video_state:
+    video_state.paused_time = float(current_time)
+    video_state.put()
+  else:
+    library.insert_with_new_key(
+        models.VideoState, video_ref=video, user=users.get_current_user(),
+        paused_time=float(current_time))
+  return HttpResponse('True')
+
+
+def reset_score_for_page(request):
+  """Resets score for a page and updates score entries."""
+  trunk_id = request.GET.get('trunk_id')
+  doc_id = request.GET.get('doc_id')
+  doc = library.fetch_doc(trunk_id, doc_id)
+
+  library.put_doc_score(doc, users.get_current_user(), 0)
+  library.set_dirty_bits_for_doc(doc, users.get_current_user())
+  return HttpResponse("True")
+
+
+@login_required
+def update_notes(request):
+  """Update annotation on a given object"""
+  try:
+    data = request.POST.get('data')
+    it = simplejson.loads(data)
+    data = it['data']
+    name = it['name']
+    name = re.sub(r'^[^-]+-', '', name)
+    library.update_notes(name, data)
+  except Exception, e:
+    name = str(e)
+    data = request.POST.get('data')
+
+  return respond(request, "Received", "debugnotes.html",
+                 { 'data': data, 'name': name })
+
