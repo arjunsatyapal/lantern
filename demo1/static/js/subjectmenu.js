@@ -527,3 +527,9 @@ lantern.ui.SubjectMenu.prototype.setArrowTextContent_ = function(
     goog.dom.setTextContent(arrow, isBack ? leftArrow : rightArrow);
   }
 };
+
+
+goog.exportSymbol('lantern.subject.SubjectMenu',
+                  lantern.subject.SubjectMenu);
+goog.exportSymbol('lantern.subject.SubjectMenuButton',
+                  lantern.subject.SubjectMenuButton);

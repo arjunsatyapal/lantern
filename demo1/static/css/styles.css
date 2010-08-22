@@ -347,5 +347,5 @@ button.notestrigger {
 .widgetFrame {
   overflow: hidden;
   border: 1px solid #ccc;
+  overflow-y: auto;
 }
-	

@@ -21,7 +21,6 @@ goog.provide('lantern.subject.SubjectItem');
 goog.provide('lantern.subject.SubjectTreeModel');
 goog.provide('lantern.subject.SubjectProvider');
 
-goog.require('goog.debug.Logger');
 goog.require('goog.events.EventTarget');
 goog.require('goog.structs');
 goog.require('goog.structs.Map');

@@ -17,9 +17,6 @@ limitations under the License.
 {% block title %}{{ title|safe }}{% endblock %}
 
 {% block extra_head %}
-<script>
-	goog.require('goog.ui.Dialog');
-</script>
 <link rel="stylesheet" href="{{media_url}}css/dialog.css">
 {% endblock %}
 
@@ -109,8 +106,6 @@ limitations under the License.
 {% endblock body %}
 
 {% block scripts %}
-  <script type="text/javascript" src="{{media_url}}js/edu.js"></script>
-<!--  <script type="text/javascript" src="/js/edu-bundle.js"></script> -->
  <!-- command-line flags -->
  {% block end_script %}
  {% endblock end_script %}

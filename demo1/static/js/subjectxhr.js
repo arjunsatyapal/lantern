@@ -310,3 +310,7 @@ lantern.subject.SubjectProviderXhr.prototype.onRemoteError_ = function(e) {
   }
   e.dispose();
 };
+
+
+goog.exportSymbol('lantern.subject.SubjectProviderXhr',
+                  lantern.subject.SubjectProviderXhr);

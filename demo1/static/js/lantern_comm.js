@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
@@ -31,6 +31,8 @@ goog.require('goog.net.xpc.CrossPageChannel');
 goog.require('goog.Uri');
 goog.require('goog.style');
 goog.require('goog.ui.Dialog');
+
+
 /**
  * Constructor for Lantern Channel.
  * @param {string} thirdPartyBaseUri Base uri for the thirdparty.
@@ -67,20 +69,20 @@ lantern.comm.LanternChannel = function(
   this.cfg_[goog.net.xpc.CfgFields.PEER_POLL_URI] = thirdPartyBaseUri +
     'blank.html';
   this.cfg_[goog.net.xpc.CfgFields.LOCAL_POLL_URI] = ownUri + 'blank.html';
-  
+
   // Configuration specific to the Iframe Relay transport. Required,
   // because the Iframe Relay transport may be required for some
   // browsers.
 
-   this.cfg_[goog.net.xpc.CfgFields.PEER_RELAY_URI] = thirdPartyBaseUri + 
-     'relay.html';
-   this.cfg_[goog.net.xpc.CfgFields.LOCAL_RELAY_URI] = ownUri + 'relay.html';
-   this.channel_ = new goog.net.xpc.CrossPageChannel(this.cfg_);
+  this.cfg_[goog.net.xpc.CfgFields.PEER_RELAY_URI] = thirdPartyBaseUri
+      + 'relay.html';
+  this.cfg_[goog.net.xpc.CfgFields.LOCAL_RELAY_URI] = ownUri + 'relay.html';
+  this.channel_ = new goog.net.xpc.CrossPageChannel(this.cfg_);
 
-   this.channel_.createPeerIframe(
-       goog.dom.getElement(iframeContainerId),
-       goog.bind(this.setIframeAttrs, this));
-  
+  this.iframeElem_ = this.channel_.createPeerIframe(
+      goog.dom.getElement(iframeContainerId),
+      goog.bind(this.setIframeAttrs, this));
+
    this.xhr_ = new goog.net.XhrIo();
 };
 
@@ -101,7 +103,7 @@ lantern.comm.LanternChannel.prototype.setIframeAttrs = function(iFrameElm){
  */
 lantern.comm.LanternChannel.prototype.processScore = function() {
   var obj = this.xhr_.getResponseJson();
-  //alert('updating score : ' + obj); 
+  //alert('updating score : ' + obj);
   var docProgressContainer = goog.dom.getElement('docProgressContainer');
    progressHtmlArray = [
       '<b>Progress: </b>',
@@ -120,15 +122,18 @@ lantern.comm.LanternChannel.prototype.processScore = function() {
  */
 lantern.comm.LanternChannel.prototype.updateScore = function(data) {
   //alert('I am loop1');
-  if ( lantern.comm.LanternChannelFactory.completed_ 
+  if ( lantern.comm.LanternChannelFactory.completed_
        && !lantern.comm.LanternChannelFactory.warnedOnce_) {
     //alert('I am loop 2');
     lantern.comm.LanternChannelFactory.warnedOnce_ = true;
     var dialog = new goog.ui.Dialog(null, true);
     var content = '<b> Attempting this will reset the score and '
-        + 'progress for this module.<br/>' + 'If you wish to keep the current scores '
-        + ' please click \'Keep scores\'. <br/>you will still be able to attempt but it will'
-        + ' not reflect on this module.<br/> Or click Reset scores to reset it </b>';
+        + 'progress for this module.<br/>'
+        + 'If you wish to keep the current scores '
+        + ' please click \'Keep scores\'. <br/>you will still be able '
+        + 'to attempt but it will'
+        + ' not reflect on this module.<br/> Or click Reset scores to '
+        + 'reset it </b>';
     dialog.setContent(content);
     var buttonSet = new goog.ui.Dialog.ButtonSet();
     buttonSet.set('keep_score_button', 'Keep scores');
@@ -139,7 +144,7 @@ lantern.comm.LanternChannel.prototype.updateScore = function(data) {
         //alert('i have chosen reset');
         lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = false;
         lantern.comm.LanternChannelFactory.completed_ = false;
-        return;  
+        return;
       }
       else if (e.key == 'keep_score_button'){
         //alert('i have chosen to keep scores');
@@ -150,13 +155,12 @@ lantern.comm.LanternChannel.prototype.updateScore = function(data) {
     });
    dialog.setVisible(true);
   }
-  if ( lantern.comm.LanternChannelFactory.completed_ || 
-     lantern.comm.LanternChannelFactory.ignoreUpdateRequest_)
-  {
-  //alert('I am loop33');
-     return;
+  if (lantern.comm.LanternChannelFactory.completed_ ||
+      lantern.comm.LanternChannelFactory.ignoreUpdateRequest_) {
+    //alert('I am loop33');
+    return;
   }
-  var obj = goog.json.parse(data)
+  var obj = goog.json.parse(data);
   var uri = new goog.Uri('/updateScore');
   uri.setParameterValue('widget_id', this.iframeId_);
   uri.setParameterValue('doc_id', this.doc_id_);
@@ -169,18 +173,17 @@ lantern.comm.LanternChannel.prototype.updateScore = function(data) {
   goog.events.listen(
       this.xhr_, goog.net.EventType.COMPLETE,
       goog.bind(this.processScore, this));
-  //alert('sending xhr score\n');
   this.xhr_.send(uri);
 };
 
 
 /**
-* Updates data for widget. This is registered as a service.
+ * Updates data for widget. This is registered as a service.
  * param {string} data Incomming payload.
  * TODO(mukundjha): Write ajax calls to store the data.
  */
 lantern.comm.LanternChannel.prototype.updateData = function(data) {
-       
+
 };
 
 
@@ -191,7 +194,19 @@ lantern.comm.LanternChannel.prototype.updateData = function(data) {
  * TODO(mukundjha): Respond with current data state.
  */
 lantern.comm.LanternChannel.prototype.requestScore = function(data) {
-	
+
+};
+
+
+/**
+ * Request to update the viewport height from the widget.
+ * @param {number} Height in pixels, expressed as an integer.
+ */
+lantern.comm.LanternChannel.prototype.updateHeight = function(height) {
+  if (this.iframeElem_) {
+    this.height_ = height + 'px';
+    goog.style.setSize(this.iframeElem_, this.width_, this.height_);
+  }
 };
 
 
@@ -213,7 +228,7 @@ lantern.comm.LanternChannel.prototype.sendSessionId = function() {
  * param {string} data Incomming payload.
  */
 lantern.comm.LanternChannel.prototype.requestData = function(data) {
-  
+
   url = '/getSessionId?widget_id=' + this.iframeId_;
   goog.events.removeAll(this.xhr_);
   goog.events.listen(
@@ -235,6 +250,8 @@ lantern.comm.LanternChannel.prototype.initializeChannel = function(){
       goog.bind(this.requestScore, this));
   this.channel_.registerService('request_data',
       goog.bind(this.requestData, this));
+  this.channel_.registerService('update_height',
+      goog.bind(this.updateHeight, this));
   this.channel_.connect();
 };
 
@@ -248,7 +265,7 @@ lantern.comm.LanternChannelFactory = function() {
 
 
 /**
- * Factory class variable to maintain a map of channels (keyed on IFrame's 
+ * Factory class variable to maintain a map of channels (keyed on IFrame's
  * container id).
  * Each element is a separate channel for a different IFrame.
  * @type Map.<Object>
@@ -299,7 +316,7 @@ lantern.comm.LanternChannelFactory.warnedOnce_ = false;
 lantern.comm.LanternChannelFactory.registerChannel = function(
     thirdPartyBaseUri, iframeUri, iframeContainerId, doc_id,
     trunk_id, height, width, absolute, completed) {
-   
+
   lantern.comm.LanternChannelFactory.completed_ = completed;
   lantern.comm.LanternChannelFactory.channelMap_[iframeContainerId] =
   new lantern.comm.LanternChannel(
