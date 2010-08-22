@@ -38,40 +38,32 @@ limitations under the License.
 COPYING based on:  http://www.apache.org/licenses/LICENSE-2.0.txt
 
 -----------
-2010-06-28  Branch and Merge
+Overview
 -----------
-1) Creating a branch:
 
- -To create a branch use svn copy: 
-     svn copy path_to_trunk path_to_new_branch
- -Branch name should be in the following format: 
-   username-date (eg. mukundjha-20100614)
-   (eg. svn copy https://lantern.googlecode.com/svn/trunk \
-       https://lantern.googlecode.com/svn/branches/mukundjha-20100614 )
- -Checkout the branch using svn checkout 
-   svn checkout https://lantern.googlecode.com/svn/branches/mukundjha-20100614 \
-    lantern_branch
+GIT may be integrated with SVN for local revisions. For example:
 
+- ~/src/lantern may be created for local development. From that directory,
+  run:
 
-2) Merging:
-To merge the branch back to trunk, follow the steps below.
-(NOTE:Make sure you have commited all changes to the branch before merging)
+  git svn clone https://lantern.googlecode.com/svn lantern-svn \
+    --username vchen@google.com --stdlayout
 
- - Checkout a copy of trunk:
-    svn checkout https://lantern.googlecode.com/svn/trunk lantern
- 
- - Change to current working directory:
-    cd lantern
+- Create .gitignore:
 
- - Merge it with the brach using svn merge
-    svn merge https://lantern.googlecode.com/svn/trunk \
-    https://lantern.googlecode.com/svn/branches/mukundjha-20100614
- 
- - Commit the change(merging with the branch) to the trunk:
-    svn commit -m "merging with branch mukundjha-20100614"
+  git svn show-ignore > .gitignore
+
+- Directories:
+
+  demo/ is an OBSOLETE demo AppEngine/Python application
+  demo1/ is the current demo AppEngine/Django/Python application
+  demo1-test/ is a the unit-test directory. It contains testing-only files and
+      symlinks into demo1 to allow testing demo1 python directly.
+
+- See the following for set up of your development environment.
 
 -----------
-2010-05-06  Development setup
+Development setup (2010-05-06)
 -----------
 Install django-1.1.1 to local machine's Python site-packages
  - NOTE: you might need to chmod -R a+wX in the extracted directory before
@@ -99,17 +91,6 @@ Load and extract appengine SDK.
 
 Download and extract GAEunit, coying gaeunit into the test source tree (e.g.,
   demo1-test).
-
-To run the demo1-test that contains the unit-testing infrastructure:
-
-  cd demo1-test
-  make test
-
-  Then go to http://localhost:9092 in your browser
-
-  Click on the "login" link to log in with a dummy user
-
-  Go to http://localhost:9092/test to run the unit tests
 
 -----------
 Closure JavaScript Library
@@ -143,32 +124,136 @@ To set up sym links in the development tree, e.g.,
       demo1-test/.closure_compiler
 
 -----------
-2010-05-01
+Testing the Setup
 -----------
 
-GIT may be used for local revisions. For example:
+To run the demo1-test that contains the unit-testing infrastructure:
 
-- ~/src/lantern may be created for local development
+  cd demo1-test
+  make deploy_js
+  make test
 
-- Use 'git init' to create a .git/ directory to track local development before
-  uploading to SVN.
+  Then go to http://localhost:9094 in your browser
 
-  - .gitignore contains patterns for ignored files. It may be used to set
-   the svn:ignore property on new directories.
+  Click on the "login" link to log in with a dummy user
 
-- Directories:
+  Go to http://localhost:9094/test to run the unit tests
 
-  demo/ is a demo AppEngine/Python application
-  demo1/ is a demo AppEngine/Django/Python application
-  content/ contains course-content repository, but there is a symlink from
-    within the demo1 directory during development.
+To test changes usually does not require restarting the server:
 
-  To get a copy of demo1:
+ - From demo1-test directory, run the following to recompile JavaScript
 
-    svn checkout https://lantern.googlecode.com/svn/trunk/demo1 demo1
+    make deploy_js
 
+ - Reload the page in your browser. You may need to SHIFT-F5 to force refresh
+   and sometimes clear your browser cache.
+
+By default demo1/template/base.html loads the compiled JavaScript:
+
+  lanternJs.js
+
+For debugging, you may want to change it temporarily to:
+
+  lanternJs-bundle.js
+
+DO NOT submit this change.
+
+
+-------------
+Typical work flow
+-------------
+To see remote branches:
+  git branch -r
+
+To see your local branches:
+  git branch
+
+To work on new features, based on trunk (git's master):
+
+  git checkout -b myfeature master
+
+Make your changes, commits, etc to this branch.
+
+Create a code-review branch in SVN when ready:
+
+  git svn branch -m 'Message' vchen-20100821
+  git checkout -b local/vchen-20100821 vchen-20100821
+  git merge myfeature
+  git svn dcommit
+
+Ask for review. Further review and commits and dcommits happens in
+local/vchen-20100821.
+
+When complete, merge to trunk:
+
+  git checkout master
+  git merge vchen-20100821
+  git commit --amend  (Add the SVN rev number to the commit log)
+  git svn dcommit
+
+Once released, set a tag with the version:
+
+  git svn tag Lantern_2a
+
+Delete SVN branches (after changes have been merged):
+
+  svn delete https://lantern.googlecode.com/svn/branches/vchen-20100821
+  git branch -D -r vchen-20100821
+  rm -rf .git/svn/refs/remotes/vchen-20100821
+
+Garbage collect:
+
+  git gc
+
+Get new revs from SVN into git:
+
+  git svn fetch
+
+If someone else is also working on your branch and have submitted changes, 
+update with:
+
+  git svn rebase
+
+
+-----------
+Branch and Merge w/out git (2010-06-28)
+-----------
+1) Creating a branch:
+
+ -To create a branch use svn copy:
+     svn copy path_to_trunk path_to_new_branch
+ -Branch name should be in the following format:
+   username-date (eg. mukundjha-20100614)
+   (eg. svn copy https://lantern.googlecode.com/svn/trunk \
+       https://lantern.googlecode.com/svn/branches/mukundjha-20100614 )
+ -Checkout the branch using svn checkout
+   svn checkout https://lantern.googlecode.com/svn/branches/mukundjha-20100614 \
+    lantern_branch
+
+
+2) Merging:
+To merge the branch back to trunk, follow the steps below.
+(NOTE:Make sure you have commited all changes to the branch before merging)
+
+ - Checkout a copy of trunk:
+    svn checkout https://lantern.googlecode.com/svn/trunk lantern
+
+ - Change to current working directory:
+    cd lantern
+
+ - Merge it with the brach using svn merge
+    svn merge https://lantern.googlecode.com/svn/trunk \
+    https://lantern.googlecode.com/svn/branches/mukundjha-20100614
+
+ - Commit the change(merging with the branch) to the trunk:
+    svn commit -m "merging with branch mukundjha-20100614"
+
+-----------------
+Misc
+-----------------
   To add ignores to directories:
 
     svn propset svn:ignore -F ../.gitignore py public/images templates/app
 
   where .gitignore contains patterns to ignore auto-generated files:
+
