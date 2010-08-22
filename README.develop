@@ -2,8 +2,7 @@ Developer Notes for Lantern
 
 SVN is used to upload changes to code.google.com
 
-  https://lantern.googlecode.com/svn/trunk/demo
-  https://lantern.googlecode.com/svn/trunk/demo1
+  https://lantern.googlecode.com/svn/trunk
 
 The code project site:
   http://code.google.com/p/lantern
@@ -15,6 +14,14 @@ AppEngine site:
   app_id: k16-8888
   http://k16-8888.appspot.com
 
+Related AppEngine sites:
+
+  app_id: pythonshell1
+  app_id: tempkhanacadquiz
+
+AppEngine admin site:
+
+  http://appengine.google.com
 
 See demo1/README for additional notes.
 
@@ -247,6 +254,25 @@ To merge the branch back to trunk, follow the steps below.
 
  - Commit the change(merging with the branch) to the trunk:
     svn commit -m "merging with branch mukundjha-20100614"
+
+
+-----------------
+Deployment to AppEngine
+-----------------
+- Update Version in app.yaml.(Otherwise, you will trash the deployed app!)
+  - Ideally, as soon as an app is finalized and made "live", the version
+    should be updated.
+  - Update BOTH demo1/app.yaml and demo1-test/app.yaml
+
+- If demo1-test/index.yaml has been updated, copy it to demo1/index.yaml
+
+- From demo1-test, run:
+
+  make deploy_js
+
+- Go to the demo1 directory, run:
+
+  .google_appengine/appcfg.py --email=yourname@google.com update .
 
 -----------------
 Misc
