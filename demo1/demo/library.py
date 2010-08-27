@@ -1142,7 +1142,7 @@ def get_doc_annotation(doc, user):
                                     doc_ref=doc,
                                     trunk_ref=doc.trunk_ref,
                                     object_ref=element)
-      anno.annotation_data = "Type your notes here..."
+      anno.annotation_data = ""
       anno.put()
     else:
       anno = anno.get()
@@ -1158,8 +1158,18 @@ def update_notes(name, data):
 
   Args:
     name: key to AnnotationState
-    data: new annotation data
+    data: new annotation data (dict)
   """
   anno = db.get(name)
   anno.annotation_data = data.encode('utf-8')
   anno.put()
+
+
+def get_notes(name):
+  """Get annotation data on a given document
+
+  Args:
+    name: key to AnnotationState
+  """
+  anno = db.get(name)
+  return anno.annotation_data

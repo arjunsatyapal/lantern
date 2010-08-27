@@ -18,24 +18,66 @@ goog.require('goog.Uri');
 goog.require('goog.json');
 goog.provide('lantern.Notes');
 goog.provide('lantern.Notes.showNote');
+goog.provide('lantern.Notes.paintBall');
 
 lantern.Notes.showNote = function(name) {
   var noteElt = document.getElementById(name);
+  var ballElt = document.getElementById(name + '-ball');
   var note = new goog.ui.Popup(noteElt);
 
   note.onHide_ = function(opt_target) {
     var contents = noteElt.value;
+    var ball = '';
     var uri = new goog.Uri('/notes/update');
-    var data = goog.json.serialize({ 'name': name, 'data': contents });
+
+    if (contents != '')
+      ball = 'pos'
+
+    var data = goog.json.serialize({
+        'name': name, 'text': contents, 'ball': ball
+    });
     // alert("Sending " + data);
 
     goog.net.XhrIo.send(uri, function(e) {
         var xhr = e.target;
         var obj = xhr.getResponseText();
-        // alert("Done " + obj);
+        lantern.Notes.paintBall(name);
       }, "POST", "data=" + data);
 
     goog.ui.PopupBase.prototype.onHide_.call(note);
   };
-  note.setVisible(true);
+
+  var uri = new goog.Uri('/notes/get');
+  var data = goog.json.serialize({ 'name': name });
+
+  goog.net.XhrIo.send(uri, function(e) {
+      var xhr = e.target;
+      var obj = xhr.getResponseJson();
+
+      ballElt.src = '/static/images/note-' + obj['ball'] + '.png';
+
+      if (noteElt.value != obj['text'])
+        noteElt.value = obj['text'];
+      note.setVisible(true);
+
+      if (obj['text'] == "") {
+        noteElt.value = "Type your notes here...";
+        noteElt.select();
+      }
+      noteElt.focus();
+    }, "POST", "data=" + data);
+};
+
+lantern.Notes.paintBall = function(name) {
+  var ballElt = document.getElementById(name + '-ball');
+  var uri = new goog.Uri('/notes/get');
+  var data = goog.json.serialize({ 'name': name });
+
+  goog.net.XhrIo.send(uri, function(e) {
+      var xhr = e.target;
+      var obj = xhr.getResponseJson();
+
+      ballElt.src = '/static/images/note-' + obj['ball'] + '.png';
+    }, "POST", "data=" + data);
+
 }
