@@ -322,7 +322,7 @@ def collect_data_from_query(request):
   content_title = request.POST.getlist('data_title')
 
   content_list = data_dict.setdefault('doc_contents', [])
-  for obj_type, data_val, height, width, title in zip(content_data_types, 
+  for obj_type, data_val, height, width, title in zip(content_data_types,
       content_data_vals, content_height, content_width, content_title):
     content_list.append({
         'obj_type': obj_type,
@@ -374,7 +374,7 @@ def create_doc(data_dict):
   for element in data_dict['doc_contents']:
 
     if element.get('obj_type') == 'rich_text':
-      text = str(element.get('val')) 
+      text = str(element.get('val'))
       object = models.RichTextModel.insert(data=text)
       doc.content.append(object.key())
 
@@ -436,9 +436,9 @@ def index(request):
                                        users.get_current_user())
     else:
       entry.path = []
-    
-  
-  # Course title is stale here 
+
+
+  # Course title is stale here
   in_progress_courses = library.get_recent_in_progress_courses(
       users.get_current_user())
   return respond(request, constants.DEFAULT_TITLE, "homepage.html",
@@ -469,6 +469,44 @@ def list_docs(request):
         {'data': doc_list})
 
 
+def _ReadTemplate(template):
+  """Reads and returns the contents of the specified template.
+
+  Templates are read  from the templates/include directory.
+
+  Args:
+    template: The base name of the template file.
+  """
+  f = open(os.path.join('templates', 'include', template), 'r')
+  try:
+    return f.read()
+  finally:
+    f.close()
+
+
+# Lazily created global instance of template strings to be published to the
+# client.
+_edit_templates = {}
+
+
+def _GetEditTemplates():
+  """Returns a new dict of templates to be returnted to the client."""
+  global _edit_templates
+
+  if not _edit_templates:
+    templates = (
+        ('template_doc_link', 'edit_doc_link_model2.html'),
+        ('template_rich_text', 'edit_rich_text_model2.html'),
+        ('template_widget', 'edit_widget_model2.html'),
+        ('template_video', 'edit_video_model2.html'),
+        )
+    for key, fname in templates:
+      template = _ReadTemplate(fname)
+      template = template.replace('|get_key', '.key')
+      _edit_templates[key] = simplejson.dumps(template)
+  return _edit_templates.copy()
+
+
 def edit(request):
   """For editing and creating content.
 
@@ -477,11 +515,16 @@ def edit(request):
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
 
+  render_dict = _GetEditTemplates()
+
   if not trunk_id:
     doc = models.DocModel()
-    return respond(request, 'Edit', 'edit.html',
-      {'doc': doc, 'data_valid_range': constants.VALID_GRADE_RANGE,
-       'allowed_labels': models.AllowedLabels.dump_to_list()})
+    render_dict.update(
+        {'doc': doc,
+         'data_valid_range': constants.VALID_GRADE_RANGE,
+         'allowed_labels': models.AllowedLabels.dump_to_list(),
+         })
+    return respond(request, 'Edit', 'edit.html', render_dict)
 
   try:
     doc = library.fetch_doc(trunk_id, doc_id)
@@ -491,15 +534,16 @@ def edit(request):
   doc_contents = library.get_doc_contents(doc, users.get_current_user(),
                                           resolve_links=True)
   tags = ','.join(doc.tags)
-  return respond(request, constants.DEFAULT_TITLE, "edit.html",
-                {'doc': doc,
-                'doc_contents': doc_contents,
-                'data_valid_range': constants.VALID_GRADE_RANGE,
-                'doc_id': str(doc.key()),
-                'trunk_id': str(doc.trunk_ref.key()),
-                'tags': tags,
-                'allowed_labels': models.AllowedLabels.dump_to_list()
-                })
+  render_dict.update(
+      {'doc': doc,
+       'doc_contents': doc_contents,
+       'data_valid_range': constants.VALID_GRADE_RANGE,
+       'doc_id': str(doc.key()),
+       'trunk_id': str(doc.trunk_ref.key()),
+       'tags': tags,
+       'allowed_labels': models.AllowedLabels.dump_to_list(),
+       })
+  return respond(request, constants.DEFAULT_TITLE, "edit.html", render_dict)
 
 
 def view_doc(request):
@@ -516,11 +560,11 @@ def view_doc(request):
     trunk_id: Trunk Id for the required doc.
     doc_id: Doc Id associated with the doc. This just shows the entry point
       for the request and only plays a role if 'absolute' is set true.
-    parent_trunk: Trunk Id of the parent. Required to build up correct hierarchy. 
+    parent_trunk: Trunk Id of the parent. Required to build up correct hierarchy.
     parent_id: Doc Id for the parent. Again its just marks an entry point.
-    absolute: If set, doc pointed by the doc_id is fetched, irrespective 
+    absolute: If set, doc pointed by the doc_id is fetched, irrespective
       of user's history or latest version of the doc.
-    use_history: If set user's history is used to fetch the doc. If use_history 
+    use_history: If set user's history is used to fetch the doc. If use_history
       is set user will always land on the same version of the doc he was on last
       visit, until he chooses to move to a newer version.
     abs_path: Specifies path to be followed to reach the doc. This is useful in
@@ -539,8 +583,8 @@ def view_doc(request):
     use_absolute_mapping_for_path = True
   else:
     use_absolute_mapping_for_path = False
- 
-  prev_doc = library.get_doc_for_user(trunk_id, users.get_current_user()) 
+
+  prev_doc = library.get_doc_for_user(trunk_id, users.get_current_user())
   try:
     if use_absolute_addressing:
       doc = library.fetch_doc(trunk_id, doc_id)
@@ -567,7 +611,7 @@ def view_doc(request):
     doc_score = 100
   else:
     doc_score = library.get_accumulated_score(doc, users.get_current_user(),
-                                              doc_contents, 
+                                              doc_contents,
                                               use_history=use_history)
   trunk = doc.trunk_ref
 
@@ -592,7 +636,7 @@ def view_doc(request):
                                          users.get_current_user())
   else:
     traversed_path = []
-  
+
   if not use_history:
     link_to_prev = (
         '<a href='
@@ -704,12 +748,12 @@ def submit_edits(request):
 
 def get_session_id_for_widget(request):
   """Returns session id tied with user and widget.
-  
+
   NOTE: BadKeyError was not checked on purpose, so that exception is raised.
   """
   widget_id = request.GET.get('widget_id')
   widget = db.get(widget_id)
-    
+
   session_id = library.get_or_create_session_id(widget,
                                                 users.get_current_user())
   if session_id:
@@ -738,7 +782,7 @@ def update_doc_score(request):
     widget_id: Key for the widget.
     progress: integer between 0-100 indicating progress of the widget.
     score: integer between 0-100 indicating score for the widget.
-    trunk_id: Key for the trunk associated with doc containing the widget. 
+    trunk_id: Key for the trunk associated with doc containing the widget.
     doc_id: Key of the document.
     parent_trunk: Key for the trunk associated with parent.
     parent_doc: Key for the parent doc.
@@ -751,10 +795,10 @@ def update_doc_score(request):
   parent_trunk =  request.GET.get('parent_trunk')
   parent_doc = request.GET.get('parent_doc')
 
-  widget = db.get(widget_id) 
+  widget = db.get(widget_id)
   library.put_widget_score(widget, users.get_current_user(), progress)
-  
-  # Using absolute addressing 
+
+  # Using absolute addressing
   doc = library.fetch_doc(trunk_id, doc_id)
 
   doc_contents = library.get_doc_contents(doc, users.get_current_user(),
@@ -769,7 +813,7 @@ def update_doc_score(request):
 
 def get_list_ajax(request):
   """Sends a list of documents present in data store.
-  
+
   Useful in populating list for Link Picker while editing the document.
   """
   doc_list = []
@@ -815,7 +859,7 @@ def xsrf_token(request):
 
 def fetch_from_tags(request):
   """Fetches courses with given tag.
- 
+
   TODO(mukundjha): Pick unique courses.
   """
   tag = request.GET.get('tag')
@@ -830,7 +874,7 @@ def fetch_from_tags(request):
       seen[k] = t.head
       d = db.get(t.head)
       course_list.append(d)
-      
+
   return respond(request, constants.DEFAULT_TITLE, "course_list.html",
                  {'course_list' : course_list, 'tag': tag})
 
@@ -883,7 +927,7 @@ def store_video_state(request):
   """Stores the state when a video is paused."""
   video_id = request.GET.get('video_id')
   current_time = request.GET.get('current_time', 0.0)
-  
+
   video = db.get(video_id)
   video_state = models.VideoState.all().filter(
       'video_ref =', video).filter('user =', users.get_current_user()).get()
@@ -925,4 +969,3 @@ def update_notes(request):
 
   return respond(request, "Received", "debugnotes.html",
                  { 'data': data, 'name': name })
-

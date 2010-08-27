@@ -222,6 +222,61 @@ div.property .noTextChk {
   padding-top: 2px;
 }
 
+/* CSS for doc-property label and values */
+
+div.doc_property {
+  margin: 4px auto;
+}
+
+div.doc_property label {
+  float: left;
+  width: 120px;
+  text-align: right;
+  margin-right: 1em;
+  vertical-align: bottom;
+}
+
+div.doc_property .label_for {
+}
+
+div.doc_property .label {
+  font-weight: bold;
+}
+
+div.doc_property div.value {
+  display: inline;
+  padding-top: 3px;
+}
+
+div.doc_property .value {
+  width: 800px;
+}
+
+div.doc_property .selector {
+  width: 100px;
+}
+
+div.submit {
+  text-align: center;
+  font-size: 100%;
+}
+
+div.doc_contents hr {
+  margin-left: 30px;
+  margin_bottom: 10px;
+}
+
+div.doc_edit {
+  display: inline;
+  clear: both;
+}
+
+div.doc_edit .delete {
+  display: inline;
+  padding-top: 0.2em;
+  float: right;
+}
+
 /* --------------- */
 
 div.field-section {

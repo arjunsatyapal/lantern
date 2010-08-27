@@ -1,0 +1,26 @@
+ <div class="delete">
+   [<a href="javascript:deleteRow('{{object|get_key}}');"
+      title="Delete entry">x</a>]
+ </div>
+ <div class="doc_property">
+  <label class="label label_for">Video ID:</label>
+  <input class="value" type="text" name="data_val"
+    value="{{object.video_id}}" />
+  <input type="hidden" name="data_type" value="video" />
+ </div>
+ <div class="doc_property">
+  <label class="label label_for">Title:</label>
+  <input class="value" type="text" name="data_title"
+    value="{{object.title}}" />
+ </div>
+ <div class="doc_property">
+  <label class="label label_for">Width:</label>
+  <input class="dimension" type="text" name="data_width"
+    value="{{object.width}}" />
+ </div>
+ <div class="doc_property">
+  <label class="label label_for">Height:</label>
+  <input class="dimension" type="text" name="data_height"
+    value="{{object.height}}" />
+ </div>
+ <hr>

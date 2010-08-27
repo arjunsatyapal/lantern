@@ -27,7 +27,9 @@ INSTALLED_APPS = (
 )
 MIDDLEWARE_CLASSES = (
     #'firepython.middleware.FirePythonDjango',
-    'google.appengine.ext.appstats.recording.AppStatsDjangoMiddleware',
+# 2010-08-26: Comment out app-stats to lighten load on the queries. It adds
+# a lot more Python calls to the call chain.
+#    'google.appengine.ext.appstats.recording.AppStatsDjangoMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.http.ConditionalGetMiddleware',
     'demo.middleware.AddUserToRequestMiddleware',
