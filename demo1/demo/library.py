@@ -1158,8 +1158,15 @@ def update_notes(name, data):
 
   Args:
     name: key to AnnotationState
-    data: new annotation data (dict)
+    data: new annotation data (serialized at the UI layer)
   """
+  # NEEDSWORK(jch):
+  # Since AnnotationState model wants annotation_data as serialized
+  # blob of everything, the data here is opaque at this library layer
+  # as the serialization is done between views layer and the JS in
+  # the browser (and we probably do not want to do JSON at the library
+  # layer).  This is somewhat awkward.  Perhaps AnnotationState should
+  # be modified to learn logical fields as it grows???  I dunno.
   anno = db.get(name)
   anno.annotation_data = data.encode('utf-8')
   anno.put()
