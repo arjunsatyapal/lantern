@@ -954,12 +954,20 @@ def reset_score_for_page(request):
 
 
 @login_required
+@post_required
+@xsrf_required
 def update_notes(request):
-  """Update annotation on a given object"""
+  """Update annotation on a given object
+
+  This is called when the goog.ui.Popup that displayed the annotation
+  to be edited is dismissed, with the result of editing.  The POST data
+  consists of 'data' which is a JSON serialization of 'text' (annotation)
+  and 'ball' (color in which the annotation indicator ball should be
+  painted).
+  """
   try:
     data = request.POST.get('data')
     it = simplejson.loads(data)
-    data = it['data']
     name = it['name']
     name = re.sub(r'^[^-]+-', '', name)
     library.update_notes(name, data)
@@ -969,3 +977,39 @@ def update_notes(request):
 
   return respond(request, "Received", "debugnotes.html",
                  { 'data': data, 'name': name })
+
+
+@login_required
+def get_notes(request):
+  """Get annotation on a given object
+
+  This is called when the goog.ui.Popup that will display the annotation
+  to be edited is about to be opened.  The POST data consists of 'data'
+  which is a JSON serialization of 'name' ("note-" + id) where id identifies
+  which AnnotationState object the request is about.
+  """
+  ball = text = ''
+  try:
+    data = request.POST.get('data')
+    it = simplejson.loads(data)
+    name = it['name']
+    name = re.sub(r'^[^-]+-', '', name)
+
+    try:
+      data = library.get_notes(name)
+      if data != "":
+        d = simplejson.loads(data)
+      else:
+        d = { 'text': "", 'ball': "plain" }
+    except ValueError, e:
+      ball = data
+      d = { 'text': str(e), 'ball': "plain" }
+
+    text = d.get('text', "")
+    ball = d.get('ball', "plain")
+
+  except Exception, e:
+    name = str(e)
+    text = request.POST.get('data')
+
+  return HttpResponse(simplejson.dumps({ 'text': text, 'ball': ball, 'name': name }))

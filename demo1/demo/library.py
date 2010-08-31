@@ -1142,7 +1142,7 @@ def get_doc_annotation(doc, user):
                                     doc_ref=doc,
                                     trunk_ref=doc.trunk_ref,
                                     object_ref=element)
-      anno.annotation_data = "Type your notes here..."
+      anno.annotation_data = ""
       anno.put()
     else:
       anno = anno.get()
@@ -1158,8 +1158,25 @@ def update_notes(name, data):
 
   Args:
     name: key to AnnotationState
-    data: new annotation data
+    data: new annotation data (serialized at the UI layer)
   """
+  # NEEDSWORK(jch):
+  # Since AnnotationState model wants annotation_data as serialized
+  # blob of everything, the data here is opaque at this library layer
+  # as the serialization is done between views layer and the JS in
+  # the browser (and we probably do not want to do JSON at the library
+  # layer).  This is somewhat awkward.  Perhaps AnnotationState should
+  # be modified to learn logical fields as it grows???  I dunno.
   anno = db.get(name)
   anno.annotation_data = data.encode('utf-8')
   anno.put()
+
+
+def get_notes(name):
+  """Get annotation data on a given document
+
+  Args:
+    name: key to AnnotationState
+  """
+  anno = db.get(name)
+  return anno.annotation_data

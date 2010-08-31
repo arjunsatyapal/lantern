@@ -43,5 +43,6 @@ urlpatterns = defaults.patterns(
     (r'^storeVideoStateAjax$', 'store_video_state'),
     (r'^resetScoreAjax$', 'reset_score_for_page'),
     (r'^subjects/.*$', 'subjectsJson'),
-    (r'^notes/update$', 'update_notes') 
+    (r'^notes/update$', 'update_notes'),
+    (r'^notes/get$', 'get_notes'),
     )
