@@ -55,7 +55,7 @@ goog.inherits(lantern.ui.SubjectMenuButton, goog.ui.MenuButton);
 
 
 /**
- * @inheritDoc
+ * @override
  */
 lantern.ui.SubjectMenuButton.prototype.handleMenuAction = function(e) {
   // Override to do nothing.
@@ -373,7 +373,7 @@ lantern.ui.SubjectMenu.prototype.buildMenu_ = function(
 
 
 /**
- * @inheritDoc
+ * @override
  */
 lantern.ui.SubjectMenu.prototype.createDom = function() {
   this.decorateInternal(this.getDomHelper().createElement('div'));
@@ -381,7 +381,7 @@ lantern.ui.SubjectMenu.prototype.createDom = function() {
 
 
 /**
- * @inheritDoc
+ * @override
  */
 lantern.ui.SubjectMenu.prototype.render = function(el) {
   lantern.ui.SubjectMenu.superClass_.render.call(this, el);
@@ -392,7 +392,7 @@ lantern.ui.SubjectMenu.prototype.render = function(el) {
 
 
 /**
- * @inheritDoc
+ * @override
  */
 lantern.ui.SubjectMenu.prototype.decorateInternal = function(element) {
   this.element_ = element;
@@ -414,7 +414,7 @@ lantern.ui.SubjectMenu.prototype.decorateInternal = function(element) {
 
 
 /**
- * @inheritDoc
+ * @override
  */
 lantern.ui.SubjectMenu.prototype.enterDocument = function() {
   lantern.ui.SubjectMenu.superClass_.enterDocument.call(this);
@@ -435,7 +435,7 @@ lantern.ui.SubjectMenu.prototype.enterDocument = function() {
 
 
 /**
- * @inheritDoc
+ * @override
  */
 lantern.ui.SubjectMenu.prototype.exitDocument = function() {
   lantern.ui.SubjectMenu.superClass_.exitDocument.call(this);
@@ -451,7 +451,7 @@ lantern.ui.SubjectMenu.prototype.exitDocument = function() {
 
 
 /**
- * @inheritDoc
+ * @override
  */
 lantern.ui.SubjectMenu.prototype.disposeInternal = function() {
   lantern.ui.SubjectMenu.superClass_.disposeInternal.call(this);
@@ -472,7 +472,7 @@ lantern.ui.SubjectMenu.prototype.disposeInternal = function() {
 
 
 /**
- * @inheritDoc
+ * @override
  */
 lantern.ui.SubjectMenu.prototype.getClassId = function() {
   return 'lantern.ui.SubjectMenu';
@@ -480,7 +480,7 @@ lantern.ui.SubjectMenu.prototype.getClassId = function() {
 
 
 /**
- * @inheritDoc
+ * @override
  */
 lantern.ui.SubjectMenu.prototype.canDecorate = function(existingElement) {
   return existingElement.tagName == 'DIV';

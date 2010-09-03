@@ -170,3 +170,13 @@ function markAsRead(){
 init();
 </script>
 {% endblock %}
+
+{% block end_script %}
+<script type="text/javascript"><!--
+var noteMgr = new lantern.notes.NoteManager("notestrigger");
+goog.events.listen(window, 'unload', function(e) {
+  noteMgr.dispose();
+  noteMgr = null;
+});
+--></script>
+{% endblock end_script %}

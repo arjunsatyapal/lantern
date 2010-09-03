@@ -185,18 +185,29 @@ Create a code-review branch in SVN when ready:
 
   git svn branch -m 'Message' vchen-20100821
   git checkout -b local/vchen-20100821 vchen-20100821
-  git merge myfeature
+
+  git format-patch --stdout --binary  maser..myfeature | git am -s3
   git svn dcommit
 
 Ask for review. Further review and commits and dcommits happens in
 local/vchen-20100821.
 
-When complete, merge to trunk:
+When complete, merge to trunk (this may be wrong):
 
-  git checkout master
-  git merge vchen-20100821
-  git commit --amend  (Add the SVN rev number to the commit log)
-  git svn dcommit
+  - Checkout a copy of trunk to a temporary location:
+    svn checkout https://lantern.googlecode.com/svn/trunk lantern
+
+  - Change to current working directory:
+    cd lantern
+
+  - Merge it with the brach using svn merge
+    svn merge https://lantern.googlecode.com/svn/trunk \
+    https://lantern.googlecode.com/svn/branches/mukundjha-20100614
+
+  - Commit the change(merging with the branch) to the trunk:
+    svn commit -m "merging with branch mukundjha-20100614"
+
+  - The directory may be removed now.
 
 Once released, set a tag with the version:
 

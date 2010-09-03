@@ -20,12 +20,9 @@
 goog.provide('lantern.subject.SubjectProviderXhr');
 
 goog.require('goog.debug.Logger');
-goog.require('goog.events.EventHandler');
-goog.require('goog.events.EventTarget');
-goog.require('goog.net.XhrManager');
-goog.require('goog.structs.Map');
 goog.require('goog.Uri');
 
+goog.require('lantern.DataProviderXhr');
 goog.require('lantern.subject.SubjectProvider');
 
 
@@ -52,48 +49,13 @@ lantern.subject.SubjectProviderXhr = function(opt_xhrUri) {
 
   /**
    * Manager for XHR requests.
-   * @type {goog.net.XhrManager}
+   * @type {latern.DataProviderXhr}
    * @private
    */
-  this.xhr_ = new goog.net.XhrManager(
-      2 /* opt_maxRetries */,
-      undefined /* opt_headers */,
-      undefined /* opt_minCount */,
-      undefined /* opt_maxCount */,
-      10000 /* opt_timeoutInterval ms */
-      );
-
-  /**
-   * Map that holds in-flight requests to avoid duplicates.
-   * @type {goog.structs.Map}
-   * @private
-   */
-  this.currentRequests_ = new goog.structs.Map()
-
-  /**
-   * Event handler helper.
-   * @type {goog.events.EventHandler}
-   * @private
-   */
-  this.eh_ = new goog.events.EventHandler(this);
-
-  // Set up event handlers
-  this.eh_.listen(this.xhr_, goog.net.EventType.SUCCESS,
-                  this.onRemoteSuccess_);
-  this.eh_.listen(this.xhr_,
-                  [goog.net.EventType.ERROR,
-                   goog.net.EventType.ABORT,
-                   goog.net.EventType.TIMEOUT], this.onRemoteError_);
+  this.xhr_ = new lantern.DataProviderXhr();
 };
 goog.inherits(lantern.subject.SubjectProviderXhr,
               lantern.subject.SubjectProvider);
-
-/**
- * Default priority for XhrManager requests.
- * @type {number}
- * @private
- */
-lantern.subject.SubjectProviderXhr.DEFAULT_XHR_PRIORITY_ = 100;
 
 
 /**
@@ -126,7 +88,7 @@ lantern.subject.SubjectProviderXhr.prototype.getXhrUri_ = function(id) {
  */
 lantern.subject.SubjectProviderXhr.prototype.loadSubjects = function(id) {
   var uri = this.getXhrUri_(id);
-  this.sendRequest_(id, uri, goog.bind(this.onDataReady_, this));
+  this.xhr_.sendRequest(id, uri, goog.bind(this.onDataReady_, this));
 };
 
 
@@ -207,8 +169,15 @@ lantern.subject.SubjectProviderXhr.prototype.mergeSubjects_ = function(
  */
 lantern.subject.SubjectProviderXhr.prototype.onDataReady_ = function(
     id, result, opt_errMsg) {
-  this.mergeSubjects_(id, result);
-  this.dispatchEvent(lantern.subject.SubjectProvider.EventType.DATA_READY);
+  var subjects;
+  // Expect a 2-element array.
+  if (!result.length || (2 != result.length)) {
+    errmsg = 'Unexpected response';
+  } else {
+    subjects = result[1];
+    this.mergeSubjects_(id, subjects);
+    this.dispatchEvent(lantern.subject.SubjectProvider.EventType.DATA_READY);
+  }
 };
 
 
@@ -218,97 +187,8 @@ lantern.subject.SubjectProviderXhr.prototype.onDataReady_ = function(
 lantern.subject.SubjectProviderXhr.prototype.disposeInternal = function() {
   lantern.subject.SubjectProviderXhr.superClass_.disposeInternal.call(this);
 
-  this.eh_.dispose();
-  this.eh_ = null;
-  this.currentRequests_ = null;
-};
-
-
-/**
- * Issue XHR/Json request.
- *
- * @param {string} id The request id. If a request is already in progress,
- *     an error is thrown.
- * @param {string|goog.Uri} uri The request URI.
- * @param {Function} opt_callback Callback function when the request is
- *     complete.  The callback has the signature:
- *      callback(id, result, opt_errorMsg)
- *     where opt_errorMsg is not passed in if there were no errors.
- * @throws error if request already in progress with the same id.
- * @private
- */
-lantern.subject.SubjectProviderXhr.prototype.sendRequest_ = function(
-    id, uri, opt_callback) {
-
-  if (this.currentRequests_.containsKey(id)) {
-    throw Error('Duplicate request issued for ' + id);
-  }
-  this.currentRequests_.set(id, opt_callback);
-  this.xhr_.send(id, uri, 'GET', undefined /* POST data */,
-                 undefined /* no headers */,
-                 lantern.subject.SubjectProviderXhr.DEFAULT_XHR_PRIORITY_);
-};
-
-
-/**
- * Callback for AJAX success.
- * @param {Event} e Event passed back from XhrManager.
- * @private
- */
-lantern.subject.SubjectProviderXhr.prototype.onRemoteSuccess_ = function(e) {
-  var id = e.id;
-  var xhrIo = e.xhrIo;
-  var callback = this.currentRequests_.get(id);
-  this.currentRequests_.remove(id);
-
-  // NOTE(vchen,ssaviano): getResponseJson is not used because it uses
-  // goog.json.parse, which is a safer way to parse JSON but slower. As long
-  // as the source is trusted, below is ok.
-  var response = goog.json.unsafeParse(xhrIo.getResponseText());
-  var result;
-  var errmsg;
-
-  if (!response.length || (2 != response.length)) {
-    errmsg = 'Unexpected response';
-  } else {
-    result = response[1];
-  }
-  if (callback) {
-    goog.Timer.callOnce(goog.bind(callback, this, id, result, errmsg), 10);
-  }
-  e.dispose();
-};
-
-
-/**
- * Callback for AJAX error.
- * @param {Event} e Event passed back from XhrManager.
- * @private
- */
-lantern.subject.SubjectProviderXhr.prototype.onRemoteError_ = function(e) {
-  var id = e.id;
-  var xhrIo = e.xhrIo;
-  var callback = this.currentRequests_.get(id);
-  var msg = '';
-  this.currentRequests_.remove(id);
-  switch (e.type) {
-    case goog.net.EventType.ERROR:
-      msg = 'Xhr Error';
-      break;
-    case goog.net.EventType.ABORT:
-      msg = 'Abort';
-      break;
-    case goog.net.EventType.TIMEOUT:
-      msg = 'Timeout';
-      break;
-  }
-  msg = ['Error(', msg, ') ', xhrIo.getLastError(), '(',
-         xhrIo.getLastUri(), ')'];
-  if (callback) {
-    goog.Timer.callOnce(goog.bind(callback, this, id, undefined, msg.join('')),
-                        10);
-  }
-  e.dispose();
+  this.xhr_.dispose();
+  this.xhr_ = null;
 };
 
 

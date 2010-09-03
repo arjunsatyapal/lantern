@@ -47,6 +47,7 @@ LANTERN_JS_FILE = static/js/lanternJs.js
 LANTERN_JS_BUNDLE_FILE = static/js/lanternJs-bundle.js
 
 JS_SRCS = \
+    providerxhr.js \
     subject.js \
     subjectmenu.js \
     subjectxhr.js \

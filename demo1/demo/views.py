@@ -980,6 +980,8 @@ def update_notes(request):
 
 
 @login_required
+@post_required
+@xsrf_required
 def get_notes(request):
   """Get annotation on a given object
 
@@ -997,19 +999,23 @@ def get_notes(request):
 
     try:
       data = library.get_notes(name)
-      if data != "":
+      if data:
         d = simplejson.loads(data)
       else:
-        d = { 'text': "", 'ball': "plain" }
+        d = {'text': '', 'ball': 'plain'}
     except ValueError, e:
       ball = data
-      d = { 'text': str(e), 'ball': "plain" }
+      d = {'text': str(e), 'ball': 'plain'}
 
-    text = d.get('text', "")
-    ball = d.get('ball', "plain")
+    text = d.get('text', '')
+    ball = d.get('ball', 'plain')
 
   except Exception, e:
     name = str(e)
     text = request.POST.get('data')
 
-  return HttpResponse(simplejson.dumps({ 'text': text, 'ball': ball, 'name': name }))
+  return HttpResponse(simplejson.dumps({
+      'text': text,
+      'ball': ball,
+      'name': name,
+      }))
