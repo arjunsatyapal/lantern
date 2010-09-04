@@ -997,15 +997,13 @@ def get_notes(request):
     name = it['name']
     name = re.sub(r'^[^-]+-', '', name)
 
+    d = {'text': '', 'ball': 'plain'}
     try:
       data = library.get_notes(name)
       if data:
         d = simplejson.loads(data)
-      else:
-        d = {'text': '', 'ball': 'plain'}
     except ValueError, e:
-      ball = data
-      d = {'text': str(e), 'ball': 'plain'}
+      logging.warn("--------- get_notes: error = %r" % e)
 
     text = d.get('text', '')
     ball = d.get('ball', 'plain')
