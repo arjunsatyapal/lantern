@@ -1,0 +1,22 @@
+<html>
+  <head>
+   <style>
+textarea {
+  width: 80%;
+  height: 250px;
+  overflow: auto;
+}
+   </style>
+  </head>
+  <body{% if alive %} onLoad="document.edit.program.focus();"{% endif %}>
+    <form action="/" method="post" name="edit">
+      <input type="hidden" name="sofar" value={{ sofar }}>
+      <div>
+	<textarea name="program">{{ input_so_far }}</textarea>
+      </div>
+      <div>
+        <input type="submit" value="Done">
+      </div>
+    </form>
+  </body>
+</html>

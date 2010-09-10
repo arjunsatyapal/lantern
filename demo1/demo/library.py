@@ -707,7 +707,7 @@ def get_doc_contents(doc, user, **kwargs):
     Arguments below are passed using **kwargs. By default all are set to
     false.
 
-    reslove_links: If reslove_links is true, then links are resolved to
+    resolve_links: If reslove_links is true, then links are resolved to
       get appropriate title for links.
     use_history: Use history to resolve links.
     fetch_score: If set true score is also appended to all objects.

@@ -1,13 +1,10 @@
 <h2>{{object.title}}</h2>
-<div id='{{object|get_key}}'>
+<div id='{{object|get_key}}{{forloop.counter}}'>
 </div>
-<script> 
-var doc_score = {{doc_score}};
-var completed_status = ( doc_score == 100); 
-
+<script>
   lantern.comm.LanternChannelFactory.registerChannel(
     '{{object.base_url}}',
-    '{{object.widget_url|safe}}','{{object|get_key}}','{{doc|get_key}}',
-    '{{doc.trunk_ref|get_key}}','{{object.height}}','{{object.width}}',false, completed_status);
-
+    '{{object.widget_url|safe}}', '{{object|get_key}}', '{{forloop.counter}}',
+    '{{doc|get_key}}', '{{doc.trunk_ref|get_key}}',
+    '{{object.height}}', '{{object.width}}', false);
 </script>

@@ -563,11 +563,11 @@ class GetAccumulatedScoreTest(unittest.TestCase):
     doc1.content.append(link.key())
     doc1.content.append(widget.key())
     doc1.put()
-    doc_content = library.get_doc_contents(doc1, True, False,
-                                           users.get_current_user(), False)
+    doc_content = library.get_doc_contents(
+        doc1, users.get_current_user(), resolve_links=True)
 
-    score = library.get_accumulated_score(doc1, doc_content,
-                                          users.get_current_user())
+    score = library.get_accumulated_score(
+        doc1, users.get_current_user(), doc_content)
     # avg score
     self.assertEquals(6, score)
     # checking if score is registered

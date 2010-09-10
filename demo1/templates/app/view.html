@@ -17,7 +17,6 @@ limitations under the License.
 <script type="text/javascript"
  src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
 </script>
-<!-- <script src="{{media_url}}js/notes.js"></script> -->
 <script>
 goog.require('goog.net.XhrIo');
 </script>
@@ -80,7 +79,7 @@ goog.require('goog.net.XhrIo');
   {% include 'include/notes.html' %}
   {% ifequal object|class_name "RichTextModel" %}
     {% include 'include/rich_text_model.html' %}
-  {% else %} 
+  {% else %}
    {% ifequal object|class_name "VideoModel" %}
      {% include 'include/video_model.html' %}
    {% else %}
@@ -95,7 +94,7 @@ goog.require('goog.net.XhrIo');
  {% endifequal %}
  </td>
 </tr>
-{% endfor %} 
+{% endfor %}
 </table>
 {% else %}
 <b>This page is a stub. Please help it by adding some content.</b> Click <a href='/edit?trunk_id={{doc.trunk_ref|get_key}}&doc_id={{doc|get_key}}'>here</a> to add conents.
@@ -173,6 +172,9 @@ init();
 
 {% block end_script %}
 <script type="text/javascript"><!--
+
+lantern.comm.LanternChannelFactory.initialize(global_score == 100);
+
 var noteMgr = new lantern.notes.NoteManager("notestrigger");
 goog.events.listen(window, 'unload', function(e) {
   noteMgr.dispose();

@@ -1,11 +1,14 @@
 {% with object|get_key as obj_id %}
 {% with annotation|get_element:obj_id as anno %}
 <div>
- <button id="note-{{ anno.key }}-button" class="notestrigger">
-  <img src="/static/images/note.png" id="note-{{ anno.key }}-ball"
+ <button id="note{{forloop.counter}}-{{ anno.key }}-button"
+         class="notestrigger">
+  <img src="/static/images/note.png"
+       id="note{{forloop.counter}}-{{ anno.key }}-ball"
        width="16" height="16">
  </button>
- <textarea class="note" id="note-{{ anno.key }}" style="display:None;"
+ <textarea class="note"
+           id="note{{forloop.counter}}-{{ anno.key }}" style="display:None;"
  ></textarea>
 </div>
 {% endwith %}

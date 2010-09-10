@@ -9,15 +9,23 @@ The code project site:
 
   Go to the "Sources" tab to locate the SVN password.
 
-AppEngine site:
+AppEngine sites:
 
   app_id: k16-8888
   http://k16-8888.appspot.com
 
-Related AppEngine sites:
+    This corresponds to the demo1/ and demo1-test/ directories
 
   app_id: pythonshell1
+  http://pythonshell1.appspot.com
+
+    This corresponds to the ri directory.
+
+Related AppEngine sites:
+
   app_id: tempkhanacadquiz
+
+    This is a modified version of Khan exercises, currently not checked in.
 
 AppEngine admin site:
 

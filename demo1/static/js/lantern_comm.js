@@ -23,21 +23,26 @@
 goog.provide('lantern.comm.LanternChannelFactory');
 goog.provide('lantern.comm.LanternChannel');
 
+goog.require('goog.Disposable');
 goog.require('goog.dom');
 goog.require('goog.dom.classes');
+goog.require('goog.events');
 goog.require('goog.json');
 goog.require('goog.net.XhrIo');
 goog.require('goog.net.xpc.CrossPageChannel');
-goog.require('goog.Uri');
+goog.require('goog.structs');
 goog.require('goog.style');
 goog.require('goog.ui.Dialog');
+goog.require('goog.Uri');
 
 
 /**
  * Constructor for Lantern Channel.
  * @param {string} thirdPartyBaseUri Base uri for the thirdparty.
  * @param {string} iframeUri Complete uri to be embedded in an iframe.
- * @param {string} iframeContainerId Id of the container of the Iframe.
+ * @param {string} widgetId Id of the widget to be embedded in the Iframe.
+ * @param {string} widgetIndex Index of the widget on the page.
+ *    widgetId + widgetIndex is the id of the iframe container.
  * @param {string} doc_id Document Id.
  * @param {string} trunk_id Trunk Id for lantern doc.
  * @param {string} height Iframe's height.
@@ -46,14 +51,19 @@ goog.require('goog.ui.Dialog');
  *   document. This is passed based on if absolute parameter was set while
  *   loading the document.
  * @constructor
+ * @extends {goog.Disposable}
+ *
  * NOTE(mukundjha): Using relative URI for communication seems to be working
  * although this should be tested more thoroughly.
  */
 lantern.comm.LanternChannel = function(
-    thirdPartyBaseUri, iframeUri, iframeContainerId, doc_id, trunk_id,
-    height, width, absolute, completed) {
+    thirdPartyBaseUri, iframeUri, widgetId, widgetIndex, doc_id, trunk_id,
+    height, width, absolute) {
+  goog.Disposable.call(this);
+
   var ownUri = '/'
-  this.iframeId_ = iframeContainerId;
+  var iframeContainerId = widgetId + widgetIndex;
+  this.widgetId_ = widgetId;
   this.cfg_ = {};
   this.doc_id_ = doc_id;
   this.trunk_id_ = trunk_id;
@@ -85,6 +95,7 @@ lantern.comm.LanternChannel = function(
 
    this.xhr_ = new goog.net.XhrIo();
 };
+goog.inherits(lantern.comm.LanternChannel, goog.Disposable);
 
 
 /**
@@ -162,7 +173,7 @@ lantern.comm.LanternChannel.prototype.updateScore = function(data) {
   }
   var obj = goog.json.parse(data);
   var uri = new goog.Uri('/updateScore');
-  uri.setParameterValue('widget_id', this.iframeId_);
+  uri.setParameterValue('widget_id', this.widgetId_);
   uri.setParameterValue('doc_id', this.doc_id_);
   uri.setParameterValue('trunk_id', this.trunk_id_);
   uri.setParameterValue('score', obj.score);
@@ -229,7 +240,7 @@ lantern.comm.LanternChannel.prototype.sendSessionId = function() {
  */
 lantern.comm.LanternChannel.prototype.requestData = function(data) {
 
-  url = '/getSessionId?widget_id=' + this.iframeId_;
+  url = '/getSessionId?widget_id=' + this.widgetId_;
   goog.events.removeAll(this.xhr_);
   goog.events.listen(
       this.xhr_, goog.net.EventType.COMPLETE,
@@ -253,6 +264,14 @@ lantern.comm.LanternChannel.prototype.initializeChannel = function(){
   this.channel_.registerService('update_height',
       goog.bind(this.updateHeight, this));
   this.channel_.connect();
+};
+
+
+lantern.comm.LanternChannel.prototype.disposeInternal = function() {
+  this.channel_.dispose();
+  this.xhr_.dispose();
+
+  lantern.comm.LanternChannel.superClass_.disposeInternal.call(this);
 };
 
 
@@ -299,11 +318,15 @@ lantern.comm.LanternChannelFactory.warnedOnce_ = false;
 
 
 /**
- * Factory method for creating a new channel.
- * To be called in view.html
+ * Factory method for creating/registering a new channel.
+ * To be called in view.html. Must call initialize() to initialize all
+ * registered channels.
+ *
  * @param {string} thirdPartyBaseUri Base uri for the thirdparty.
  * @param {string} iframeUri Complete uri to be embedded in an iframe.
- * @param {string} iframeContainerId Id of the container of the Iframe.
+ * @param {string} widgetId Id of the widget to be embedded in the Iframe.
+ * @param {string} widgetIndex Index of the widget on the page.
+ *    widgetId + widgetIndex is the id of the iframe container.
  * @param {string} doc_id Document Id.
  * @param {string} trunk_id Trunk Id for lantern doc.
  * @param {string} height Iframe's height.
@@ -314,17 +337,55 @@ lantern.comm.LanternChannelFactory.warnedOnce_ = false;
  * @param {boolean} completed If true implies module is already completed.
  */
 lantern.comm.LanternChannelFactory.registerChannel = function(
-    thirdPartyBaseUri, iframeUri, iframeContainerId, doc_id,
+    thirdPartyBaseUri, iframeUri, widgetId, widgetIndex, doc_id,
     trunk_id, height, width, absolute, completed) {
 
-  lantern.comm.LanternChannelFactory.completed_ = completed;
-  lantern.comm.LanternChannelFactory.channelMap_[iframeContainerId] =
-  new lantern.comm.LanternChannel(
-      thirdPartyBaseUri, iframeUri, iframeContainerId,
-      doc_id, trunk_id, height, width, absolute, completed);
+  var iframeContainerId = widgetId + widgetIndex;
 
-  lantern.comm.LanternChannelFactory.channelMap_[
-      iframeContainerId].initializeChannel();
+  lantern.comm.LanternChannelFactory.channelMap_[iframeContainerId] =
+      new lantern.comm.LanternChannel(
+          thirdPartyBaseUri, iframeUri, widgetId, widgetIndex,
+          doc_id, trunk_id, height, width, absolute);
 };
 
+
+/**
+ * Initializes all registered channels. Place a call to this at the bottom
+ * of the HTML page.
+ */
+lantern.comm.LanternChannelFactory.initialize = function(isCompleted) {
+   lantern.comm.LanternChannelFactory.completed_ = isCompleted;
+
+   goog.structs.forEach(
+       lantern.comm.LanternChannelFactory.channelMap_,
+       function(channel, key, collection) {
+         channel.initializeChannel();
+       });
+
+   // Make sure channels are released.
+   goog.events.listen(window, 'unload', function(e) {
+       lantern.comm.LanternChannelFactory.dispose();
+     });
+};
+
+/**
+ * Clean up channels. To be called from a window-unload handler.
+ */
+lantern.comm.LanternChannelFactory.dispose = function() {
+  goog.structs.forEach(
+      lantern.comm.LanternChannelFactory.channelMap_,
+      function(channel, key, collection) {
+        channel.dispose();
+      });
+  goog.structs.clear(lantern.comm.LanternChannelFactory.channelMap_);
+};
+
+
 // On load function to be written in the html after getting iframe information.
+
+goog.exportSymbol(
+    'lantern.comm.LanternChannelFactory.registerChannel',
+    lantern.comm.LanternChannelFactory.registerChannel);
+goog.exportSymbol(
+    'lantern.comm.LanternChannelFactory.initialize',
+    lantern.comm.LanternChannelFactory.initialize);
