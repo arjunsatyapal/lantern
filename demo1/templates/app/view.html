@@ -49,9 +49,6 @@ goog.require('goog.net.XhrIo');
   {% else %}
   <a href='/view?trunk_id={{doc.trunk_ref|get_key}}&doc_id={{doc|get_key}}'>{{doc.title}}</a>
   {% endif %}
-  <div id="docProgressContainer" style="float:right"><table><tr><td><b>Progress: </b></td><td>
-      <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{doc_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>
-  </div>
 </div>
 {% endblock %}
 {% block content_main %}
@@ -59,17 +56,9 @@ goog.require('goog.net.XhrIo');
 	{{errorMsg}}
 	<hr/>
 {% endif %}
-<table width='100%'>
-<tr>
-<td>
+<div>
 <h1>{{doc.title}}</h1>
-</td>
-<td>
-<input type='button' class='mark-as-read' id='markAsReadButton' value='Mark as read'  style='float:right' onClick='javascript:markAsRead()'>
-<input type='button' class='reset' id='resetButton' value='Reset Score'  style='float:right' onClick='javascript:resetScores()'>
-</td>
-</tr>
-</table>
+</div>
 <hr/>
 {% if doc_contents %}
 <table width='100%' class='contentTable'>
@@ -96,6 +85,14 @@ goog.require('goog.net.XhrIo');
 </tr>
 {% endfor %}
 </table>
+<hr />
+<div>
+  <div id="docProgressContainer" style="float:right"><table><tr><td><b>Progress: </b></td><td>
+      <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{doc_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>
+  </div>
+  <input type='button' class='mark-as-read' id='markAsReadButton' value='Mark as read'  style='float:right' onClick='javascript:markAsRead()'>
+  <input type='button' class='reset' id='resetButton' value='Reset Score'  style='float:right' onClick='javascript:resetScores()'>
+</div>
 {% else %}
 <b>This page is a stub. Please help it by adding some content.</b> Click <a href='/edit?trunk_id={{doc.trunk_ref|get_key}}&doc_id={{doc|get_key}}'>here</a> to add conents.
 {% endif %}
