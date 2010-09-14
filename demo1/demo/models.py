@@ -1041,6 +1041,18 @@ class DocLinkModel(BaseContentModel):
   def ident(self):
     return str(self.doc_ref.key())
 
+  def get_title(self):
+    """Grab the up-to-date title for the document"""
+    if self.trunk_ref:
+      doc = db.get(self.trunk_ref.head)
+      if doc and doc.title:
+        return doc.title
+
+    if self.doc_ref:
+      return self.doc_ref.title
+
+    return self.default_title
+
 
 class VideoModel(BaseContentModel):
   """Stores video id and optional size configuration.
