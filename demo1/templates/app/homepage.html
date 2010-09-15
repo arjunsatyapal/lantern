@@ -42,6 +42,23 @@ limitations under the License.
 	{{errorMsg}}
 	<hr/>
 {% endif %}
+<hr/>
+<h2>Courses in progress:</h2>
+<table class='in_progress' width='100%'>
+{% for entry in in_progress_courses %}
+  <tr class={% cycle '"oddrow"' '"evenrow"' %}>
+  <td>
+    <a href='/view?trunk_id={{entry.course_trunk_ref|get_key}}&doc_id={{entry.course_doc_ref|get_key}}'>{{entry.course_doc_ref.title}}</a>
+  </td>
+  <td style='float:right'>
+     <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{entry.course_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11">
+  </td>
+  </tr>
+{% endfor %}
+</table>
+
+<hr />
+
 <h2>Recently Finished:</h2>
 <table class='recently_finished' width='100%'>
 {% for entry in recently_finished %}
@@ -73,20 +90,6 @@ limitations under the License.
   {% else %}
   <a href='/view?trunk_id={{entry.doc.trunk_ref|get_key}}&doc_id={{entry.doc|get_key}}'>{{entry.doc.title}}</a>
   {% endif %}
-  </td>
-  </tr>
-{% endfor %} 
-</table>
-<hr/>
-<h2>Courses in progress:</h2>
-<table class='in_progress' width='100%'>
-{% for entry in in_progress_courses %}
-  <tr class={% cycle '"oddrow"' '"evenrow"' %}>
-  <td>
-    <a href='/view?trunk_id={{entry.course_trunk_ref|get_key}}&doc_id={{entry.course_doc_ref|get_key}}'>{{entry.course_doc_ref.title}}</a>
-  </td>
-  <td style='float:right'>
-     <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{entry.course_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11">
   </td>
   </tr>
 {% endfor %} 

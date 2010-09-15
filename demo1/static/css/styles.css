@@ -309,6 +309,14 @@ div.course_progress {
   text-align: center;
 }
 
+div.pageProgress {
+  text-align: right;
+}
+
+button.mark-as-read, button.reset {
+  vertical-align: top;
+}
+
 table.topics .topics-head {
   font-size: 80%;
   background-color: #d2dded;

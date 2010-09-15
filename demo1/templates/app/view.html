@@ -49,9 +49,6 @@ goog.require('goog.net.XhrIo');
   {% else %}
   <a href='/view?trunk_id={{doc.trunk_ref|get_key}}&doc_id={{doc|get_key}}'>{{doc.title}}</a>
   {% endif %}
-  <div id="docProgressContainer" style="float:right"><table><tr><td><b>Progress: </b></td><td>
-      <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{doc_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>
-  </div>
 </div>
 {% endblock %}
 {% block content_main %}
@@ -59,17 +56,9 @@ goog.require('goog.net.XhrIo');
 	{{errorMsg}}
 	<hr/>
 {% endif %}
-<table width='100%'>
-<tr>
-<td>
+<div>
 <h1>{{doc.title}}</h1>
-</td>
-<td>
-<input type='button' class='mark-as-read' id='markAsReadButton' value='Mark as read'  style='float:right' onClick='javascript:markAsRead()'>
-<input type='button' class='reset' id='resetButton' value='Reset Score'  style='float:right' onClick='javascript:resetScores()'>
-</td>
-</tr>
-</table>
+</div>
 <hr/>
 {% if doc_contents %}
 <table width='100%' class='contentTable'>
@@ -96,6 +85,15 @@ goog.require('goog.net.XhrIo');
 </tr>
 {% endfor %}
 </table>
+<hr />
+<div class="pageProgress">
+  <input type='button' class='mark-as-read' id='markAsReadButton'
+         value='Mark as read' onClick='javascript:markAsRead()'>
+  <input type='button' class='reset' id='resetButton'
+         value='Reset Score' onClick='javascript:resetScores()'>
+  <b>Progress: </b>
+  <img id="docProgressBar" />
+</div>
 {% else %}
 <b>This page is a stub. Please help it by adding some content.</b> Click <a href='/edit?trunk_id={{doc.trunk_ref|get_key}}&doc_id={{doc|get_key}}'>here</a> to add conents.
 {% endif %}
@@ -112,6 +110,13 @@ function toggleShow(elToHide, elToShow) {
     goog.style.showElement(elToShow, true);
 }
 
+function chartURL(doc_score) {
+  return ("http://chart.apis.google.com/chart?chs=150x25" +
+	  "&chd=t:" + doc_score + "0|100&" +
+	  "cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&" +
+	  "chxl=0:||1:||&chm=N,000000,0,-1,11");
+}
+
 init = function() {
   if (global_score == 100) {
      toggleShow(markAsReadButton, resetButton);
@@ -119,6 +124,8 @@ init = function() {
   else {
      toggleShow(resetButton, markAsReadButton);
   }
+  var progressBar = goog.dom.getElement('docProgressBar');
+  progressBar.src = chartURL(global_score);
 }
 
 function resetScores(){
@@ -127,23 +134,20 @@ function resetScores(){
     uri = new goog.Uri('/resetScoreAjax');
     uri.setParameterValue('trunk_id', '{{doc.trunk_ref|get_key}}');
     uri.setParameterValue('doc_id', '{{doc|get_key}}');
-  goog.events.listen(
+    goog.events.listen(
       xhr, goog.net.EventType.COMPLETE,
       function(e){
         global_score = 0;
-        var progressBar = goog.dom.getElement('docProgressContainer');
-        var htmlProgress = '<table><tr><td><b>Progress: </b></td><td><img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:0|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>';
-        progressBar.innerHTML = htmlProgress;
+        var progressBar = goog.dom.getElement('docProgressBar');
+        progressBar.src = chartURL(global_score);
         toggleShow(resetButton, markAsReadButton);
      });
-   xhr.send(uri);
+    xhr.send(uri);
   }
   else {
-        toggleShow(markAsReadButton, resetButton);
+    toggleShow(markAsReadButton, resetButton);
   }
-   
 }
-
 
 function markAsRead(){
   if (global_score != 100) {
@@ -151,19 +155,18 @@ function markAsRead(){
     uri = new goog.Uri('/markAsReadAjax');
     uri.setParameterValue('trunk_id', '{{doc.trunk_ref|get_key}}');
     uri.setParameterValue('doc_id', '{{doc|get_key}}');
-  goog.events.listen(
+    goog.events.listen(
       xhr, goog.net.EventType.COMPLETE,
       function(e){
         global_score = 100;
-        var progressBar = goog.dom.getElement('docProgressContainer');
-        var htmlProgress = '<table><tr><td><b>Progress: </b></td><td><img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:100|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11"></td></tr></table>';
-        progressBar.innerHTML = htmlProgress;
+        var progressBar = goog.dom.getElement('docProgressBar');
+        progressBar.src = chartURL(global_score);
         toggleShow(markAsReadButton, resetButton);
       });
-  xhr.send(uri);
+    xhr.send(uri);
   }
   else {
-     toggleShow(resetButton, markAsReadButton);
+    toggleShow(resetButton, markAsReadButton);
   }
 }
 init();
