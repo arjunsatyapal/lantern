@@ -15,14 +15,6 @@ limitations under the License.
 {% extends "app/base1col.html" %}
 
 {% block extra_head %}
-
-<script type="text/javascript">
-goog.require('goog.json');
-goog.require('goog.net.XhrIo');
-goog.require('goog.ui.Dialog');
-goog.require('goog.dom');
-
-</script>
  <style>
   .modal-dialog {
     width: 400px;
@@ -92,21 +84,22 @@ goog.require('goog.dom');
  {% if doc_contents %}
   {% for object in doc_contents %}
    <div class="doc_edit" id="{{object|get_key}}">
-   {% ifequal object|class_name "RichTextModel" %}
-    {% include 'include/edit_rich_text_model2.html' %}
-   {% else %}
-    {% ifequal object|class_name "VideoModel" %}
-     {% include 'include/edit_video_model2.html' %}
+    {% include 'include/edit_preamble.html' %}
+    {% ifequal object|class_name "RichTextModel" %}
+     {% include 'include/edit_rich_text_model.html' %}
     {% else %}
-     {% ifequal object|class_name "DocLinkModel" %}
-      {% include 'include/edit_doc_link_model2.html' %}
+     {% ifequal object|class_name "VideoModel" %}
+      {% include 'include/edit_video_model.html' %}
      {% else %}
-      {% ifequal object|class_name "WidgetModel" %}
-       {% include 'include/edit_widget_model2.html' %}
+      {% ifequal object|class_name "DocLinkModel" %}
+       {% include 'include/edit_doc_link_model.html' %}
+      {% else %}
+       {% ifequal object|class_name "WidgetModel" %}
+        {% include 'include/edit_widget_model.html' %}
+       {% endifequal %}
       {% endifequal %}
      {% endifequal %}
     {% endifequal %}
-   {% endifequal %}
    </div>
   {% endfor %}
  {% endif %}
@@ -130,201 +123,20 @@ goog.require('goog.dom');
 {% endblock content_main %}
 
 {% block end_script %}
-<script type="text/javascript">
+<script type="text/javascript"> <!--
+var templates = {
+  'preamble': {{template_preamble|safe}},
+  'doc_link': {{template_doc_link|safe}},
+  'rich_text': {{template_rich_text|safe}},
+  'widget': {{template_widget|safe}},
+  'video': {{template_video|safe}}};
 
-var global_counter = 0;
-var xhr = new goog.net.XhrIo();
-var linkDialog = new goog.ui.Dialog(null, true);
-
-linkDialog.class = 'linkpicker';
-linkDialog.setTitle('Link Picker');
-
-/**
- * Xhr request for quiz and widget links.
- */
-launchWidgetPicker = function(){
-  url = '/quiz/widgetList'
-  goog.events.removeAll(xhr);
-  goog.events.listen(xhr, goog.net.EventType.COMPLETE,
-                     process_widget_list);
-  xhr.send(url);
-};
-
-/**
- * Xhr request for list of doc links.
- */
-launchPicker = function(){
-  url = '/getListAjax'
-  goog.events.removeAll(xhr);
-  goog.events.listen(xhr, goog.net.EventType.COMPLETE,
-                     process_list);
-  xhr.send(url);
-};
-
-/**
- * Deletes a row of content.
- */
-deleteRow = function(passed_id) {
-  element =  document.getElementById(passed_id);
-  if (element) {
-    goog.dom.removeChildren(element);
-  }
-};
-
-/**
- * Appends a doc-link to the contents.
- */
-pickLink = function(trunk_id, doc_id, title){
-  ++global_counter;
-  var objectId = 'content_row' + global_counter;
-  var newRow = document.createElement('DIV');
-  newRow.id = objectId;
-  newRow.className = 'doc_edit';
-
-  var templateText = template_doc_link;
-  templateText = templateText.replace('\{\{object.key}}', objectId);
-  templateText = templateText.replace('\{\{object.trunk_ref.key}}', trunk_id);
-  templateText = templateText.replace('\{\{object.doc_ref.key}}', doc_id);
-  templateText = templateText.replace('\{\{object.doc_ref.title}}', title);
-  newRow.innerHTML = templateText;
-
-  var el1 = document.getElementById('doc_contents');
-  el1.appendChild(newRow);
-  linkDialog.setVisible(false);
-};
-
-/**
- * Xhr Handler for processing list of doc links. It displays the list in
- * a dialog box for selection.
- */
-process_list = function(){
-  var obj = xhr.getResponseJson();
-  var dialogHtml = ['<table width="100%">'];
-  for (var i = 0; i < obj.doc_list.length; i++) {
-    dialogHtml.push('<tr><td><a href="javascript:pickLink(\'',
-                    obj.doc_list[i].trunk_id,
-                    '\',\'',
-                    obj.doc_list[i].doc_id,
-                    '\',\'',
-                    obj.doc_list[i].doc_title, '\');">',
-                    obj.doc_list[i].doc_title,
-                    '</td><td><input type="button" ',
-                    'onclick="javascript:window.open(\'/view?trunk_id=',
-                    obj.doc_list[i].trunk_id,
-                    '&doc_id=',
-                    obj.doc_list[i].doc_id,
-                    '&absloute=True\');" value="Preview"/></td></tr>');
-  }
-  dialogHtml.push('</table>');
-  linkDialog.setContent(dialogHtml.join(''));
-  linkDialog.setVisible(true);
-};
-
-/**
- * Xhr Handler for processing a list of widget links.
- */
-process_widget_list = function(){
-  var obj = xhr.getResponseJson();
-  var dialogHtml = ['<table width="100%">'];
-  for (var i = 0; i < obj.widget_list.length ; i++) {
-    dialogHtml.push('<tr><td><a href="javascript:pickWidgetLink(\'',
-                    obj.widget_list[i].link, '\');">',
-                    obj.widget_list[i].title,
-                    '</td></tr>');
-  }
-  dialogHtml.push('</table>');
-  linkDialog.setContent(dialogHtml.join(''));
-  linkDialog.setVisible(true);
-};
-
-/**
- * Appends widget link to the doc contents.
- */
-pickWidgetLink = function (link)  {
-  ++global_counter;
-  var objectId = 'content_row' + global_counter;
-  var newRow = document.createElement('DIV');
-  newRow.id = objectId;
-  newRow.className = 'doc_edit';
-
-  var templateText = template_widget;
-  templateText = templateText.replace('\{\{object.key}}', objectId);
-  templateText = templateText.replace('\{\{object.widget_url}}', link);
-  templateText = templateText.replace('\{\{object.title}}', '');
-  templateText = templateText.replace('\{\{object.width}}', '100%');
-  templateText = templateText.replace('\{\{object.height}}', '400px');
-  newRow.innerHTML = templateText;
-
-  var el1 = document.getElementById('doc_contents');
-  el1.appendChild(newRow);
-  linkDialog.setVisible(false);
-};
-
-/**
- * @param value_passed Type of object selected for insertion.
- */
-function add_content(value_passed){
-  ++global_counter;
-  var objectId = 'content_row' + global_counter;
-  var newRow = document.createElement('DIV');
-  newRow.id = objectId;
-  newRow.className = 'doc_edit';
-
-  if (value_passed == 'rich_text') {
-    var templateText = template_rich_text;
-    templateText = templateText.replace('\{\{object.key}}', objectId);
-    templateText = templateText.replace('\{\{object.data}}', '');
-    newRow.innerHTML = templateText;
-
-  } else if (value_passed == 'video') {
-    var templateText = template_video;
-    templateText = templateText.replace('\{\{object.key}}', objectId);
-    templateText = templateText.replace('\{\{object.video_id}}', '');
-    templateText = templateText.replace('\{\{object.title}}', '');
-    templateText = templateText.replace('\{\{object.width}}', '600px');
-    templateText = templateText.replace('\{\{object.height}}', '300px');
-    newRow.innerHTML = templateText;
-
-  } else if (value_passed == 'py_shell'){
-  } else if (value_passed == 'quiz') {
-  } else if (value_passed == 'widget') {
-    var templateText = template_widget;
-    templateText = templateText.replace('\{\{object.key}}', objectId);
-    templateText = templateText.replace('\{\{object.widget_url}}', '');
-    templateText = templateText.replace('\{\{object.title}}', '');
-    templateText = templateText.replace('\{\{object.width}}', '100%');
-    templateText = templateText.replace('\{\{object.height}}', '400px');
-    newRow.innerHTML = templateText;
-
-  } else {
-    alert('wrong value');
-    return;
-  }
-  var el1 = document.getElementById('doc_contents');
-  el1.appendChild(newRow);
-};
-
-
-var edit_menu = document.getElementById("object_type");
-
-edit_menu.onchange = function() {
-  var option = this.options[this.selectedIndex];
-  this.selectedIndex = 0;
-  if (option.value == 'doc_link'){
-    launchPicker();
-    return;
-  } else if (option.value == 'quiz'){
-    launchWidgetPicker();
-    return;
-  } else {
-    add_content(option.value);
-  }
-};
-
-// Template string for each type of content.
-var template_doc_link = {{template_doc_link|safe}};
-var template_rich_text = {{template_rich_text|safe}};
-var template_widget = {{template_widget|safe}};
-var template_video = {{template_video|safe}};
+var editPage = new lantern.edit.EditPage('doc_contents', templates);
+var deleteRow = goog.bind(editPage.deleteRow, editPage);
+goog.events.listenOnce(window, 'unload', function(e) {
+  editPage.dispose();
+  editPage = null;
+});
+-->
 </script>
 {% endblock end_script %}

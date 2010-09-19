@@ -495,10 +495,11 @@ def _GetEditTemplates():
 
   if not _edit_templates:
     templates = (
-        ('template_doc_link', 'edit_doc_link_model2.html'),
-        ('template_rich_text', 'edit_rich_text_model2.html'),
-        ('template_widget', 'edit_widget_model2.html'),
-        ('template_video', 'edit_video_model2.html'),
+        ('template_preamble', 'edit_preamble.html'),
+        ('template_doc_link', 'edit_doc_link_model.html'),
+        ('template_rich_text', 'edit_rich_text_model.html'),
+        ('template_widget', 'edit_widget_model.html'),
+        ('template_video', 'edit_video_model.html'),
         )
     for key, fname in templates:
       template = _ReadTemplate(fname)

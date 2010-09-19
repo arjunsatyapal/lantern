@@ -194,7 +194,7 @@ Create a code-review branch in SVN when ready:
   git svn branch -m 'Message' vchen-20100821
   git checkout -b local/vchen-20100821 vchen-20100821
 
-  git format-patch --stdout --binary  maser..myfeature | git am -s3
+  git format-patch --stdout --binary  master..myfeature | git am -s3
   git svn dcommit
 
 Ask for review. Further review and commits and dcommits happens in

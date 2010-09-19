@@ -63,7 +63,7 @@ goog.require('goog.net.XhrIo');
 {% if doc_contents %}
 <table width='100%' class='contentTable'>
 {% for object in doc_contents %}
-  <tr class={% cycle '"oddrow"' '"evenrow"' %}>
+  <tr class="doc_content {% cycle 'oddrow' 'evenrow' %}">
   <td>
   {% include 'include/notes.html' %}
   {% ifequal object|class_name "RichTextModel" %}
@@ -179,7 +179,7 @@ init();
 lantern.comm.LanternChannelFactory.initialize(global_score == 100);
 
 var noteMgr = new lantern.notes.NoteManager("notestrigger");
-goog.events.listen(window, 'unload', function(e) {
+goog.events.listenOnce(window, 'unload', function(e) {
   noteMgr.dispose();
   noteMgr = null;
 });

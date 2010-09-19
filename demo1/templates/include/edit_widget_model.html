@@ -1,35 +1,23 @@
-<table>
-  <tr>
-    <td>
-      <b>Widget/Quiz URL: </b>
-    </td>
-    <td>
-      <input type='text' name='data_val' value='{{ object.widget_url }}'/>
-      <input type='hidden' name='data_type' value='widget'/>
-    </td>
-    </tr>
-    <tr>
-    <td>
-      <b>Widget Height: </b>
-    </td>
-    <td>
-      <input type='text' name='data_height' value='{{ object.height }}'/>
-     </td>
-   </tr>
-   <tr>
-    <td>
-      <b>Widget Width: </b>
-    </td>
-    <td>
-      <input type='text' name='data_width' value='{{ object.width }}'/>
-     </td>
-   </tr>
-   <tr>
-    <td>
-      <b>Widget Title: </b>
-    </td>
-    <td>
-      <input type='text' name='data_title' value='{{ object.title }}'/>
-     </td>
-   </tr>
-</table>
+ <div class="doc_property">
+  <label class="label label_for">Widget/Quiz URL:</label>
+  <input class="value" type="text" name="data_val"
+    value="{{object.widget_url}}" />
+  <input type="hidden" name="data_type" value="widget" />
+ </div>
+ <div class="doc_property">
+  <label class="label label_for">Title:</label>
+  <input class="value" type="text" name="data_title" 
+    value="{{object.title}}" />
+ </div>
+ <div class="doc_property">
+  <label class="label label_for">Width:</label>
+  <input class="dimension" type="text" name="data_width"
+    value="{{object.width}}" />
+ </div>
+ <div class="doc_property">
+  <label class="label label_for">Height:</label>
+  <input class="dimension" type="text" name="data_height"
+    value="{{object.height}}" />
+ </div>
+ <hr>
+
