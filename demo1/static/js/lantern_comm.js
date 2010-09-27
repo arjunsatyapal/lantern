@@ -61,7 +61,7 @@ lantern.comm.LanternChannel = function(
     height, width, absolute) {
   goog.Disposable.call(this);
 
-  var ownUri = '/'
+  var ownUri = '/';
   var iframeContainerId = widgetId + widgetIndex;
   this.widgetId_ = widgetId;
   this.cfg_ = {};

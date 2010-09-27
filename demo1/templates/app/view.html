@@ -26,13 +26,13 @@ goog.require('goog.net.XhrIo');
 {% for i in traversed_path|length|get_range %}
   {% ifequal i 0 %}
   {% with traversed_path|get_element:i as current %}
-  <a href='/view?trunk_id={{current.trunk_ref|get_key}}&doc_id={{current|get_key}}'>{{current.title}}</a>&nbsp;>
+  <a href='/view?trunk_id={{current.trunk_ref|get_key}}&doc_id={{current|get_key}}'>{{current.title}}</a>&nbsp;&gt;
   {% endwith %}
   {% else %}
   {% with traversed_path|get_element:i as current %}
   {% with i|subtract_one as prev_index %}
   {% with traversed_path|get_element:prev_index as prev %}
-  <a href='/view?trunk_id={{current.trunk_ref|get_key}}&doc_id={{current|get_key}}&parent_trunk={{prev.trunk_ref|get_key}}&parent_id={{prev|get_key}}'>{{current.title}}</a>&nbsp;>
+  <a href='/view?trunk_id={{current.trunk_ref|get_key}}&doc_id={{current|get_key}}&parent_trunk={{prev.trunk_ref|get_key}}&parent_id={{prev|get_key}}'>{{current.title}}</a>&nbsp;&gt;
   {% endwith %}
   {% endwith %}
   {% endwith %}
