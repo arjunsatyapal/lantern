@@ -627,6 +627,41 @@ class InvalidWidgetError(Exception):
 class BaseModel(db.Model):
   """Abstract base class inherited by all Lantern models."""
 
+  @classmethod
+  def gen_random_string(cls, num_chars=None):
+    """Generates a random string of the specified number of characters."""
+    if not num_chars:
+      num_chars = 16
+    # Uses base64 encoding, which has roughly 4/3 size of underlying data.
+    remainder = num_chars % 4
+    num_bytes = ((num_chars + remainder) / 4) * 3
+    random = os.urandom(num_bytes)
+    random_str = base64.b64encode(random)
+    return random_str[:num_chars]
+
+  @classmethod
+  def insert_with_new_key(cls, parent=None, **kwargs):
+    """Generates a random key, making sure it's not in the current database.
+
+    Args:
+      cls: Model class;
+      parent: add models to the entyty group of this parent;
+      kwargs: The initial values for the required fields;
+
+    Returns:
+      The newly inserted object.
+    """
+    while True:
+      key_name = cls.gen_random_string()
+      object = cls.get_by_key_name(key_name, parent=parent)
+      if object is None:
+        object = cls(key_name=key_name, parent=parent, **kwargs)
+        object.put()
+        break
+      else:
+        logging.info("Entity with key "+key_name+" exists")
+    return object
+
 
 class UserStateModel(db.Model):
   """Abstract base class for all user specific state models.
@@ -825,6 +860,104 @@ class DocModel(BaseContentModel):
       return visit_state.progress_score
     else:
       return 0
+
+  def insert_after(self, old, new):
+    """Insert a link to the new document immediately after the link to the old.
+
+    Args:
+      old: old document
+      new: new document
+    """
+    content_len = len(self.content)
+    old_key = str(old.key())
+    for i, element in enumerate(self.content):
+      elem = db.get(element)
+      if not isinstance(elem, DocLinkModel):
+        continue
+      doc = elem.doc_ref
+      if not doc:
+        continue
+      doc_key = str(doc.key())
+      if doc_key == old_key:
+        break
+    else:
+      return # not found
+
+    link_to_new = DocLinkModel.insert_with_new_key(
+        trunk_ref=new.trunk_ref,
+        doc_ref=new,
+        from_trunk_ref=self.trunk_ref,
+        from_doc_ref=self)
+
+    self.content.insert(i + 1, link_to_new.key())
+    self.put()
+
+  # Match titles "Basic Algebra #1" or "Section 12" but not "Python3";
+  # $1 = text before the number
+  # $2 = number
+  _NUMBERED_TITLE_RE = re.compile(r'^(.*?\W)(\d+)$')
+
+  # Match "Clone (3) of Trigometry";
+  # $1 = title text
+  # $2 = number
+  _CLONED_TITLE_RE = re.compile(r'^Clone \((\d+)\) of (.*)')
+
+  def _clone_title(self, title):
+    """Compute an appropriate title for a cloned element"""
+    m = self._NUMBERED_TITLE_RE.match(title)
+    if m:
+      return '%s%d' % (m.group(1), int(m.group(2)) + 1)
+    m = self._CLONED_TITLE_RE.match(title)
+    if m:
+      return 'Clone (%d) of %s' % (int(m.group(1)) + 1, m.group(2))
+    return 'Clone (1) of %s' % title
+
+  def setClonedTitle(self):
+    self.title = self._clone_title(self.title)
+
+  def clone(self):
+    """Create a shallow copy of self"""
+    cloned = DocModel.insert_with_new_key()
+    for attr in DocModel.properties():
+      try:
+        v = getattr(self, attr)
+      except AttributeError:
+        continue
+      setattr(cloned, attr, v)
+    return cloned
+
+  def placeInNewTrunk(self):
+    """Make a new trunk and make this the latest/sole incarnation
+
+    Returns:
+      a new TrunkModel object
+    """
+    doc_id = str(self.key())
+    trunk = TrunkModel.insert_with_new_key()
+    trunk.head = doc_id
+    trunk.put()
+    self.trunk_ref = trunk
+    TrunkRevisionModel.insert_with_new_key(
+        parent=trunk, obj_ref=doc_id, commit_message='Cloned')
+    self.put()
+    return trunk
+
+  def updateTrunkHead(self, other, message=''):
+    """Update the trunk to make 'other' the latest incarnation of 'self'
+
+    Args:
+      other: another DocModel
+    Returns:
+      a new TrunkModel object
+    """
+    doc_id = str(other.key())
+    trunk = self.trunk_ref
+    trunk.head = doc_id
+    trunk.put()
+    other.trunk_ref = trunk
+    TrunkRevisionModel.insert_with_new_key(
+        parent=trunk, obj_ref=doc_id, commit_message=message)
+    return trunk
 
   def dump_to_dict(self):
     """Returns all attributes of the doc object in a dictionary.

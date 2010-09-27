@@ -547,6 +547,44 @@ def edit(request):
   return respond(request, constants.DEFAULT_TITLE, "edit.html", render_dict)
 
 
+def duplicate(request):
+  """Duplicate the current document
+
+  Args:
+    trunk_id, doc_id: the current document
+    parent_id, parent_trunk: the parent document
+
+    Create a copy the current document, and place a link to it in the
+    parent document, immediately after the DocLink that points at the
+    current document.
+  """
+  trunk_id = request.GET.get('trunk_id')
+  doc_id = request.GET.get('doc_id')
+
+  doc = library.fetch_doc(trunk_id, doc_id)
+  clone = doc.clone()
+  clone.setClonedTitle()
+  clone.placeInNewTrunk()
+  goto_trunk = clone.trunk_ref.key()
+  goto_id = clone.key()
+
+  parent_trunk = request.GET.get('parent_trunk')
+  parent_id = request.GET.get('parent_id')
+  if parent_trunk and parent_id:
+    parent = library.fetch_doc(parent_trunk, parent_id)
+    newparent = parent.clone()
+    newparent.insert_after(doc, clone)
+    parent.updateTrunkHead(newparent)
+
+  # redirect to edit mode
+  return HttpResponseRedirect(
+      '/edit?%s' %
+      urllib.urlencode([
+          ('trunk_id', goto_trunk),
+          ('doc_id', goto_id),
+          ]))
+
+
 def view_doc(request):
   """Displays document from provided trunk and doc ids.
 
@@ -642,23 +680,32 @@ def view_doc(request):
     link_to_prev = (
         '<a href='
         '"/view?trunk_id=%s&doc_id=%s&absolute=True&use_history=True">'
-        'Show as it was last time</a> | ' % (trunk.key(), prev_doc.key())
+        'Show as it was last time</a>' % (trunk.key(), prev_doc.key())
         )
   else:
     link_to_prev =  (
-        '<a href='
-        '"/view?trunk_id=%s">Show latest</a> |' % trunk.key())
+        '<a href="/view?trunk_id=%s">Show latest</a>' % trunk.key())
 
+  dup_params = [
+      ('trunk_id', trunk.key()),
+      ('doc_id', doc.key()),
+      ]
+  if parent:
+    dup_params.extend([
+        ('parent_trunk', parent.trunk_ref.key()),
+        ('parent_id', parent.key())
+        ])
 
   menu_items = [
-    '<a href="/edit">Create New </a> | ',
-    '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a> | ' %
-    (trunk.key(), doc.key()), link_to_prev,
-    '<a href="/history?trunk_id=%s">History</a>' %
-    (trunk.key()),
+    '<a href="/edit">Create New</a>',
+    '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a>' %
+    (trunk.key(), doc.key()),
+    '<a href="/duplicate?%s">Duplicate</a>' % urllib.urlencode(dup_params),
+    link_to_prev,
+    '<a href="/history?trunk_id=%s">History</a>' % (trunk.key()),
     ]
 
-  main_menu = ''.join(menu_items)
+  main_menu = ' | '.join(menu_items)
 
   title_items = [
     constants.DEFAULT_TITLE,
