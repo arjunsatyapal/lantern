@@ -1180,3 +1180,97 @@ def get_notes(name):
   """
   anno = db.get(name)
   return anno.annotation_data
+
+
+def view_doc_param(doc, visit, current, came_from):
+  """Helper for what_now
+
+  Args:
+    doc: target document to go to
+    visit: current visit stack
+    current: current document (logically the tip of visit)
+    came_from: document we are leaving from
+  Returns:
+    URL parameter to visit the doc, marking that it came from here
+  """
+  if not doc:
+    return None
+
+  param = [ ('trunk_id', str(doc.trunk_ref.key())),
+            ('doc_id', str(doc.key())) ]
+
+  if visit:
+    l = len(visit.path) - 1
+
+    while (0 < l) and (visit.path[l] != doc.key()):
+      l -= 1
+    if 0 < l:
+      parent = db.get(visit.path[l - 1])
+    elif l == 0:
+      parent = None
+    else:
+      parent = current
+
+    if parent:
+      param.extend([ ('parent_trunk', str(parent.trunk_ref.key())),
+                     ('parent_id', str(parent.key())) ])
+  if came_from:
+    param.extend([ ('came_from', str(came_from.key())) ])
+
+  return param
+
+
+def what_now(doc, visit, came_from):
+  """Compute where to go next
+
+  Args:
+    doc: this document
+    visit: traversal path from top to this document
+    came_from: the document the user came from, when different from parent
+
+  Returns:
+    prev_param: URL parameters to feed to view to go to natural "previous" page
+    next_param: URL parameters to feed to view to go to natural "next" page
+  """
+  prev_param = None
+
+  # If we came back from down below, visit the next child (no "immediate
+  # adjacency" required --- we have been showing this document already).
+  # If we came from top-down navigation, we do not have came_from; visit
+  # the first child in that case, and pretend as if the user just navigated
+  # in the usual top-down fashion (i.e. no need for came_from).
+  next = doc.first_child_after(came_from)
+  next_came_from = None
+
+  if (not next) and visit and visit.path:
+    # We ran out of our children, so go back to our parent.
+    # visit.path should be the path from the root down to doc.
+
+    l, child = len(visit.path), doc
+    while (0 < l):
+      l -= 1
+      parent = db.get(visit.path[l])
+      # After visiting child inside parent, "next_child_or_self" is either
+      # the target of a link to the child that immediately follows the
+      # link to this child, or the parent itself if the link to this child
+      # is followed by a non-link material, or None which tells us to
+      # ask the grandparent what to do.
+      next = parent.next_child_or_self(child)
+
+      if next:
+        if next == parent:
+          # parent has a non-link after the link to this child
+          # revisit the parent to show that non-link, and remember
+          # to visit the link after that child
+          next_came_from = child
+        else:
+          # following the link to the next child, as if we came
+          # directly from the top
+          next_came_from = None
+        break
+      else:
+        child = parent
+
+  next_param = view_doc_param(next, visit, doc, next_came_from)
+
+  return (prev_param, next_param)

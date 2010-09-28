@@ -994,6 +994,48 @@ class DocModel(BaseContentModel):
     data_dict['doc_content'] = content_list
     return data_dict
 
+  def first_child_after(self, child):
+    """Return the target of the first link after a link pointing to the child"""
+    if child:
+      skip_until = str(db.get(child.trunk_ref.head).key())
+    else:
+      skip_until = None
+    for el in self.content:
+      elem = db.get(el)
+      if not isinstance(elem, DocLinkModel):
+        continue
+      tip = db.get(elem.doc_ref.trunk_ref.head)
+      if not skip_until:
+        return tip
+      if skip_until == str(tip.key()):
+        skip_until = None
+    return None
+
+  def next_child_or_self(self, child):
+    """Return the next child if a link to one follows immediately to link to child
+
+    We have visited 'child' which is a document pointed at by a DocLink
+    in self.  If the DocLink is immediately followed by another DocLink,
+    follow that DocLink.  If the DocLink is followed by a non-link, we
+    need to show ourselves again, so return self.  If the DocLink to the
+    child is the last element in self, return None to tell the caller to
+    look in our parent.
+    """
+    skip_until = str(db.get(child.trunk_ref.head).key())
+    for el in self.content:
+      elem = db.get(el)
+      if not isinstance(elem, DocLinkModel):
+        # Have we seen child?
+        if not skip_until:
+          return self
+        continue
+      tip = db.get(elem.doc_ref.trunk_ref.head)
+      if not skip_until:
+        return tip
+      if skip_until == str(tip.key()):
+        skip_until = None
+    return None
+
   def myMetainfo(self):
     return [('Title', self.title)]
 
