@@ -608,6 +608,10 @@ def view_doc(request):
       visit, until he chooses to move to a newer version.
     abs_path: Specifies path to be followed to reach the doc. This is useful in
       cases where links are bookmarks and a particular hierarchy is to be followed.
+    came_from: When the user came to this document by following a 'next' link
+      in a document at a deeper level, this specifies that document.  The next link
+      on this document needs to take it into account when pointing at a document
+      at a lower level.
   """
   trunk_id = request.GET.get('trunk_id')
   doc_id = request.GET.get('doc_id')
@@ -615,6 +619,8 @@ def view_doc(request):
   parent_id = request.GET.get('parent_id')
   use_absolute_addressing = request.GET.get('absolute')
   use_history = request.GET.get('use_history')
+  came_from = request.GET.get('came_from')
+
   # This would be set true if path argument is present
   abs_path = request.GET.get('abs_path')
 
@@ -676,6 +682,14 @@ def view_doc(request):
   else:
     traversed_path = []
 
+  if came_from:
+    came_from = db.get(came_from)
+  (prev_url, next_url) = library.what_now(doc, updated_stack, came_from)
+  if prev_url:
+    prev_url = '/view?' + urllib.urlencode(prev_url)
+  if next_url:
+    next_url = '/view?' + urllib.urlencode(next_url)
+
   if not use_history:
     link_to_prev = (
         '<a href='
@@ -720,6 +734,8 @@ def view_doc(request):
                 'doc_contents': doc_contents,
                 'traversed_path': traversed_path,
                 'annotation': annotation,
+                'next': next_url,
+                'prev': prev_url,
                 'mainmenu': main_menu
                 })
 
