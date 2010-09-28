@@ -1242,6 +1242,7 @@ def what_now(doc, visit, came_from):
   next = doc.first_child_after(came_from)
   next_came_from = None
 
+  here = doc
   if (not next) and visit and visit.path:
     # We ran out of our children, so go back to our parent.
     # visit.path should be the path from the root down to doc.
@@ -1267,10 +1268,11 @@ def what_now(doc, visit, came_from):
           # following the link to the next child, as if we came
           # directly from the top
           next_came_from = None
+        here = parent
         break
       else:
         child = parent
 
-  next_param = view_doc_param(next, visit, doc, next_came_from)
+  next_param = view_doc_param(next, visit, here, next_came_from)
 
   return (prev_param, next_param)
