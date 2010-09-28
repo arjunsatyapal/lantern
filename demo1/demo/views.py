@@ -575,6 +575,7 @@ def duplicate(request):
     newparent = parent.clone()
     newparent.insert_after(doc, clone)
     parent.updateTrunkHead(newparent)
+    library.update_visit_stack(clone, newparent, users.get_current_user())
 
   # redirect to edit mode
   return HttpResponseRedirect(
