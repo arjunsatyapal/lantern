@@ -883,7 +883,11 @@ def get_list_ajax(request):
 def new_document_ajax(request):
   """Create a new stub document and returns its id"""
   one = models.DocModel.insert_with_new_key()
-  one.title = "(New Page)"
+  one.title = request.REQUEST.get('title', "(New Page)")
+  blurb = models.RichTextModel.insert_with_new_key()
+  blurb.data = ""
+  blurb.put()
+  one.content.append(blurb.key())
   one.placeInNewTrunk()
   result = {
       'doc_title': one.title,

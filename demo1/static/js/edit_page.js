@@ -277,10 +277,16 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
   var handler = new goog.events.EventHandler(this);
 
   // Create a "New Document"
-  var newdocLink = goog.dom.createDom('a', null, 'New Document');
+  var newdocName = goog.dom.createDom('input', { 'type': 'text' });
+  var newdocLink = goog.dom.createDom(
+        'input', {'type': 'button', 'value': 'New Document'});
+
   handler.listen(newdocLink, goog.events.EventType.CLICK,
-                 goog.bind(this.requestNewDoc_, this, docLinkCallback));
+                 goog.bind(this.requestNewDoc_, this,
+                           docLinkCallback, newdocName));
+
   var row = goog.dom.createDom('tr');
+  row.appendChild(goog.dom.createDom('td', null, newdocName));
   row.appendChild(goog.dom.createDom('td', null, newdocLink));
   dialogContent.appendChild(row);
 
@@ -328,12 +334,15 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
  * the server responds with the usual trunk/doc-id/title tuple when done,
  * and we relay them to the caller via docLinkCallback().
  */
-lantern.edit.LinkPicker.prototype.requestNewDoc_ = function(docLinkCallback) {
+lantern.edit.LinkPicker.prototype.requestNewDoc_ = function(
+    docLinkCallback, newdocName) {
   var uri = '/newDocumentAjax';
   var id = lantern.edit.LinkPicker.currentRequestId_++;
+  var title = newdocName.value
   this.xhr_.sendRequest(
       id, uri,
-      goog.bind(this.processNewDoc_, this, docLinkCallback));
+      goog.bind(this.processNewDoc_, this, docLinkCallback),
+      'POST', 'title=' + encodeURIComponent(title));
 };
 
 
