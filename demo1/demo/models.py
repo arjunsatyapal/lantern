@@ -959,6 +959,10 @@ class DocModel(BaseContentModel):
         parent=trunk, obj_ref=doc_id, commit_message=message)
     return trunk
 
+  def trunk_tip(self):
+    """Returns the tip of the same trunk"""
+    return db.get(self.trunk_ref.head)
+
   def dump_to_dict(self):
     """Returns all attributes of the doc object in a dictionary.
 

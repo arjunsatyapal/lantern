@@ -516,7 +516,7 @@ lantern.edit.EditPage.prototype.addDocLink_ = function(
   templateText = templateText.replace('\{\{object.key}}', objectId);
   templateText = templateText.replace('\{\{object.trunk_ref.key}}', trunkId);
   templateText = templateText.replace('\{\{object.doc_ref.key}}', docId);
-  templateText = templateText.replace('\{\{object.doc_ref.title}}', title);
+  templateText = templateText.replace('\{\{object.doc_ref.trunk_tip.title}}', title);
 
   this.addContentToPage_(objectId, templateText);
   this.linkPicker_.hide();
