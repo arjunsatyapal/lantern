@@ -40,6 +40,7 @@ urlpatterns = defaults.patterns(
     # and returns updated accumulated score for the document.
     (r'^updateScore$', 'update_doc_score'),
     (r'^getListAjax$', 'get_list_ajax'),
+    (r'^newDocumentAjax$', 'new_document_ajax'),
     (r'^markAsReadAjax$', 'mark_as_read'),
     (r'^storeVideoStateAjax$', 'store_video_state'),
     (r'^resetScoreAjax$', 'reset_score_for_page'),
