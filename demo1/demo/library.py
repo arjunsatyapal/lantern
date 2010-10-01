@@ -1183,7 +1183,7 @@ def get_notes(name):
 
 
 def view_doc_param(doc, visit, current, came_from):
-  """Helper for what_now
+  """Helper for getPrevNextLinks
 
   Args:
     doc: target document to go to
@@ -1200,16 +1200,14 @@ def view_doc_param(doc, visit, current, came_from):
             ('doc_id', str(doc.key())) ]
 
   if visit:
-    l = len(visit.path) - 1
+    depth = len(visit.path) - 1
 
-    while (0 < l) and (visit.path[l] != doc.key()):
-      l -= 1
-    if 0 < l:
-      parent = db.get(visit.path[l - 1])
-    elif l == 0:
-      parent = None
+    while (0 < depth) and (visit.path[depth] != doc.key()):
+      depth -= 1
+    if 0 < depth:
+      parent = db.get(visit.path[depth - 1])
     else:
-      parent = current
+      parent = None
 
     if parent:
       param.extend([ ('parent_trunk', str(parent.trunk_ref.key())),
@@ -1220,7 +1218,7 @@ def view_doc_param(doc, visit, current, came_from):
   return param
 
 
-def what_now(doc, visit, came_from):
+def getPrevNextLinks(doc, visit, came_from):
   """Compute where to go next
 
   Args:
@@ -1229,9 +1227,11 @@ def what_now(doc, visit, came_from):
     came_from: the document the user came from, when different from parent
 
   Returns:
+    A (prev_param, next_param) tuple, where
     prev_param: URL parameters to feed to view to go to natural "previous" page
     next_param: URL parameters to feed to view to go to natural "next" page
   """
+  # TODO: the "prev" half is not yet computed nor used.
   prev_param = None
 
   # If we came back from down below, visit the next child (no "immediate
@@ -1247,10 +1247,10 @@ def what_now(doc, visit, came_from):
     # We ran out of our children, so go back to our parent.
     # visit.path should be the path from the root down to doc.
 
-    l, child = len(visit.path), doc
-    while (0 < l):
-      l -= 1
-      parent = db.get(visit.path[l])
+    depth, child = len(visit.path), doc
+    while (0 < depth):
+      depth -= 1
+      parent = db.get(visit.path[depth])
       # After visiting child inside parent, "next_child_or_self" is either
       # the target of a link to the child that immediately follows the
       # link to this child, or the parent itself if the link to this child

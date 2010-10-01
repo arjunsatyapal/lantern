@@ -684,7 +684,7 @@ def view_doc(request):
 
   if came_from:
     came_from = db.get(came_from)
-  (prev_url, next_url) = library.what_now(doc, updated_stack, came_from)
+  (prev_url, next_url) = library.getPrevNextLinks(doc, updated_stack, came_from)
   if prev_url:
     prev_url = '/view?' + urllib.urlencode(prev_url)
   if next_url:
