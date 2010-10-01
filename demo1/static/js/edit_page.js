@@ -276,6 +276,14 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
   // Local handler for all the links that we'd like to clean up.
   var handler = new goog.events.EventHandler(this);
 
+  // Create a "New Document"
+  var newdocLink = goog.dom.createDom('a', null, 'New Document');
+  handler.listen(newdocLink, goog.events.EventType.CLICK,
+                 goog.bind(this.requestNewDoc_, this, docLinkCallback));
+  var row = goog.dom.createDom('tr');
+  row.appendChild(goog.dom.createDom('td', null, newdocLink));
+  dialogContent.appendChild(row);
+
   // Construct a selector link and preview button for each item
   for (var i = 0, n = docList.length; i < n; i++) {
     var docItem = docList[i];
@@ -313,6 +321,38 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
                       handler.dispose, false, handler);
   this.dialog_.setVisible(true);
 };
+
+
+/**
+ * Request one new stub document to be created by issuing an XHR call;
+ * the server responds with the usual trunk/doc-id/title tuple when done,
+ * and we relay them to the caller via docLinkCallback().
+ */
+lantern.edit.LinkPicker.prototype.requestNewDoc_ = function(docLinkCallback) {
+  var uri = '/newDocumentAjax';
+  var id = lantern.edit.LinkPicker.currentRequestId_++;
+  this.xhr_.sendRequest(
+      id, uri,
+      goog.bind(this.processNewDoc_, this, docLinkCallback));
+};
+
+
+/**
+ * When the XHR response to create a new document arrives, this
+ * is called and adds the document link.
+ *
+ * @param {Function} docLinkCallback The callback to call after the user makes
+ *     a selection.
+ *       docLinkCallback(trunkId, docId, title);
+ * @param {number} requestId The associated request ID.
+ * @param {Object} result The JSON decoded XHR response.
+ * @param {string} opt_errMsg Optional error message that resulted from the XHR
+ *     call.
+ */
+lantern.edit.LinkPicker.prototype.processNewDoc_ = function(
+    docLinkCallback, requestId, result, opt_errMsg) {
+  docLinkCallback(result.trunk_id, result.doc_id, result.doc_title);
+}
 
 
 /**

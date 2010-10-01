@@ -880,6 +880,19 @@ def get_list_ajax(request):
   return HttpResponse(simplejson.dumps({'doc_list' : doc_list}))
 
 
+def new_document_ajax(request):
+  """Create a new stub document and returns its id"""
+  one = models.DocModel.insert_with_new_key()
+  one.title = "(New Page)"
+  one.placeInNewTrunk()
+  result = {
+      'doc_title': one.title,
+      'trunk_id': str(one.trunk_ref.key()),
+      'doc_id': str(one.key()),
+      };
+  return HttpResponse(simplejson.dumps(result))
+
+
 def video(request):
   """/video - Shows video with list of other related videos."""
 
