@@ -320,16 +320,19 @@ def collect_data_from_query(request):
   content_height = request.POST.getlist('data_height')
   content_width = request.POST.getlist('data_width')
   content_title = request.POST.getlist('data_title')
+  content_is_shared = request.POST.getlist('data_is_shared')
 
   content_list = data_dict.setdefault('doc_contents', [])
-  for obj_type, data_val, height, width, title in zip(content_data_types,
-      content_data_vals, content_height, content_width, content_title):
+  for obj_type, data_val, height, width, title, is_shared in zip(
+      content_data_types, content_data_vals, content_height, content_width,
+      content_title, content_is_shared):
     content_list.append({
         'obj_type': obj_type,
         'val': data_val,
         'height': height,
         'width': width,
-        'title': title
+        'title': title,
+        'is_shared': is_shared,
         })
   return data_dict
 
@@ -371,6 +374,10 @@ def create_doc(data_dict):
   else:
     doc.tags = []
   doc.score_weight = [1.0]
+
+  # Tracks the number of occurrences of the same widget with the same title
+  # Keys are (widget_url, title) tuples.
+  widget_index_map = {}
   for element in data_dict['doc_contents']:
 
     if element.get('obj_type') == 'rich_text':
@@ -407,8 +414,26 @@ def create_doc(data_dict):
       title = str(element.get('title'))
       height = str(element.get('height'))
       width = str(element.get('width'))
-      widget_object = models.WidgetModel.insert(
-          widget_url=widget_url, height=height, width=width, title=title)
+
+      is_shared_str = element.get('is_shared', 'True')
+      is_shared = True
+      if is_shared_str.lower() in ('0', 'false'):
+        is_shared = False
+
+      if is_shared:
+        widget_object = models.WidgetModel.insert(
+            widget_url=widget_url, height=height, width=width, title=title,
+            is_shared=is_shared)
+      else:
+        # Determine how many times the same (widget, title) has appeared on
+        # the page
+        index_key = (widget_url, title)
+        widget_index = widget_index_map.setdefault(index_key, 0)
+        widget_index_map[index_key] += 1
+
+        widget_object = models.WidgetModel.insert(
+            widget_url=widget_url, height=height, width=width, title=title,
+            is_shared=is_shared, widget_index=widget_index, trunk_id=trunk)
       doc.content.append(widget_object.key())
 
   doc.put()
@@ -575,7 +600,6 @@ def duplicate(request):
     newparent = parent.clone()
     newparent.insert_after(doc, clone)
     parent.updateTrunkHead(newparent)
-    library.update_visit_stack(clone, newparent, users.get_current_user())
 
   # redirect to edit mode
   return HttpResponseRedirect(
@@ -879,23 +903,6 @@ def get_list_ajax(request):
           'doc_id': str(d.key()),
           })
   return HttpResponse(simplejson.dumps({'doc_list' : doc_list}))
-
-
-def new_document_ajax(request):
-  """Create a new stub document and returns its id"""
-  one = models.DocModel.insert_with_new_key()
-  one.title = request.REQUEST.get('title', "(New Page)")
-  blurb = models.RichTextModel.insert_with_new_key()
-  blurb.data = ""
-  blurb.put()
-  one.content.append(blurb.key())
-  one.placeInNewTrunk()
-  result = {
-      'doc_title': one.title,
-      'trunk_id': str(one.trunk_ref.key()),
-      'doc_id': str(one.key()),
-      };
-  return HttpResponse(simplejson.dumps(result))
 
 
 def video(request):

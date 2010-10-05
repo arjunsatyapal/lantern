@@ -111,10 +111,11 @@ lantern.edit.DragDrop.prototype.init = function() {
   this.dragListGroup_ = new goog.fx.DragListGroup();
   this.dragListGroup_.addDragList(
       goog.dom.getElement(this.id_),
-      goog.fx.DragListDirection.DOWN);
+      goog.fx.DragListDirection.UP);
 
   this.dragListGroup_.setFunctionToGetHandleForDragItem(
       goog.bind(this.getHandle, this));
+  this.dragListGroup_.setDraggerElClass('drag-opacity');
   this.dragListGroup_.init();
 };
 
@@ -242,7 +243,7 @@ lantern.edit.LinkPicker.prototype.requestDocLinkList = function(
  * be called if the user dismisses the dialog without selection.
  *
  * @param {Function} widgetLinkCallback will be called after selection:
- *     widgetLinkCallback(widgetLink);
+ *     widgetLinkCallback(widgetLink, isShared);
  */
 lantern.edit.LinkPicker.prototype.requestWidgetList = function(
     widgetLinkCallback) {
@@ -275,20 +276,6 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
 
   // Local handler for all the links that we'd like to clean up.
   var handler = new goog.events.EventHandler(this);
-
-  // Create a "New Document"
-  var newdocName = goog.dom.createDom('input', { 'type': 'text' });
-  var newdocLink = goog.dom.createDom(
-        'input', {'type': 'button', 'value': 'New Document'});
-
-  handler.listen(newdocLink, goog.events.EventType.CLICK,
-                 goog.bind(this.requestNewDoc_, this,
-                           docLinkCallback, newdocName));
-
-  var row = goog.dom.createDom('tr');
-  row.appendChild(goog.dom.createDom('td', null, newdocName));
-  row.appendChild(goog.dom.createDom('td', null, newdocLink));
-  dialogContent.appendChild(row);
 
   // Construct a selector link and preview button for each item
   for (var i = 0, n = docList.length; i < n; i++) {
@@ -330,47 +317,12 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
 
 
 /**
- * Request one new stub document to be created by issuing an XHR call;
- * the server responds with the usual trunk/doc-id/title tuple when done,
- * and we relay them to the caller via docLinkCallback().
- */
-lantern.edit.LinkPicker.prototype.requestNewDoc_ = function(
-    docLinkCallback, newdocName) {
-  var uri = '/newDocumentAjax';
-  var id = lantern.edit.LinkPicker.currentRequestId_++;
-  var title = newdocName.value
-  this.xhr_.sendRequest(
-      id, uri,
-      goog.bind(this.processNewDoc_, this, docLinkCallback),
-      'POST', 'title=' + encodeURIComponent(title));
-};
-
-
-/**
- * When the XHR response to create a new document arrives, this
- * is called and adds the document link.
- *
- * @param {Function} docLinkCallback The callback to call after the user makes
- *     a selection.
- *       docLinkCallback(trunkId, docId, title);
- * @param {number} requestId The associated request ID.
- * @param {Object} result The JSON decoded XHR response.
- * @param {string} opt_errMsg Optional error message that resulted from the XHR
- *     call.
- */
-lantern.edit.LinkPicker.prototype.processNewDoc_ = function(
-    docLinkCallback, requestId, result, opt_errMsg) {
-  docLinkCallback(result.trunk_id, result.doc_id, result.doc_title);
-}
-
-
-/**
  * Processes a list of widget links to display in the dialog box.
  * This is called when the XHR response arrives.
  *
  * @param {Function} widgetLinkCallback The callback to call after the user
  *     makes a selection.
- *       widgetLinkCallback(link);
+ *       widgetLinkCallback(link, isShared);
  * @param {number} requestId The associated request ID.
  * @param {Object} result The JSON decoded XHR response.
  * @param {string} opt_errMsg Optional error message that resulted from the XHR
@@ -565,7 +517,7 @@ lantern.edit.EditPage.prototype.addDocLink_ = function(
   templateText = templateText.replace('\{\{object.key}}', objectId);
   templateText = templateText.replace('\{\{object.trunk_ref.key}}', trunkId);
   templateText = templateText.replace('\{\{object.doc_ref.key}}', docId);
-  templateText = templateText.replace('\{\{object.doc_ref.trunk_tip.title}}', title);
+  templateText = templateText.replace('\{\{object.doc_ref.title}}', title);
 
   this.addContentToPage_(objectId, templateText);
   this.linkPicker_.hide();
@@ -575,8 +527,12 @@ lantern.edit.EditPage.prototype.addDocLink_ = function(
 /**
  * Adds a Widget Link to the page. This will be called after the user selects
  * an entry from the LinkPicker dialog box.
+ *
+ * @param {string} link The URI of the widget.
+ * @param {boolean} isShared Whether the widget should be shared between
+ *     different pages.
  */
-lantern.edit.EditPage.prototype.addWidgetLink_ = function(link) {
+lantern.edit.EditPage.prototype.addWidgetLink_ = function(link, isShared) {
   var objectId = this.nextObjectId_();
   var templateText = this.templates_['preamble'] + this.templates_['widget'];
   templateText = templateText.replace('\{\{object.key}}', objectId);
@@ -584,6 +540,8 @@ lantern.edit.EditPage.prototype.addWidgetLink_ = function(link) {
   templateText = templateText.replace('\{\{object.title}}', '');
   templateText = templateText.replace('\{\{object.width}}', '100%');
   templateText = templateText.replace('\{\{object.height}}', '400px');
+  templateText = templateText.replace('\{\{object.is_shared}}',
+                                      isShared ? 'True' : 'False');
 
   this.addContentToPage_(objectId, templateText);
   this.linkPicker_.hide();

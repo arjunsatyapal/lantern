@@ -267,8 +267,7 @@ div.doc_contents hr {
 }
 
 div.doc_edit {
-  display: inline;
-  clear: both;
+  width: 990px;
 }
 
 div.doc_edit .delete {
@@ -291,6 +290,12 @@ div.doc_edit .drag-handle img
 {
   width: 25px;
   height: 25px;
+}
+
+.drag-opacity {
+  opacity: 0.6;
+  -moz-opacity: 0.6;
+  filter: alpha(opacity=60);
 }
 
 /* --------------- */

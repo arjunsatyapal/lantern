@@ -31,7 +31,7 @@ from django.utils import simplejson
 import quiz.library as library
 import quiz.models as models
 
- 
+
 class PresentQuiz(webapp.RequestHandler):
   """Presents quiz to a user."""
 
@@ -39,9 +39,9 @@ class PresentQuiz(webapp.RequestHandler):
     quiz_trunk_id = self.request.get('quiz_trunk_id')
     quiz_id = self.request.get('quiz_id')
     try:
-      quiz = db.get(quiz_id) 
+      quiz = db.get(quiz_id)
     except:
-      self.response.out.write('Problem with quiz id '+ str(quiz_id));
+      self.response.out.write('Problem with quiz id '+ str(quiz_id))
       return
     path = os.path.join(os.path.dirname(__file__), 'template/quiz.html')
     self.response.out.write(template.render(path,
@@ -61,10 +61,10 @@ class GetQuestionAjax(webapp.RequestHandler):
     json_result = library.question_to_json(question_and_status_dict,
                                           True)
     self.response.out.write(json_result)
-  
+
 
 class ResetQuizAjax(webapp.RequestHandler):
-  """Resets the quiz score asscociated with the session and sends back 
+  """Resets the quiz score asscociated with the session and sends back
   a new question and score for current session."""
 
   def get(self):
@@ -80,7 +80,7 @@ class ResetQuizAjax(webapp.RequestHandler):
 
 
 class CollectResponseAjax(webapp.RequestHandler):
-  """Evaluates response and sends back a new quiz object, correct answer 
+  """Evaluates response and sends back a new quiz object, correct answer
   and score for current session.
 
   TODO(mukundjha): Check against passing invalid question.
@@ -94,7 +94,7 @@ class CollectResponseAjax(webapp.RequestHandler):
     question_id = self.request.get('question_id')
     answer_id = self.request.get('answer')
     attempts = int(self.request.get('attempts'))
-    check_response = library.check_answer(question_id, answer_id);
+    check_response = library.check_answer(question_id, answer_id)
     data_dict = {}
 
     # fetches quiz based on user's history
@@ -139,7 +139,7 @@ class CollectResponseAjax(webapp.RequestHandler):
       data_dict['accepted'] = False
 
     data_dict['message'] = message
-    
+
     logging.info('**********Response JSON ********* %r',
                   simplejson.dumps(data_dict))
     self.response.out.write(simplejson.dumps(data_dict))
@@ -147,7 +147,7 @@ class CollectResponseAjax(webapp.RequestHandler):
 
 class EditQuiz(webapp.RequestHandler):
   """Edit interface for a given quiz."""
-  
+
   def get(self):
     quiz_id = self.request.get('quiz_id')
     try:
@@ -163,17 +163,17 @@ class EditQuiz(webapp.RequestHandler):
     path = os.path.join(os.path.dirname(__file__), 'template/editQuiz.html')
     self.response.out.write(template.render(path,
                            {'quiz' : quiz, 'questions': list_of_questions}))
- 
+
 class SubmitNewQuiz(webapp.RequestHandler):
   """Creates a new quiz.
-  
+
   TODO(mukundjha): Account for different property settings.
     Currently works only for default property.
   """
 
   def post(self):
     quiz_id = self.request.get('quiz_id')
-    
+
     title  = self.request.get('quiz_title')
     level = int(self.request.get('quiz_level', 7))
     if quiz_id:
@@ -215,7 +215,7 @@ class DeleteQuestion(webapp.RequestHandler):
       try:
         question = db.get(question_id)
       except db.BadKeyError:
-        self.response.write('BadKeyError while adding question');
+        self.response.write('BadKeyError while adding question')
     library.remove_question_from_quiz(question, quiz)
     self.redirect('/quiz/editQuiz?quiz_id='+quiz_id)
 
@@ -238,7 +238,7 @@ class SubmitNewQuestion(webapp.RequestHandler):
       try:
         question = db.get(question_id)
       except db.BadKeyError:
-        self.response.out.write('BadKeyError while adding question');
+        self.response.out.write('BadKeyError while adding question')
       library.remove_question_from_quiz(question, quiz)
 
     shuffle = self.request.get('choice_shuffle', False)
@@ -268,10 +268,10 @@ class SubmitNewQuestion(webapp.RequestHandler):
       choice_list.append(new_choice.key())
 
     library.create_question(quiz, body=question_text, hints=hints,
-                            choices=choice_list, shuffle_choices=shuffle); 
+                            choices=choice_list, shuffle_choices=shuffle)
     if question_id:
       redirection_url = '/quiz/editQuiz?quiz_id=%s' % quiz.key()
-    else:   
+    else:
       redirection_url = '/quiz/addQuestion?quiz_id=%s' % quiz.key()
     self.redirect(redirection_url)
 
@@ -321,7 +321,7 @@ class EditQuestion(webapp.RequestHandler):
       question = db.get(question_id)
     except db.BadKeyError:
       self.response.write('Error the question is not valid.')
-    choices = [];
+    choices = []
     for ch in question.choices:
       choices.append(db.get(ch))
 #    logging.info('\n ****** Question : %r\n', question.choices[0].body)
@@ -332,7 +332,7 @@ class EditQuestion(webapp.RequestHandler):
                             'question': question,
                             'choices': choices}))
 
-  
+
 
 class ViewQuiz(webapp.RequestHandler):
   """Returns a page with list of questions in the quiz."""
@@ -343,12 +343,12 @@ class ViewQuiz(webapp.RequestHandler):
       quiz = db.get(quiz_id)
     except db.BadKeyError:
       self.response.write('Error the quiz id is not valid.')
-    
+
     query = models.QuizQuestionListModel.all().filter(
         'quiz =', quiz).order('-time_stamp')
-    
+
     list_of_questions = [entry.question for entry in query]
-    
+
     path = os.path.join(os.path.dirname(__file__), 'template/viewQuiz.html')
     self.response.out.write(template.render(path,
                            {'quiz' : quiz, 'questions': list_of_questions}))
@@ -357,30 +357,57 @@ class ViewQuiz(webapp.RequestHandler):
 class SendWidgetList(webapp.RequestHandler):
   """Sends a list of quizes available and other widgets.
 
-  TODO(mukundjha): Move this to lantern and replace with 
+  Sends a JSON response of the form:
+  {'widget_list': [
+      {'title': title,
+       'link': href,
+       'is_shared': bool,
+      },
+      ...
+  }
+
+  If 'is_shared' is False, then create a unique entry in the DB for each
+  (trunk_id, widget_url, title, widget_index_on_page) tuple. Otherwise,
+  unique to (widget_url, title).
+
+  The widget_index_on_page is intended to track the nth occurrence of the
+  Widget on the page that has the same title.
+
+  TODO(mukundjha): Move this to lantern and replace with
     widget registration.
   """
   def get(self):
     quiz_list = models.QuizModel.all().fetch(50)
     widget_list = []
-    py_shell = {'title': 'Python Shell',
-                'link': 'http://pythonshell1.appspot.com'}
 
-    khan_exercise = {'title': 'Khan Academy- Basic Trigonometry',
-        'link': 
-            'http://tempkhanacadquiz.appspot.com/exercises?exid=trigonometry_1'}
-    
+    # Predefined list of quizzes
+    py_shell = {
+        'title': 'Python Shell',
+        'link': 'http://pythonshell1.appspot.com',
+        'is_shared': False,
+        }
+
+    khan_exercise = {
+        'title': 'Khan Academy - Basic Trigonometry',
+        'link': ('http://tempkhanacadquiz.appspot.com/exercises?'
+                 'exid=trigonometry_1'),
+        'is_shared': True,
+        }
+
     widget_list.append(py_shell)
     widget_list.append(khan_exercise)
     for quiz in quiz_list:
-      quiz_entry = {'title': 'Lantern Quiz: '+ quiz.title, 
-         'link': '/quiz?quiz_id=%s&quiz_trunk_id=%s' % (quiz.key(),
-          quiz.trunk.key())}
+      quiz_entry = {
+          'title': 'Lantern Quiz: '+ quiz.title,
+          'link': '/quiz?quiz_id=%s&quiz_trunk_id=%s' % (
+              quiz.key(), quiz.trunk.key()),
+          'is_shared': True,  # Default is shared.
+          }
       widget_list.append(quiz_entry)
 
     self.response.out.write(simplejson.dumps({'widget_list': widget_list}))
 
-    
+
 application = webapp.WSGIApplication(
     [('/quiz', PresentQuiz),
     ('/quiz/getQuestion', GetQuestionAjax),

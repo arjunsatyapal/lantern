@@ -665,7 +665,7 @@ class BaseModel(db.Model):
 
 class UserStateModel(db.Model):
   """Abstract base class for all user specific state models.
- 
+
   Attributes:
     user: Reference to the the user.
   """
@@ -674,7 +674,7 @@ class UserStateModel(db.Model):
 
 class BaseContentModel(BaseModel):
   """Abstract base class inherited by all immutable content objects.
-  
+
   Immutable objects like DocModel, TrunkModel, VideoModel etc.
 
   Attributes:
@@ -683,28 +683,33 @@ class BaseContentModel(BaseModel):
   """
   creator = db.UserProperty(auto_current_user_add=True, required=True)
   created = db.DateTimeProperty(auto_now=True)
+
   @classmethod
   def insert(cls, **kwargs):
-    """Creates a new object if not already exists, else returns the 
+    """Creates a new object if not already exists, else returns the
     existing object based on content of the object.
-   
+
     Inserts with SHA1 hash of the concatenated contents key_name,
-    if object already exisits with same content, that object is 
-    returned, else new object is created and returned.
-    
+    if object already exists with same content, that object is
+    returned, else a new object is created (using the keyword args to
+    set the initial property values) and returned.
+
     TODO(mukundjha): Add some random seed as well to prevent collision.
     Args:
       cls: Class for which object is to be created.
+      kwargs: The keyword args represents property values for the model.
+          These are intended to be the properties that uniquely identify an
+          instance of the model. The default implementation requires that
+          each are matches a defined property of the model. Derived classes
+          may override _get_identifying_fields() to allow "identifier" fields
+          that are not stored in the model. See WidgetModel for details.
 
     Returns:
       Returns an object of type cls.
     """
-    content = []
-    for prop in cls.properties():
-      if prop in ('creator', 'created'):  # Skip base properties
-        continue
-      content.append(str(kwargs.get(prop)))
-      txt = '|'.join(content)
+    identifying_fields = cls._get_identifying_fields(**kwargs)
+    txt = '|'.join(identifying_fields)
+
     key_name = cls.__name__ + ':' + sha.new(txt).hexdigest()
     object = cls.get_by_key_name(key_name)
 
@@ -712,6 +717,24 @@ class BaseContentModel(BaseModel):
       object = cls.get_or_insert(key_name, **kwargs)
     return object
 
+  @classmethod
+  def _get_identifying_fields(cls, **kwargs):
+    """Gets a list of fields that uniquely identify an entry.
+
+    The fields are used to generate a hash to form the key name.
+    The default implementation expects each keyword arg be a valid property
+    of the model. Derived classes (e.g., WidgetModel) can override to allow
+    properties that are stored in the model.
+
+    Args:
+      kwargs: Specifies the property values of the model as keyword args.
+    """
+    fields = []
+    for prop in sorted(cls.properties()):
+      if prop in ('creator', 'created'):  # Skip base properties
+        continue
+      fields.append(str(kwargs.get(prop)))
+    return fields
 
   def get_score(self, user):
     """Returns progress score for the model.
@@ -955,14 +978,9 @@ class DocModel(BaseContentModel):
     trunk.head = doc_id
     trunk.put()
     other.trunk_ref = trunk
-    other.put()
     TrunkRevisionModel.insert_with_new_key(
         parent=trunk, obj_ref=doc_id, commit_message=message)
     return trunk
-
-  def trunk_tip(self):
-    """Returns the tip of the same trunk"""
-    return db.get(self.trunk_ref.head)
 
   def dump_to_dict(self):
     """Returns all attributes of the doc object in a dictionary.
@@ -1323,11 +1341,41 @@ class WidgetModel(BaseContentModel):
 
   Attributes:
     widget_url: Url to quiz app to be embedded as an Iframe.
+    is_shared: True if widget is intended to be shared between different
+        pages. Interactive shells will set this to be False.
   """
   widget_url = db.StringProperty(required=True)
   height = db.StringProperty()
   width = db.StringProperty()
   title = db.StringProperty()
+  is_shared = db.BooleanProperty()
+
+  @classmethod
+  def _get_identifying_fields(cls, **kwargs):
+    """Gets a list of fields that uniquely identify an entry.
+
+    A Widget of the same type (e.g., Pyshell) may appear multiple times on
+    the same page, perhaps with the same title. Moreover, we do not want to
+    share Pyshell between different docs, since they may be focused on different
+    exercises. Consequently, we need two pseudo fields to uniquely identify
+    a widget:
+      trunk_id: The trunk id of the hosting DocModel.
+      widget_index: The nth occurrence of the widget on the page that has
+          the same title. 0-based.  Caller is responsible for providing a
+          unique index (when it matters).
+
+    These pseudo fields are popped from kwargs before returning the results.
+    """
+    # Pop pseudo fields from kwargs
+    trunk_id = kwargs.pop('trunk_id', '')
+    widget_index = kwargs.pop('widget_index', 0)
+
+    # Get base results, then append pseudo fields.
+    identifying_fields = super(WidgetModel, cls)._get_identifying_fields(
+        **kwargs)
+    identifying_fields.append(trunk_id)
+    identifying_fields.append(str(widget_index))
+    return identifying_fields
 
   def dump_to_dict(self):
     """Returns all attributes of the object in a dictionary."""
@@ -1336,7 +1384,8 @@ class WidgetModel(BaseContentModel):
       'widget_widget_url': self.widget_url,
       'widget_height': self.height,
       'widget_width': self.width,
-      'widget_title': self.title
+      'widget_title': self.title,
+      'is_shared': self.is_shared,
       }
 
   def get_score(self, user):
@@ -1371,7 +1420,7 @@ class DocVisitState(UserStateModel):
     doc_ref: Reference to visited doc.
     last_visit: Time stamp for last visit to the document.
     doc_progress_score: Completion score for the visited doc.
-    dirty_bit: Dirty bit is set when the scores down the trunk 
+    dirty_bit: Dirty bit is set when the scores down the trunk
       may be stale.
   """
   trunk_ref = db.ReferenceProperty(TrunkModel)
@@ -1429,7 +1478,7 @@ class RecentCourseState(UserStateModel):
   """Maintains list of recent courses accessed by user.
 
   Useful in building homepage.
-  
+
   Attributes:
     time_stamp = Time of last visit.
     course_trunk_ref = Trunk id of the course.
@@ -1470,4 +1519,4 @@ class VideoState(UserStateModel):
     paused_time: Float value for seconds.
   """
   video_ref = db.ReferenceProperty(VideoModel)
-  paused_time = db.FloatProperty(default=0) 
+  paused_time = db.FloatProperty(default=0)

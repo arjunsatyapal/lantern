@@ -26,7 +26,7 @@ SERVER_ADDRESS = $(shell hostname -f)
 
 DEV_SERVER = dev_appserver.py
 APP_CFG = appcfg.py
-DATASTORE_DIR = /tmp/$(shell basename $(shell pwd))
+DATASTORE_DIR = /usr/local/google/tmp/$(shell basename $(shell pwd))
 
 TEST_ARGS = \
     --datastore_path=$(DATASTORE_DIR)/dev_appserver.datastore
