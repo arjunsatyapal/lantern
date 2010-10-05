@@ -600,6 +600,7 @@ def duplicate(request):
     newparent = parent.clone()
     newparent.insert_after(doc, clone)
     parent.updateTrunkHead(newparent)
+    library.update_visit_stack(clone, newparent, users.get_current_user())
 
   # redirect to edit mode
   return HttpResponseRedirect(
@@ -919,6 +920,23 @@ def get_list_ajax(request):
           'doc_id': str(d.key()),
           })
   return HttpResponse(simplejson.dumps({'doc_list' : doc_list}))
+
+
+def new_document_ajax(request):
+  """Create a new stub document and returns its id"""
+  one = models.DocModel.insert_with_new_key()
+  one.title = request.REQUEST.get('title', "(New Page)")
+  blurb = models.RichTextModel.insert_with_new_key()
+  blurb.data = ""
+  blurb.put()
+  one.content.append(blurb.key())
+  one.placeInNewTrunk()
+  result = {
+      'doc_title': one.title,
+      'trunk_id': str(one.trunk_ref.key()),
+      'doc_id': str(one.key()),
+      };
+  return HttpResponse(simplejson.dumps(result))
 
 
 def video(request):
