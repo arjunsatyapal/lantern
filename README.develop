@@ -208,7 +208,7 @@ When complete, merge to trunk (this may be wrong):
   - Change to current working directory:
     cd lantern
 
-  - Merge it with the brach using svn merge
+  - Merge it with the branch using svn merge
     svn merge https://lantern.googlecode.com/svn/trunk \
     https://lantern.googlecode.com/svn/branches/mukundjha-20100614
 
