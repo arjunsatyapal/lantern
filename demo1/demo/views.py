@@ -437,6 +437,13 @@ def create_doc(data_dict):
       doc.content.append(widget_object.key())
 
   doc.put()
+
+  # If we are at the tip of a trunk, we would need to update cached data.
+  trunk = doc.trunk_ref
+  if trunk.head == str(doc.key()):
+    trunk.setHead(str(doc.key()))
+    trunk.put()
+
   return doc
 
 ### Request handlers ###
@@ -899,6 +906,20 @@ def update_doc_score(request):
   library.set_dirty_bits_for_doc(doc, users.get_current_user())
 
   return HttpResponse(simplejson.dumps({'doc_score' : doc_score}))
+
+
+def update_trunk_title(request):
+  query = models.TrunkModel.all()
+  for trunk in query:
+    try:
+      head = db.get(trunk.head)
+      if not head or not isinstance(head, models.DocModel):
+        continue
+      trunk.title = head.title
+      trunk.put()
+    except BadKeyError:
+      pass
+  return get_list_ajax(request)
 
 
 def get_list_ajax(request):
