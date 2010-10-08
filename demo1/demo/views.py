@@ -927,20 +927,61 @@ def get_list_ajax(request):
 
   Useful in populating list for Link Picker while editing the document.
   """
+  query = models.TrunkModel.all()
+  search = request.REQUEST.get('q', '')
+
+  def asInt(request, field, defval):
+    try:
+      sval = request.REQUEST.get(field, defval)
+      val = int(sval)
+    except:
+      val = defval
+    return val
+
+  startAt = asInt(request, 's', 0)
+  count = asInt(request, 'c', 8)
+
+  if search != '':
+    query = query.filter("title >=", search)
+    query = query.filter("title <", search + u"\ufffd")
+  query.order("title")
+
   doc_list = []
-  seen = {}
-  for doc in models.DocModel.all():
-    t = doc.trunk_ref
-    k = t.key()
-    if k not in seen:
-      seen[k] = t.head
-      d = db.get(t.head)
+  atEnd = 0
+  for trunk in query:
+    try:
+      head = db.get(trunk.head)
+      if not head or not isinstance(head, models.DocModel):
+        continue
       doc_list.append({
-          'doc_title': d.title,
-          'trunk_id': str(k),
-          'doc_id': str(d.key()),
+          'doc_title': head.title,
+          'trunk_id': str(trunk.key()),
+          'doc_id': str(head.key()),
           })
-  return HttpResponse(simplejson.dumps({'doc_list' : doc_list}))
+      # Self-correction.  For some unknown reason (NEEDSWORK),
+      # the index will go out of sync immediately after editing
+      # a document.
+      if True and (head.title != trunk.title):
+        trunk.title = head.title
+        trunk.put()
+    except db.BadKeyError:
+      pass
+    if startAt + count < len(doc_list):
+      break
+  else:
+    atEnd = 1
+
+  if startAt:
+    doc_list = doc_list[startAt:]
+  if count:
+    doc_list = doc_list[0:count]
+
+  return HttpResponse(simplejson.dumps({
+      'doc_list': doc_list,
+      'startAt': startAt,
+      'count': len(doc_list),
+      'atEnd': atEnd,
+      }))
 
 
 def new_document_ajax(request):
