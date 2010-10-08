@@ -293,6 +293,10 @@ lantern.edit.LinkPicker.prototype.activateDocLinkList = function(
                  goog.bind(this.updateDocLinkList, this,
                            docLinkCallback, limitDocString, 0));
 
+  handler.listen(limitDocString, goog.events.EventType.KEYUP,
+                 goog.bind(this.updateDocLinkList, this,
+                           docLinkCallback, limitDocString, 0));
+
   var prevButton = goog.dom.createDom('input', {
       'type': 'button', 'value': 'Prev'});
   var nextButton = goog.dom.createDom('input', {
@@ -438,6 +442,8 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
                    goog.bind(this.updateDocLinkList, this,
                              docLinkCallback, limitDocString,
                              this.startAt + this.count));
+
+  limitDocString.focus();
 
   // Make sure all the event handlers are cleaned up when the dialog is
   // dismissed.
