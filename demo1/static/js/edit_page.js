@@ -213,6 +213,20 @@ lantern.edit.LinkPicker.currentRequestId_ = 0;
 
 
 /**
+ * Helper to send a request via XHR
+ */
+lantern.edit.LinkPicker.prototype.sendRequest = function(
+    uri, callback, var_args) {
+  var id = lantern.edit.LinkPicker.currentRequestId_++;
+  var args = [id, uri, callback];
+  var i;
+  for (i = 2; i < arguments.length; i++)
+    args.push(arguments[i]);
+  this.xhr_.sendRequest.apply(this.xhr_, args);
+}
+
+
+/**
  * Requests a list of doc links for the user to select. It issues an XHR call
  * to get the suggestions, then presents a dialog for the user to make a
  * selection.
@@ -226,11 +240,8 @@ lantern.edit.LinkPicker.currentRequestId_ = 0;
  */
 lantern.edit.LinkPicker.prototype.requestDocLinkList = function(
     docLinkCallback) {
-  var uri = '/getListAjax';
-  var id = lantern.edit.LinkPicker.currentRequestId_++;
-  this.xhr_.sendRequest(
-      id, uri,
-      goog.bind(this.processDocLinkList_, this, docLinkCallback));
+  this.sendRequest('/getListAjax',
+                   goog.bind(this.processDocLinkList_, this, docLinkCallback));
 };
 
 
@@ -247,11 +258,8 @@ lantern.edit.LinkPicker.prototype.requestDocLinkList = function(
  */
 lantern.edit.LinkPicker.prototype.requestWidgetList = function(
     widgetLinkCallback) {
-  var uri = '/quiz/widgetList';
-  var id = lantern.edit.LinkPicker.currentRequestId_++;
-  this.xhr_.sendRequest(
-      id, uri,
-      goog.bind(this.processWidgetList_, this, widgetLinkCallback));
+  this.sendRequest('/quiz/widgetList',
+                   goog.bind(this.processWidgetList_, this, widgetLinkCallback));
 };
 
 
@@ -337,14 +345,11 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
  */
 lantern.edit.LinkPicker.prototype.requestNewDoc_ = function(
     docLinkCallback, newdocName) {
-  var uri = '/newDocumentAjax';
-  var id = lantern.edit.LinkPicker.currentRequestId_++;
-  var title = newdocName.value
-  this.xhr_.sendRequest(
-      id, uri,
-      goog.bind(this.processNewDoc_, this, docLinkCallback),
-      'POST', 'title=' + encodeURIComponent(title));
-};
+  var title = newdocName.value;
+  this.sendRequest('/newDocumentAjax',
+                   goog.bind(this.processNewDoc_, this, docLinkCallback),
+                   'POST', 'title=' + encodeURIComponent(title));
+}
 
 
 /**
