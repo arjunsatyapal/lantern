@@ -1160,13 +1160,14 @@ class TrunkModel(BaseModel):
     """Update the trunk head.
 
     Trunk caches some information on the document at its tip, and
-    here is the place to update it.  Do not use trunk.head = doc_id"""
+    here is the place to update it.  Do not use trunk.head = doc_id
+    """
     self.head = doc_id
     try:
       d = db.get(doc_id)
       if isinstance(d, DocModel):
         self.title = d.title
-    except (db.BadKeyError, db.BadRequestError):
+    except db.BadRequestError:
       # library.createnewdoc runs this inside a transaction
       # and updating doc and trunk at the same time will throw
       # an exception (different entity groups).

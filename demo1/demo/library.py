@@ -453,13 +453,10 @@ def create_new_doc(trunk_id=None, **kwargs):
     doc.delete()
     raise models.InvalidDocumentError('Unable to create/append to trunk')
 
-  try:
-    tip = db.get(trunk.head)
-    if isinstance(tip, models.DocModel):
-      trunk.title = tip.title
-      trunk.put()
-  except db.BadKeyError, e:
-    pass
+  tip = db.get(trunk.head)
+  if isinstance(tip, models.DocModel):
+    trunk.title = tip.title
+    trunk.put()
 
   doc.trunk_ref = trunk.key()
   doc.put()

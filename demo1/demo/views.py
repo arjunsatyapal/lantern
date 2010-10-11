@@ -926,6 +926,11 @@ def get_list_ajax(request):
   """Sends a list of documents present in data store.
 
   Useful in populating list for Link Picker while editing the document.
+
+  Args:
+    q: limit the response with prefix match on titles
+    s: return the list starting at this index (i.e. skip this many)
+    c: return only this many entries
   """
   query = models.TrunkModel.all()
   search = request.REQUEST.get('q', '')
@@ -934,7 +939,7 @@ def get_list_ajax(request):
     try:
       sval = request.REQUEST.get(field, defval)
       val = int(sval)
-    except:
+    except ValueError:
       val = defval
     return val
 
@@ -949,23 +954,20 @@ def get_list_ajax(request):
   doc_list = []
   atEnd = 0
   for trunk in query:
-    try:
-      head = db.get(trunk.head)
-      if not head or not isinstance(head, models.DocModel):
-        continue
-      doc_list.append({
-          'doc_title': head.title,
-          'trunk_id': str(trunk.key()),
-          'doc_id': str(head.key()),
-          })
-      # Self-correction.  For some unknown reason (NEEDSWORK),
-      # the index will go out of sync immediately after editing
-      # a document.
-      if True and (head.title != trunk.title):
-        trunk.title = head.title
-        trunk.put()
-    except db.BadKeyError:
-      pass
+    head = db.get(trunk.head)
+    if not head or not isinstance(head, models.DocModel):
+      continue
+    doc_list.append({
+        'doc_title': head.title,
+        'trunk_id': str(trunk.key()),
+        'doc_id': str(head.key()),
+        })
+    # Self-correction.  For some unknown reason (NEEDSWORK),
+    # the index will go out of sync immediately after editing
+    # a document.
+    if True and (head.title != trunk.title):
+      trunk.title = head.title
+      trunk.put()
     if startAt + count < len(doc_list):
       break
   else:

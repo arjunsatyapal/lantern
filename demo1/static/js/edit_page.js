@@ -202,8 +202,8 @@ lantern.edit.LinkPicker = function() {
   this.dialog_.setTitle('Link Picker');
 
   // initial paging index and entries per page
-  this.startAt = 0;
-  this.count = 8;
+  this.startAt_ = 0;
+  this.count_ = 8;
 };
 goog.inherits(lantern.edit.LinkPicker, goog.Disposable);
 
@@ -231,25 +231,6 @@ lantern.edit.LinkPicker.prototype.sendRequest = function(
 
 
 /**
- * Requests a list of doc links for the user to select. It issues an XHR call
- * to get the suggestions, then presents a dialog for the user to make a
- * selection.
- *
- * <p>After selection, the callback is called. Note that the callback will not
- * be called if the user dismisses the dialog without selection.
- *
- * @param {Function} docLinkCallback will be called after selection. The
- *     signature is:
- *       docLinkCallback(trunkId, docId, title);
- */
-lantern.edit.LinkPicker.prototype.requestDocLinkList = function(
-    docLinkCallback) {
-  this.sendRequest('/getListAjax',
-                   goog.bind(this.processDocLinkList_, this, docLinkCallback));
-};
-
-
-/**
  * Activate the new doc link picker that shows:
  *
  * - A control to create a new document and link to it immediately;
@@ -259,6 +240,9 @@ lantern.edit.LinkPicker.prototype.requestDocLinkList = function(
  *
  * - Paging control by prev/next;
  * - Narrowing the selection by head match;
+ *
+ * <p>After selection, the callback is called. Note that the callback will not
+ * be called if the user dismisses the dialog without selection.
  *
  * @param {Function} docLinkCallback will be called after selection. The
  *     signature is:
@@ -273,10 +257,10 @@ lantern.edit.LinkPicker.prototype.activateDocLinkList = function(
   var newDocName = goog.dom.createDom('input', { 'type': 'text' });
   var newDocButton = goog.dom.createDom('input', {
       'type': 'button', 'value': 'New Document'});
-  row = goog.dom.createDom('tr');
-  row.appendChild(goog.dom.createDom('td', null, newDocName));
-  row.appendChild(goog.dom.createDom('td', null, newDocButton));
-  dialogContent.appendChild(row);
+  var newDocRow = goog.dom.createDom('tr');
+  newDocRow.appendChild(goog.dom.createDom('td', null, newDocName));
+  newDocRow.appendChild(goog.dom.createDom('td', null, newDocButton));
+  dialogContent.appendChild(newDocRow);
   handler.listen(newDocButton, goog.events.EventType.CLICK,
                  goog.bind(this.requestNewDoc_, this,
                            docLinkCallback, newDocName));
@@ -284,44 +268,32 @@ lantern.edit.LinkPicker.prototype.activateDocLinkList = function(
   var limitDocString = goog.dom.createDom('input', { 'type': 'text' });
   var limitDocButton = goog.dom.createDom('input', {
       'type': 'button', 'value': 'Search'});
-  row = goog.dom.createDom('tr');
-  row.appendChild(goog.dom.createDom('td', null, limitDocString));
-  row.appendChild(goog.dom.createDom('td', null, limitDocButton));
-  dialogContent.appendChild(row);
+  var limitDocRow = goog.dom.createDom('tr');
+  limitDocRow.appendChild(goog.dom.createDom('td', null, limitDocString));
+  limitDocRow.appendChild(goog.dom.createDom('td', null, limitDocButton));
+  dialogContent.appendChild(limitDocRow);
 
   handler.listen(limitDocButton, goog.events.EventType.CLICK,
-                 goog.bind(this.updateDocLinkList, this,
+                 goog.bind(this.updateDocLinkList_, this,
                            docLinkCallback, limitDocString, 0));
 
   handler.listen(limitDocString, goog.events.EventType.KEYUP,
-                 goog.bind(this.updateDocLinkList, this,
+                 goog.bind(this.updateDocLinkList_, this,
                            docLinkCallback, limitDocString, 0));
-
-  var prevButton = goog.dom.createDom('input', {
-      'type': 'button', 'value': 'Prev'});
-  var nextButton = goog.dom.createDom('input', {
-      'type': 'button', 'value': 'Next'});
-  row = goog.dom.createDom('tr');
-  row.appendChild(goog.dom.createDom('td', null, prevButton));
-  row.appendChild(goog.dom.createDom('td', null, nextButton));
-  dialogContent.appendChild(row);
-
-  handler.listen(prevButton, goog.events.EventType.CLICK,
-                 goog.bind(this.updateDocLinkList, this,
-                           docLinkCallback, limitDocString, -1));
-  handler.listen(nextButton, goog.events.EventType.CLICK,
-                 goog.bind(this.updateDocLinkList, this,
-                           docLinkCallback, limitDocString, 1));
 
   var container = this.dialog_.getContentElement();
   goog.dom.removeChildren(container);
   goog.dom.append(container, dialogContent);
+  container.dialogContent_ = dialogContent;
+  container.newDocRow_ = newDocRow;
+  container.limitDocRow_ = limitDocRow;
+  container.limitDocString_ = limitDocString;
 
   this.eh_.listenOnce(this.dialog_, goog.ui.Dialog.EventType.AFTER_HIDE,
                       handler.dispose, false, handler);
   this.dialog_.setVisible(true);
 
-  this.updateDocLinkList(docLinkCallback, limitDocString, 0);
+  this.updateDocLinkList_(docLinkCallback, limitDocString, 0);
 };
 
 
@@ -329,14 +301,18 @@ lantern.edit.LinkPicker.prototype.activateDocLinkList = function(
  * Make an asynchronous request to find small number of documents
  * starting at startAt whose name begins with contents of limitDocString.
  */
-lantern.edit.LinkPicker.prototype.updateDocLinkList = function(
+lantern.edit.LinkPicker.prototype.updateDocLinkList_ = function(
     docLinkCallback, limitDocString, startAt) {
-  if (startAt < 0)
+  if (startAt < 0) {
     startAt = 0;
+  }
+
+  /* TODO: perhaps use goog.uri.Uri() */
   var uri = '/getListAjax?s=' + encodeURIComponent(startAt);
-  uri = uri + "&amp;c=" + this.count;
-  if (limitDocString.value != "")
+  uri = uri + "&amp;c=" + this.count_;
+  if (limitDocString.value != "") {
     uri = uri +"&amp;q=" + encodeURIComponent(limitDocString.value);
+  }
   this.sendRequest(uri,
                    goog.bind(this.processDocLinkList_, this, docLinkCallback));
 };
@@ -376,17 +352,17 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
     docLinkCallback, requestId, result, opt_errMsg) {
   var obj = result;
   var container = this.dialog_.getContentElement();
-  var dialogContent = container.firstChild;
+  var dialogContent = container.dialogContent_;
 
-  var newDocRow = dialogContent.firstChild;
-  var limitDocRow = newDocRow.nextSibling;
-  var limitDocString = limitDocRow.firstChild.firstChild;
+  var newDocRow = container.newDocRow_;
+  var limitDocRow = container.limitDocRow_;
+  var limitDocString = container.limitDocString_;
 
   goog.dom.removeChildren(dialogContent);
   dialogContent.appendChild(newDocRow);
   dialogContent.appendChild(limitDocRow);
 
-  this.startAt = obj.startAt + 0;
+  this.startAt_ = obj.startAt + 0;
 
   var docList = obj.doc_list;
 
@@ -428,20 +404,23 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
   row.appendChild(goog.dom.createDom('td', null, nextButton));
   dialogContent.appendChild(row);
 
-  if (this.startAt == 0)
+  if (this.startAt_ == 0) {
     prevButton.disabled = true;
-  else
+  } else {
     handler.listen(prevButton, goog.events.EventType.CLICK,
-                   goog.bind(this.updateDocLinkList, this,
+                   goog.bind(this.updateDocLinkList_, this,
                              docLinkCallback, limitDocString,
-                             this.startAt - this.count));
-  if (obj.atEnd)
+                             this.startAt_ - this.count_));
+  }
+
+  if (obj.atEnd) {
     nextButton.disabled = true;
-  else
+  } else {
     handler.listen(nextButton, goog.events.EventType.CLICK,
-                   goog.bind(this.updateDocLinkList, this,
+                   goog.bind(this.updateDocLinkList_, this,
                              docLinkCallback, limitDocString,
-                             this.startAt + this.count));
+                             this.startAt_ + this.count_));
+  }
 
   limitDocString.focus();
 
