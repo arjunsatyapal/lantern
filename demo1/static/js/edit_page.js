@@ -250,17 +250,18 @@ lantern.edit.LinkPicker.prototype.sendRequest = function(
  */
 lantern.edit.LinkPicker.prototype.activateDocLinkList = function(
     docLinkCallback) {
-  var dialogContent = goog.dom.createDom('table', {width: '100%'});
   var handler = new goog.events.EventHandler(this);
   var row;
 
   var newDocName = goog.dom.createDom('input', { 'type': 'text' });
   var newDocButton = goog.dom.createDom('input', {
       'type': 'button', 'value': 'New Document'});
-  var newDocRow = goog.dom.createDom('tr');
-  newDocRow.appendChild(goog.dom.createDom('td', null, newDocName));
-  newDocRow.appendChild(goog.dom.createDom('td', null, newDocButton));
-  dialogContent.appendChild(newDocRow);
+  this.newDocRow_ = goog.dom.createDom('tr');
+  this.newDocRow_.appendChild(goog.dom.createDom('td', null, newDocName));
+  this.newDocRow_.appendChild(goog.dom.createDom('td', null, newDocButton));
+
+  this.dialogContent_ = goog.dom.createDom('table', {width: '100%'});
+  this.dialogContent_.appendChild(this.newDocRow_);
   handler.listen(newDocButton, goog.events.EventType.CLICK,
                  goog.bind(this.requestNewDoc_, this,
                            docLinkCallback, newDocName));
@@ -268,10 +269,10 @@ lantern.edit.LinkPicker.prototype.activateDocLinkList = function(
   var limitDocString = goog.dom.createDom('input', { 'type': 'text' });
   var limitDocButton = goog.dom.createDom('input', {
       'type': 'button', 'value': 'Search'});
-  var limitDocRow = goog.dom.createDom('tr');
-  limitDocRow.appendChild(goog.dom.createDom('td', null, limitDocString));
-  limitDocRow.appendChild(goog.dom.createDom('td', null, limitDocButton));
-  dialogContent.appendChild(limitDocRow);
+  this.limitDocRow_ = goog.dom.createDom('tr');
+  this.limitDocRow_.appendChild(goog.dom.createDom('td', null, limitDocString));
+  this.limitDocRow_.appendChild(goog.dom.createDom('td', null, limitDocButton));
+  this.dialogContent_.appendChild(this.limitDocRow_);
 
   handler.listen(limitDocButton, goog.events.EventType.CLICK,
                  goog.bind(this.updateDocLinkList_, this,
@@ -283,11 +284,8 @@ lantern.edit.LinkPicker.prototype.activateDocLinkList = function(
 
   var container = this.dialog_.getContentElement();
   goog.dom.removeChildren(container);
-  goog.dom.append(container, dialogContent);
-  container.dialogContent_ = dialogContent;
-  container.newDocRow_ = newDocRow;
-  container.limitDocRow_ = limitDocRow;
-  container.limitDocString_ = limitDocString;
+  goog.dom.append(container, this.dialogContent_);
+  this.limitDocString_ = limitDocString;
 
   this.eh_.listenOnce(this.dialog_, goog.ui.Dialog.EventType.AFTER_HIDE,
                       handler.dispose, false, handler);
@@ -352,11 +350,11 @@ lantern.edit.LinkPicker.prototype.processDocLinkList_ = function(
     docLinkCallback, requestId, result, opt_errMsg) {
   var obj = result;
   var container = this.dialog_.getContentElement();
-  var dialogContent = container.dialogContent_;
+  var dialogContent = this.dialogContent_;
 
-  var newDocRow = container.newDocRow_;
-  var limitDocRow = container.limitDocRow_;
-  var limitDocString = container.limitDocString_;
+  var newDocRow = this.newDocRow_;
+  var limitDocRow = this.limitDocRow_;
+  var limitDocString = this.limitDocString_;
 
   goog.dom.removeChildren(dialogContent);
   dialogContent.appendChild(newDocRow);
@@ -757,6 +755,10 @@ lantern.edit.EditPage.prototype.disposeInternal = function() {
   this.dragDrop_.dispose();
   this.linkPicker_.dispose();
   this.eh_.dispose();
+
+  this.newDocRow_ = null;
+  this.limitDocRow_ = null;
+  this.limitDocString_ = null;
 
   this.dragDrop_ = null;
   this.linkPicker_ = null;
