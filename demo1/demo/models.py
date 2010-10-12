@@ -957,7 +957,7 @@ class DocModel(BaseContentModel):
     """
     doc_id = str(self.key())
     trunk = TrunkModel.insert_with_new_key()
-    trunk.head = doc_id
+    trunk.setHead(doc_id)
     trunk.put()
     self.trunk_ref = trunk
     TrunkRevisionModel.insert_with_new_key(
@@ -975,7 +975,7 @@ class DocModel(BaseContentModel):
     """
     doc_id = str(other.key())
     trunk = self.trunk_ref
-    trunk.head = doc_id
+    trunk.setHead(doc_id)
     trunk.put()
     other.trunk_ref = trunk
     other.put()
@@ -1144,6 +1144,7 @@ class TrunkModel(BaseModel):
   # implicit key
   # Probably we need another model to keep fork_list
   head = db.StringProperty()
+  title = db.StringProperty()
   fork_list = db.ListProperty(db.Key)
   fork_commit_messages = db.StringListProperty()
 
@@ -1154,6 +1155,24 @@ class TrunkModel(BaseModel):
       'trunk_fork_list': self.fork_list,
       'trunk_fork_commit_messages': self.fork_commit_messages
       }
+
+  def setHead(self, doc_id):
+    """Update the trunk head.
+
+    Trunk caches some information on the document at its tip, and
+    here is the place to update it.  Do not use trunk.head = doc_id
+    """
+    self.head = doc_id
+    try:
+      d = db.get(doc_id)
+      if isinstance(d, DocModel):
+        self.title = d.title
+    except (db.BadKeyError, db.BadRequestError):
+      # library.createnewdoc runs this inside a transaction
+      # and updating doc and trunk at the same time will throw
+      # an exception (different entity groups).
+      # the caller will take care of updating the title in that case.
+      pass
 
 
 class TrunkRevisionModel(BaseContentModel):

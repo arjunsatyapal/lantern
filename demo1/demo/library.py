@@ -379,7 +379,7 @@ def create_new_trunk_with_doc(doc_id, **kwargs):
   trunk_revision = insert_with_new_key(models.TrunkRevisionModel, parent=trunk,
     obj_ref=doc_id, commit_message=message)
 
-  trunk.head = doc_id
+  trunk.setHead(doc_id)
   trunk.put()
   return trunk
 
@@ -410,7 +410,7 @@ def append_to_trunk(trunk_id, doc_id, **kwargs):
   trunk_revision = insert_with_new_key(models.TrunkRevisionModel, parent=trunk,
     obj_ref=doc_id, commit_message=message)
 
-  trunk.head = doc_id
+  trunk.setHead(doc_id)
   trunk.put()
   return trunk
 
@@ -452,6 +452,14 @@ def create_new_doc(trunk_id=None, **kwargs):
   if not trunk:
     doc.delete()
     raise models.InvalidDocumentError('Unable to create/append to trunk')
+
+  try:
+    tip = db.get(trunk.head)
+    if isinstance(tip, models.DocModel):
+      trunk.title = tip.title
+      trunk.put()
+  except db.BadKeyError, e:
+    pass
 
   doc.trunk_ref = trunk.key()
   doc.put()
