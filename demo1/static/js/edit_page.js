@@ -756,6 +756,7 @@ lantern.edit.EditPage.prototype.disposeInternal = function() {
   this.linkPicker_.dispose();
   this.eh_.dispose();
 
+  this.dialogContent_ = null;
   this.newDocRow_ = null;
   this.limitDocRow_ = null;
   this.limitDocString_ = null;
