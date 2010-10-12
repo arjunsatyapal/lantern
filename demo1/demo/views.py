@@ -954,20 +954,23 @@ def get_list_ajax(request):
   doc_list = []
   atEnd = 0
   for trunk in query:
-    head = db.get(trunk.head)
-    if not head or not isinstance(head, models.DocModel):
-      continue
-    doc_list.append({
-        'doc_title': head.title,
-        'trunk_id': str(trunk.key()),
-        'doc_id': str(head.key()),
-        })
-    # Self-correction.  For some unknown reason (NEEDSWORK),
-    # the index will go out of sync immediately after editing
-    # a document.
-    if True and (head.title != trunk.title):
-      trunk.title = head.title
-      trunk.put()
+    try:
+      head = db.get(trunk.head)
+      if not head or not isinstance(head, models.DocModel):
+        continue
+      doc_list.append({
+          'doc_title': head.title,
+          'trunk_id': str(trunk.key()),
+          'doc_id': str(head.key()),
+          })
+      # Self-correction.  For some unknown reason (NEEDSWORK),
+      # the index will go out of sync immediately after editing
+      # a document.
+      if True and (head.title != trunk.title):
+        trunk.title = head.title
+        trunk.put()
+    except db.BadKeyError:
+      pass
     if startAt + count < len(doc_list):
       break
   else:

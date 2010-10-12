@@ -1167,7 +1167,7 @@ class TrunkModel(BaseModel):
       d = db.get(doc_id)
       if isinstance(d, DocModel):
         self.title = d.title
-    except db.BadRequestError:
+    except (db.BadKeyError, db.BadRequestError):
       # library.createnewdoc runs this inside a transaction
       # and updating doc and trunk at the same time will throw
       # an exception (different entity groups).
