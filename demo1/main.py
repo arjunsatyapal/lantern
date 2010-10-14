@@ -134,6 +134,7 @@ def profile_main():
 
 # Set this to profile_main to enable profiling.
 main = real_main
+#main = profile_main
 
 
 if __name__ == '__main__':

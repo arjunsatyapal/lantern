@@ -38,7 +38,10 @@
  *   ball icon. Its on-click event is used to pop up an editor.
  *  <li>A colored ball icon with id ("note-" + id + "-ball") that reflects
  *   whether there is a note.
- * </li>
+ * </ul>
+ * The string used in the elementIds is the ID of the doc-content object to
+ * be associated with the note. (Formerly, it was the ID of the annotation
+ * object).
  *
  * This note-handling functionality is triggered upon clicking the ball to
  * unhide the annotation, and then arrange for the updated annotation to be
@@ -86,19 +89,37 @@ lantern.notes.SUFFIX_IMAGE_ = "-ball";
  * One instance should be created for each note. The constructor also binds
  * this instance to handle click events on the underlying button.
  *
- * @param {string} name The name/key of the annotation. It is expected to have
- *     a prefix of "note-".
+ * @param {string} trunk_id ID of the doc trunk.
+ * @param {string} doc_id ID of the doc that instantiated this manager.
+ * @param {string} name The key of the content object to which the
+ *     annotation is attached. It is expected to have a prefix of "note-".
  * @param {element} buttonElt The button Element on which to tie a click event.
  * @param {lantern.notes.NoteProvider} xhrHelper The helper to use to get
  *     and update notes. This is a shared reference.
  * @constructor
  * @extends {goog.Disposable}
  */
-lantern.notes.NoteButton = function(name, buttonElt, xhrHelper) {
+lantern.notes.NoteButton = function(
+    trunk_id, doc_id, name, buttonElt, xhrHelper) {
   goog.Disposable.call(this);
 
   /**
-   * Name/key of the associated note.
+   * Trunk Id of the doc to which this note is attached.
+   * @type {string}
+   * @private
+   */
+  this.trunk_id_ = trunk_id;
+
+  /**
+   * Doc Id of the doc to which this note is attached.
+   * @type {string}
+   * @private
+   */
+  this.doc_id_ = doc_id;
+
+  /**
+   * Name of the button element that contains the key of the content to
+   * which the annotation is attached.
    * @type {string}
    * @private
    */
@@ -214,9 +235,10 @@ lantern.notes.NoteButton.prototype.handleEditorUpdate_ = function(noteElt) {
   }
   // Sends the data to the server, installing a callback to get the note again
   // in order to set the image appropriately.
-  // TODO(vche): Is that too expensive? Should we set the image directly?
-  this.xhrHelper_.updateNote(this.name_, contents, ball, xsrfToken,
-                             goog.bind(this.getNote_, this, null));
+  // TODO(vchen): Is that too expensive? Should we set the image directly?
+  this.xhrHelper_.updateNote(
+      this.trunk_id_, this.doc_id_, this.name_, contents, ball, xsrfToken,
+      goog.bind(this.getNote_, this, null));
 };
 
 
@@ -228,7 +250,8 @@ lantern.notes.NoteButton.prototype.handleEditorUpdate_ = function(noteElt) {
  */
 lantern.notes.NoteButton.prototype.getNote_ = function(opt_popup) {
   this.xhrHelper_.getNote(
-      this.name_, xsrfToken, goog.bind(this.processNote_, this, opt_popup));
+      this.trunk_id_, this.doc_id_, this.name_, xsrfToken,
+      goog.bind(this.processNote_, this, opt_popup));
 };
 
 
@@ -348,10 +371,12 @@ lantern.notes.NoteEditor.prototype.onHide_ = function() {
  *
  * @param {string} className Name of the class used to mark BUTTON elements
  *     that should be bound to NoteButtons.
+ * @param {string} trunk_id ID of the doc trunk.
+ * @param {string} doc_id ID of the doc that instantiated this manager.
  * @constructor
  * @extends {goog.Disposable}
  */
-lantern.notes.NoteManager = function(className) {
+lantern.notes.NoteManager = function(className, trunk_id, doc_id) {
   goog.Disposable.call(this);
 
   this.xhrHelper_ = new lantern.notes.NoteProvider();
@@ -367,7 +392,8 @@ lantern.notes.NoteManager = function(className) {
       // Strip suffix to determine the name of the textarea.
       id = id.replace(lantern.notes.SUFFIX_BUTTON_, '');
     }
-    var noteButton = new lantern.notes.NoteButton(id, button, this.xhrHelper_);
+    var noteButton = new lantern.notes.NoteButton(
+        trunk_id, doc_id, id, button, this.xhrHelper_);
     this.noteButtons_.push(noteButton);
   }
 };
@@ -403,6 +429,7 @@ lantern.notes.NoteManager.prototype.disposeInternal = function() {
  *    input: data=dataDict&amp;xsrf_token=xsrfToken
  *      where dataDict is a JSON-encoded dict of the form:
  *       {'name': key}
+ *      and key is the ID of the content to which the annotation is attached.
  *    output: JSON-encoded dictionary of the form:
  *       {
  *        'text': contents,
@@ -418,6 +445,7 @@ lantern.notes.NoteManager.prototype.disposeInternal = function() {
  *         'text': contents,
  *         'ball': marker
  *        }
+ *      and key is the ID of the content to which the annotation is attached.
  *     output: HTML-formmated debug info.
  *
  * @constructor
@@ -456,16 +484,21 @@ lantern.notes.NoteProvider.DEFAULT_XHR_URI_ = '/notes/';
  * Gets the specified note asynchronously, invoking the callback when the
  * response is received.
  *
- * @param {string} key The key for looking up a note.
+ * @param {string} trunk_id The Trunk Id of the document.
+ * @param {string} doc_id The ID of the document.
+ * @param {string} content_id The ID of the doc content to which the note
+ *     is attached.
  * @param {string} xsrfToken The XSRF token to use to post the request.
  * @param {Function} callback The callback function. It has the signature:
  *    callback(request_id, result, opt_errMsg)
  */
 lantern.notes.NoteProvider.prototype.getNote = function(
-    key, xsrfToken, callback) {
+    trunk_id, doc_id, content_id, xsrfToken, callback) {
   var uri = this.getXhrUri_('get');
   var data = {
-    'name': key
+    'trunk_id': trunk_id,
+    'doc_id': doc_id,
+    'name': content_id
   };
   var contents = ["data=",
                   goog.json.serialize(data),
@@ -480,7 +513,10 @@ lantern.notes.NoteProvider.prototype.getNote = function(
  * Updates the specified note asynchronously, invoking the callback when the
  * response is received.
  *
- * @param {string} key The key for storing the note.
+ * @param {string} trunk_id The Trunk Id of the document.
+ * @param {string} doc_id The ID of the document.
+ * @param {string} content_id The ID of the doc content to which the note
+ *     is attached.
  * @param {string} contents The contents of the note.
  * @param {string} ball The marker type, e.g., 'plain', 'pos', 'neg'.
  * @param {string} xsrfToken The XSRF token to use to post the request.
@@ -488,10 +524,12 @@ lantern.notes.NoteProvider.prototype.getNote = function(
  *    callback(request_id, result, opt_errMsg)
  */
 lantern.notes.NoteProvider.prototype.updateNote = function(
-    key, contents, ball, xsrfToken, callback) {
+    trunk_id, doc_id, content_id, contents, ball, xsrfToken, callback) {
   var uri = this.getXhrUri_('update');
   var data = {
-    'name': key,
+    'trunk_id': trunk_id,
+    'doc_id': doc_id,
+    'name': content_id,
     'text': contents,
     'ball': ball
   };

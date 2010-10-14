@@ -21,14 +21,14 @@
 
 """Django template library for Lantern."""
 
+import base64
 import cgi
 import logging
-import traceback
 import os
-import base64
-import string
 import random
 import re
+import string
+import urlparse
 
 from google.appengine.api import memcache
 from google.appengine.api import users
@@ -61,10 +61,7 @@ def get_element(list, pos):
 
 @register.filter
 def get_range(upper):
-  """Returns a list with integer between the range provided.
-  
-  Args:
-  """
+  """Returns a list with integer between the range provided."""
   return range(upper)
 
 
@@ -253,7 +250,8 @@ def parse_yaml(path):
 
   try:
     data_dict = yaml.load(data_file_content)
-  # If file unable to load yaml content return dictObejct with corresponding error message.
+  # If file unable to load yaml content return dictObejct with corresponding
+  # error message.
   except yaml.YAMLError, exc:
     return {'errorMsg':'Error: Unable to load yaml content from %s<br> ' +
       'Details:<br>\n%s'% (path, str(exc))}
@@ -355,7 +353,7 @@ def insert_with_new_key(cls, parent=None, **kwargs):
   return entity
 
 
-def create_new_trunk_with_doc(doc_id, **kwargs):
+def create_new_trunk_with_doc(doc_id, commit_message=None):
   """Creates a new trunk with given document as head.
 
   WARNING: Since we are passing parent parameter in insert_with_new_key,
@@ -368,14 +366,15 @@ def create_new_trunk_with_doc(doc_id, **kwargs):
 
   Args:
     doc_id: String value of key of the document to be added.
+    commit_message: Message to commit, If None, uses the message,
+        'Committed a new revision'.
   Returns:
     Returns created trunk.
   Raises:
     InvalidDocumentError: If the doc_id is invalid.
   """
   trunk = insert_with_new_key(models.TrunkModel)
-
-  message = kwargs.pop('commit_message', 'Commited a new revision')
+  message = commit_message or 'Committed a new revision'
   trunk_revision = insert_with_new_key(models.TrunkRevisionModel, parent=trunk,
     obj_ref=doc_id, commit_message=message)
 
@@ -384,7 +383,7 @@ def create_new_trunk_with_doc(doc_id, **kwargs):
   return trunk
 
 
-def append_to_trunk(trunk_id, doc_id, **kwargs):
+def append_to_trunk(trunk_id, doc_id, commit_message=None):
   """Appends a document to end of the trunk.
 
   NOTE(mukundjha): No check is done on doc_id, it's responsibility of
@@ -394,6 +393,8 @@ def append_to_trunk(trunk_id, doc_id, **kwargs):
   Args:
     trunk_id: Key of the trunk.
     doc_id: String value of key of the document to be added.
+    commit_message: Message to commit, If None, uses the message,
+        'Committed a new revision'.
   Returns:
     Returns modified trunk.
   Raises:
@@ -405,8 +406,7 @@ def append_to_trunk(trunk_id, doc_id, **kwargs):
   except db.BadKeyError, e:
     raise models.InvalidTrunkError('Trunk is not valid %s',
       trunk_id)
-
-  message = kwargs.pop('commit_message', 'Commited a new revision')
+  message = commit_message or 'Committed a new revision'
   trunk_revision = insert_with_new_key(models.TrunkRevisionModel, parent=trunk,
     obj_ref=doc_id, commit_message=message)
 
@@ -572,39 +572,36 @@ def get_parent(doc):
     return None
 
 
-def get_score_for_link(link_element, user, **kwargs ):
+def get_score_for_link(link_element, user, use_history=False, recurse=False):
   """Calculates score for the DocLink object.
-  
+
   Score for a link is essentially score for the trunk pointed by the link.
-  If dirty bit is set for the visit entry for the referred trunk scores 
+  If dirty bit is set for the visit entry for the referred trunk scores
   for the doc are re-computed by calling get_accumulated_score, else
   score entry for the trunk is fetched.
-  
+
   NOTE(mukundjha): Does not take care of cycles.
 
   Args:
     link_element: Link object for which score is required.
     user: User whose score is desired.
-
-    These arguments are passed as **kwargs.
-
     use_history: If set user's history is used to fetch the doc.
     recurse: If set True, all the scores will be recursively computed
       and updated.
 
-  Returns: 
+  Returns:
     Score for the link object.
   """
-  use_history = kwargs.pop('use_history', False)
-  recurse = kwargs.pop('recurse', False)
-
   if recurse:
     if use_history:
       doc = get_doc_for_user(link_element.trunk_ref.key(), user)
     else:
       doc = fetch_doc(link_element.trunk_ref.key())
-    doc_contents = get_doc_contents(doc, user, resolve_links=True,
-                                    use_history=use_history)
+
+    if use_history:
+      doc_contents = get_doc_contents(doc, user, use_history=use_history)
+    else:
+      doc_contents = get_doc_contents_simple(doc, user)
 
     return get_accumulated_score(doc, user, doc_contents,
                                  use_history=use_history,
@@ -618,12 +615,16 @@ def get_score_for_link(link_element, user, **kwargs ):
         new_doc = get_doc_for_user(link_element.trunk_ref.key(), user)
       else:
         new_doc = fetch_doc(link_element.trunk_ref.key())
-        doc_contents = get_doc_contents(new_doc, user, resolve_links=True,
-                                      use_history=use_history)
+
+        if use_history:
+          doc_contents = get_doc_contents(new_doc, user,
+                                          use_history=use_history)
+        else:
+          doc_contents = get_doc_contents_simple(new_doc, user)
 
         score = get_accumulated_score(new_doc, user, doc_contents,
-                                     use_history=use_history,
-                                     recurse=recurse)
+                                      use_history=use_history,
+                                      recurse=recurse)
         return score
 
     elif visit_state:
@@ -632,9 +633,10 @@ def get_score_for_link(link_element, user, **kwargs ):
       return 0
 
 
-def get_accumulated_score(doc, user, doc_contents, **kwargs):
+def get_accumulated_score(doc, user, doc_contents, use_history=False,
+                          recurse=False):
   """Calculate score for a doc by accumulating scores from its objects.
-  
+
   Averages score, no weights. It also updates the score for element.
 
   Args:
@@ -643,22 +645,17 @@ def get_accumulated_score(doc, user, doc_contents, **kwargs):
       the list is passed separately to prevent repeated calls to data-store
       for objects.
     user: User associated with the score.
-    
-    These arguments are passed in **kwargs.
-    
     use_history: If set user's history is used to fetch the document.
     recurse: If set True scores are recursively re-computed instead of just
       picking entries from datastore.
+
   Returns:
     Average score based on content of the document. Also adds score attribute
     to each 'scorable' element.
   """
-  use_history = kwargs.pop('use_history', False)
-  recurse = kwargs.pop('recurse', False)
-   
   total, count = 0, 0
   for element in doc_contents:
-    if not isinstance(element, models.DocLinkModel): 
+    if not isinstance(element, models.DocLinkModel):
       element.score = element.get_score(user)
     else:
       element.score = get_score_for_link(element, user,
@@ -701,96 +698,117 @@ def put_doc_score(doc, user, score):
   else:
     visit_state = insert_with_new_key(models.DocVisitState, user=user,
                                       trunk_ref=doc.trunk_ref.key(),
-                                      doc_ref=doc.key(), progress_score= score)
+                                      doc_ref=doc.key(), progress_score=score)
 
 
-def get_doc_contents(doc, user, **kwargs):
+def get_base_url(url):
+  """Returns the base of the specified URL.
+
+  Given: http://localhost:8080/exercise?exid=trigonometry_1
+  Returns: http://localhost:8080/
+
+  Given /quiz?quiz_id=kjeiia;sk
+  Returns /quiz/
+  """
+  result = urlparse.urlparse(url)
+  if result.netloc:  # Has full network path, so remove path
+    return urlparse.urlunparse(
+        (result.scheme, result.netloc, '/', '', '', ''))
+  return result.path + '/'
+
+
+def get_doc_contents_simple(doc, user):
+  """Return a list of objects referred by keys in content list of a doc.
+
+  This version loads only the referenced objects and does not try to resolve
+  links, scores, etc.
+
+  TODO(vchen): Opportunity to use memcache to store results.
+
+  Args:
+    doc: DocModel used for populating content objects.
+    user: User in consideration.
+
+  Returns:
+    An ordered list of objects referenced in content list of passed doc.
+    The objects are doc-content models, e.g., RichTextModel, DocLinkModel, etc.
+  """
+  if not isinstance(doc, models.DocModel):
+    return None
+
+  try:
+    # First try a bulk load.
+    content_list = db.get(doc.content)
+  except db.BadKeyError:
+    # Unfortunately, any bad key results in the exception, so now need to
+    # look up one by one, omitting any bad keys.
+    content_list = []
+    for content_id in doc.content:
+      try:
+        content = db.get(content_id)
+        content_list.append(content)
+      except db.BadKeyError:
+        pass
+  for element in content_list:
+    if isinstance(element, models.WidgetModel):
+      element.base_url = get_base_url(element.widget_url)
+  return content_list
+
+
+def get_doc_contents(doc, user, resolve_links=False, use_history=False,
+                     fetch_score=False, fetch_video_state=False):
   """Return a list of objects referred by keys in content list of a doc.
 
   NOTE(mukundjha): doc is a DocModel object and not an id.
   Args:
     doc: DocModel used for populating content objects.
     user: User in consideration.
-    
-    Arguments below are passed using **kwargs. By default all are set to
-    false.
-
-    resolve_links: If reslove_links is true, then links are resolved to
+    resolve_links: If resolve_links is true, then links are resolved to
       get appropriate title for links.
     use_history: Use history to resolve links.
     fetch_score: If set true score is also appended to all objects.
-    fetch_video_state: If set VideoModel object is appended with video's 
+    fetch_video_state: If set VideoModel object is appended with video's
       state (stored paused time).
-  
+
   Returns:
     An ordered list of objects referenced in content list of passed doc.
   Raises:
     BadKeyError: If element referred is invalid.
-  
+
   TODO(mukundjha): Develop Better method to extract base url.
   """
-  resolve_links = kwargs.pop('resolve_links', False) 
-  use_history = kwargs.pop('use_history', False) 
-  fetch_score = kwargs.pop('fetch_score', False) 
-  fetch_video_state = kwargs.pop('fetch_video_state', False) 
-   
   if not isinstance(doc, models.DocModel):
     return None
-  else:
-    content_list = []
-    # Using regex to extract baseurl.
-    # First replace '//' with __TEMP__ and then split on '/'
-    # example http://localhost:8080/exercise/
-    # baseurl = http://localhost:8080
-    # This however does not work if we have '/quiz?'
-    
-    double_slash = re.compile('//') # For double slashes
-    slash = re.compile('/') # Single slash
-    temp = re.compile('__TEMP__')  # Temp symbol to replace // with
-    re_question_mark = re.compile('\?') # For cases like '/quiz?' we split at '?'
-    is_relative_link = re.compile('^/') # Starts with /
 
-    for el in doc.content:
-      element = db.get(el)
-      if not isinstance(element, models.DocLinkModel):
-        if fetch_score:
-          element.score = element.get_score(user)
+  # Get just the list of contents
+  content_list = get_doc_contents_simple(doc, user)
 
-        # If widget : extract the base url, base url are passed to channel
-        # to locate blank.html and relay.html pages.
+  # Now perform any additional resolution of titles, scores, etc.
+  for element in content_list:
+    if not isinstance(element, models.DocLinkModel):
+      if fetch_score:
+        element.score = element.get_score(user)
 
-        if isinstance(element, models.WidgetModel):
-          if is_relative_link.match(element.widget_url): 
-            temp_array = re_question_mark.split(element.widget_url)
-            element.base_url = temp_array[0] + '/'
-          else: 
-            temp_array = slash.split(double_slash.sub('__TEMP__',
-                                   element.widget_url))
-            base_url = temp.sub('//', temp_array[0])
-            element.base_url = base_url + '/'
-        
-        # If video object and fetch_video_status is true, status is fetched.
-        elif isinstance(element, models.VideoModel):
-          video_state = models.VideoState.all().filter(
-              'video_ref =', element).filter(
-              'user =', users.get_current_user()).get()
-          if video_state:
-            element.current_time = video_state.paused_time
-        content_list.append(element)
-      else:
-        link = element
-        if resolve_links and use_history:
-          doc = get_doc_for_user(link.trunk_ref.key(), user)
-          link.default_title = doc.title
-        elif resolve_links:
-          doc = fetch_doc(link.trunk_ref.key())
-          link.default_title = doc.title
+      # If video object and fetch_video_status is true, status is fetched.
+      elif fetch_video_state and isinstance(element, models.VideoModel):
+        video_state = models.VideoState.all().filter(
+            'video_ref =', element).filter(
+                'user =', users.get_current_user()).get()
+        if video_state:
+          element.current_time = video_state.paused_time
+    else:
+      link = element
+      if resolve_links and use_history:
+        link_doc = get_doc_for_user(link.trunk_ref.key(), user)
+        link.default_title = link_doc.title
+      elif resolve_links:
+        link_doc = fetch_doc(link.trunk_ref.key())
+        link.default_title = link_doc.title
 
-        if fetch_score:
-          link.score = doc.get_score(user)
- 
-        content_list.append(link)
-    return content_list
+      if fetch_score:
+        link.score = link_doc.get_score(user)
+
+  return content_list
 
 
 def put_widget_score(widget, user, score):
@@ -817,14 +835,14 @@ def put_widget_score(widget, user, score):
 
 def get_path_till_course(doc, path=None, path_trunk_set=None):
   """Gets a list of parents with root as a course.
-  
+
   Useful in cases where a user lands on a random page and page
   needs to be linked to a course.
   Currently just picking the most latest parent recursively up
   until a course is reached or there are no more parents to pick.
 
   NOTE(mukundjha): This function is very heavy on datastore.
-  * Checking for first 1000 entries for an existing course 
+  * Checking for first 1000 entries for an existing course
   is slightly better than checking all entries.
 
   Args:
@@ -834,7 +852,7 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
   Returns:
     A list of parents doc_ids with root as a course.
   """
-  logging.info('****Path RCVD %r', path) 
+  logging.info('****Path RCVD %r', path)
   trunk_set = set()
   if path is None:
     path = []
@@ -863,12 +881,12 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
           path.reverse()
           path_to_return = [el.key() for el in path]
           return path_to_return
-     
-  
+
+
   if alternate_parent:
     parent = alternate_parent
     if parent.from_trunk_ref.key() not in path_trunk_set:
-    
+
       path_trunk_set.add(parent.from_trunk_ref.key())
       path.append(parent.from_doc_ref)
       path_to_return = get_path_till_course(parent.from_doc_ref,
@@ -885,11 +903,11 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
 
 def get_or_create_session_id(widget, user):
   """Retrieves or creates a new session_id for the widget.
-  
-  Session id is assumed to be the key for WidgetProgressState entry 
-  for the widget. We have separate model to store data for the user 
-  per widget but since we need only one unique id we can reutilize 
-  the id assigned by appstore instead of creating new one for 
+
+  Session id is assumed to be the key for WidgetProgressState entry
+  for the widget. We have separate model to store data for the user
+  per widget but since we need only one unique id we can reutilize
+  the id assigned by appstore instead of creating new one for
   every sesssion. If no entry is present, a new entry is made. Currently,
   we are setting dirty bits to report stale scores.
 
@@ -913,8 +931,8 @@ def set_dirty_bits_for_doc(doc, user):
 
   Dirty bit indicates the score for the doc are stale and needs to be
   recomputed.
-   
-  TODO(mukundjha): We should check for the path, or pass path as 
+
+  TODO(mukundjha): We should check for the path, or pass path as
   parameter.
 
   TODO(mukundjha): Maybe we should bind this with actual doc rather than
@@ -937,8 +955,8 @@ def set_dirty_bits_for_doc(doc, user):
         'user =', user).get()
     if visit_entry:
       visit_entry.dirty_bit = True
-      visit_entry.put()  
-  
+      visit_entry.put()
+
 
 def update_visit_stack(doc, parent, user):
   """Updates the visit stack for a particular doc.
@@ -946,7 +964,7 @@ def update_visit_stack(doc, parent, user):
   Path appends parent to parent's path and sets as path for curernt doc.
   If parent is itself a course, only parent is added to the path as paths
   are rooted at course level.
- 
+
   NOTE(mukundjha): Currently stack stores doc_ids, we could replace this with,
   trunk_id, doc_id, doc.title to reduce the datastore load.
 
@@ -994,15 +1012,15 @@ def update_visit_stack(doc, parent, user):
 
       if not cycle_detected:
         path.append(parent.key())
-      
+
     if doc_visit_stack:
       doc_visit_stack.path = path
       doc_visit_stack.put()
     else:
       doc_visit_stack = insert_with_new_key(
-        models.TraversalPath, current_doc=doc, 
+        models.TraversalPath, current_doc=doc,
         current_trunk=doc.trunk_ref, path=path, user=user)
-  
+
   # If parent is not present
   elif not doc_visit_stack:
     # Gets set of parents.
@@ -1015,12 +1033,12 @@ def update_visit_stack(doc, parent, user):
 
 def update_recent_course_entry(recent_doc, course, user):
   """Updates the entry for recent course visited/accesed.
-  
+
   Note(mukundjha): instead of using course.get_score() we should
   use the get_accumulated_score() with recurse=True, but it would
   be too costly to do it on every update. Therefore its better to
   push the score-change/delta up the tree on every update.
-  
+
   Args:
     recent_doc: Latest doc accessed for the course.
     course: Course to be updated.
@@ -1037,7 +1055,7 @@ def update_recent_course_entry(recent_doc, course, user):
         'trunk_ref =', course.trunk_ref).get()
 
   if visit_state and visit_state.dirty_bit:
-    doc_contents = get_doc_contents(course, user, resolve_links=True)
+    doc_contents = get_doc_contents_simple(course, user)
     score =  get_accumulated_score(course, user, doc_contents)
   else:
     score = course.get_score(user)
@@ -1058,17 +1076,16 @@ def update_recent_course_entry(recent_doc, course, user):
 
 
 def get_recent_in_progress_courses(user):
-  """Gets a list of recent courses in progress. 
- 
+  """Gets a list of recent courses in progress.
+
   Recomputes scores if score entry for course is stale.
 
   Args:
     user: User under consideration.
-  
+
   Returns:
     List of recent course entry.
   """
-
   recent_list = models.RecentCourseState.all().filter('user =', user).order(
       '-time_stamp')
   in_progress = []
@@ -1079,17 +1096,17 @@ def get_recent_in_progress_courses(user):
 
     if visit_state and visit_state.dirty_bit:
       course = fetch_doc(entry.course_trunk_ref.key())
-      doc_contents = get_doc_contents(course, user, resolve_links=True)
+      doc_contents = get_doc_contents_simple(course, user)
       score =  get_accumulated_score(course, user, doc_contents)
       entry.course_score = score
       entry.put()
     else:
       score = entry.course_score
-    
+
     if score < 100 and num_to_pick:
       num_to_pick -= 1
       in_progress.append(entry)
-  
+
   return in_progress
 
 
@@ -1107,15 +1124,15 @@ def expand_path(path, user, use_history, absolute):
     the links.
 
   Returns:
-    Returns list of DocModel objects corresponding to the doc_ids in the path 
-    passed. 
+    Returns list of DocModel objects corresponding to the doc_ids in the path
+    passed.
   """
-  path = [ db.get(el) for el in path ]
+  path = db.get(path)  # Returns a list
   if absolute:
     return path
   elif use_history:
     path = [ get_doc_for_user(el.trunk_ref.key(), user) for el in path ]
-  else: 
+  else:
     # Fetch latest
     path = [ fetch_doc(el.trunk_ref.key()) for el in path ]
   return path
@@ -1126,68 +1143,134 @@ def show_changes(pre, post):
   return pre.HtmlDiff(pre, post)
 
 
-def get_doc_annotation(doc, user):
-  """Retrieve annotation for a given doc.
+def get_doc_annotation(doc, user, doc_contents=None):
+  """Retrieve annotation keys for a given doc.
+
+  NOTE: This no longer retrieves the actual annotations, but just placeholders
+  using the content IDs.  The annotations will be retrieved via AJAX using
+  the foreign keys: (trunk_id, doc_id, content_id, user).
 
   Args:
     doc: DocModel that is possibly annotated
     user: User in consideration
+    doc_contents: Optional list of doc's contents. If None, gets the list from
+        the database.
   Returns:
-    A dictionary of { obj_id: annotation } for component documents in doc
+    A dictionary of { obj_id: annotation_spec } for component documents in doc
   """
   if not isinstance(doc, models.DocModel) or (user is None):
     return None
+
+  if not doc_contents:
+    doc_contents = get_doc_contents_simple(doc, user)
   annotation = {}
-  for el in doc.content:
-    element = db.get(el)
-    anno = (models.AnnotationState.all()
-            .filter('user =', user)
-            .filter('trunk_ref =', doc.trunk_ref)
-            .filter('doc_ref =', doc)
-            .filter('object_ref =', element))
-    if anno.count() == 0:
-      anno = models.AnnotationState(user=user,
-                                    doc_ref=doc,
-                                    trunk_ref=doc.trunk_ref,
-                                    object_ref=element)
-      anno.annotation_data = ""
-      anno.put()
-    else:
-      anno = anno.get()
-    annotation[str(element.key())] = {
-        'data': anno.annotation_data,
-        'key': str(anno.key()),
-    }
+  for content in doc_contents:
+    key_string = str(content.key())
+    annotation[key_string] = {
+        'data': '',
+        'key': key_string,
+        }
   return annotation
 
 
-def update_notes(name, data):
-  """Update annotation data
+def _get_doc_content_annotation(trunk_id, doc_id, content_id, user):
+  """Retrieves user-annotation for a given doc content.
+
+  This is an internal work routine that uses the memcache to cache the key name
+  of the annotation object associated with the specified content.
 
   Args:
-    name: key to AnnotationState
-    data: new annotation data (serialized at the UI layer)
+    trunk_id: Trunk ID of the doc that contains the annotation.
+    doc_id: Doc ID of the doc that contains the annotation.
+    content_id: ID of the content model (e.g., RichTextModel, DocLinkModel,
+        etc.).
+    user: User in consideration.
+
+  Returns:
+    An instance of models.AnnotationState or None.
   """
-  # NEEDSWORK(jch):
-  # Since AnnotationState model wants annotation_data as serialized
-  # blob of everything, the data here is opaque at this library layer
-  # as the serialization is done between views layer and the JS in
-  # the browser (and we probably do not want to do JSON at the library
-  # layer).  This is somewhat awkward.  Perhaps AnnotationState should
-  # be modified to learn logical fields as it grows???  I dunno.
-  anno = db.get(name)
-  anno.annotation_data = data.encode('utf-8')
-  anno.put()
+  if not user:
+    return None
+  cache_key = '|'.join([trunk_id, doc_id, content_id, str(user)])
+  key_name = memcache.get(cache_key, namespace='anno')
+
+  if key_name:
+    return models.AnnotationState.get_by_key_name(key_name)
+
+  try:
+    doc = fetch_doc(trunk_id, doc_id=doc_id)
+  except models.InvalidTrunkError, e:
+    logging.error('Error loading doc for annotation: %r' % e)
+    return None
+
+  content = None
+  try:
+    content = db.get(content_id)
+  except db.BadKeyError:
+    pass
+  if not content:
+    logging.error('Cannot locate content for annotation: %r' % content_id)
+    return None
+
+  query = (models.AnnotationState.all()
+           .filter('user =', user)
+           .filter('trunk_ref =', doc.trunk_ref)
+           .filter('doc_ref =', doc)
+           .filter('object_ref =', content))
+  if query.count() == 0:
+    anno = models.AnnotationState(user=user,
+                                  doc_ref=doc,
+                                  trunk_ref=doc.trunk_ref,
+                                  object_ref=content)
+    anno.annotation_data = ''
+    anno.put()
+  else:
+    anno = query.get()
+  memcache.set(cache_key, anno.key().name(), namespace='anno')
+  return anno
 
 
-def get_notes(name):
-  """Get annotation data on a given document
+def get_annotation_data(trunk_id, doc_id, content_id, user):
+  """Retrieves user-annotation contents for a given doc content.
 
   Args:
-    name: key to AnnotationState
+    trunk_id: Trunk ID of the doc that contains the annotation.
+    doc_id: Doc ID of the doc that contains the annotation.
+    content_id: ID of the content model (e.g., RichTextModel, DocLinkModel, etc.)
+    user: User in consideration
+
+  Returns:
+    The user annotation data as a JSON encoded blob.
   """
-  anno = db.get(name)
-  return anno.annotation_data
+  anno = _get_doc_content_annotation(trunk_id, doc_id, content_id, user)
+  if anno:
+    return anno.annotation_data
+  return ''
+
+
+def update_doc_content_annotation(trunk_id, doc_id, content_id, user, data):
+  """Updates user-annotation for a given doc content.
+
+  Uses the memcache.
+
+  Args:
+    trunk_id: Trunk ID of the doc that contains the annotation.
+    doc_id: Doc ID of the doc that contains the annotation.
+    content_id: ID of the content model (e.g., RichTextModel, DocLinkModel, etc.)
+    user: User in consideration
+    data: The annotation data as a string. It will be encoded as utf-8
+  """
+  anno = _get_doc_content_annotation(trunk_id, doc_id, content_id, user)
+  if anno:
+    # NEEDSWORK(jch):
+    # Since AnnotationState model wants annotation_data as serialized
+    # blob of everything, the data here is opaque at this library layer
+    # as the serialization is done between views layer and the JS in
+    # the browser (and we probably do not want to do JSON at the library
+    # layer).  This is somewhat awkward.  Perhaps AnnotationState should
+    # be modified to learn logical fields as it grows???  I dunno.
+    anno.annotation_data = data.encode('utf-8')
+    anno.put()
 
 
 def view_doc_param(doc, visit, current, came_from):

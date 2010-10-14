@@ -26,7 +26,6 @@
 
 """Views for Lantern."""
 
-
 ### Imports ###
 
 
@@ -564,8 +563,8 @@ def edit(request):
   except (models.InvalidTrunkError, models.InvalidDocumentError):
     return HttpResponse("No such document exists", status=404)
 
-  doc_contents = library.get_doc_contents(doc, users.get_current_user(),
-                                          resolve_links=True)
+  doc_contents = library.get_doc_contents_simple(doc, users.get_current_user())
+
   tags = ','.join(doc.tags)
   render_dict.update(
       {'doc': doc,
@@ -667,7 +666,7 @@ def view_doc(request):
     if use_absolute_addressing:
       doc = library.fetch_doc(trunk_id, doc_id)
     elif use_history:
-      doc = library.get_doc_for_user(trunk_id, users.get_current_user())
+      doc = prev_doc
     else:
       doc = library.fetch_doc(trunk_id)
 
@@ -676,21 +675,21 @@ def view_doc(request):
 
 
   doc_contents = library.get_doc_contents(
-      doc, users.get_current_user(), reslove_links=True,
+      doc, users.get_current_user(), resolve_links=True,
       use_history=use_history, fetch_score=True, fetch_video_state=True)
 
   current_doc_score = doc.get_score(users.get_current_user())
 
+  doc_score = current_doc_score
+
   # If progress is 100, we don't recompute the score for the page.
   # until user chooses to reset the score. Here we are just updating
   # the timestamp of the visit (and recording the visited version).
+  # When it is not 100, it will be updated via AJAX.
+
   if current_doc_score == 100:
     library.put_doc_score(doc, users.get_current_user(), 100)
     doc_score = 100
-  else:
-    doc_score = library.get_accumulated_score(doc, users.get_current_user(),
-                                              doc_contents,
-                                              use_history=use_history)
   trunk = doc.trunk_ref
 
   if parent_trunk:
@@ -698,9 +697,11 @@ def view_doc(request):
   else:
     parent = None
 
+
   updated_stack = library.update_visit_stack(doc, parent,
                                              users.get_current_user())
   # Page itself is a course
+  # TODO(vchen): Update recent course should be a background task.
   if doc.label == models.AllowedLabels.COURSE:
     library.update_recent_course_entry(doc, doc,
                                        users.get_current_user())
@@ -760,7 +761,9 @@ def view_doc(request):
     '<b>Progress: %s</b></div>' % (doc_score)
     ]
   title = ''.join(title_items)
-  annotation = library.get_doc_annotation(doc, users.get_current_user())
+
+  annotation = library.get_doc_annotation(
+      doc, users.get_current_user(), doc_contents=doc_contents)
   return respond(request, title, "view.html",
                 {'doc': doc,
                 'doc_score': doc_score,
@@ -807,7 +810,8 @@ def changes(request):
 
   trunk = db.get(trunk_id)
   revs = [i.obj_ref
-          for i in models.TrunkRevisionModel.all().ancestor(trunk).order('-created')]
+          for i in models.TrunkRevisionModel.all().ancestor(trunk).order(
+              '-created')]
   for it, previous in itertools.izip(revs, revs[1:] + [None]):
     if previous is None:
       continue
@@ -857,6 +861,36 @@ def get_session_id_for_widget(request):
     return HttpResponse(simplejson.dumps({'session_id' : session_id}))
 
 
+def get_doc_score(request):
+  """Gets the document score via asynchronously.
+
+  It also computes accumulated score for the document and sends it back.
+
+  TODO(mukundjha): Slightly inefficient with many calls to datastore,
+    should use mem-cache.
+
+  Query Parameters:
+    trunk_id: Trunk id of the document
+    doc_id: Key of the document.
+
+  Respose:
+    JSON encoded:
+    { 'doc_score': score }
+  """
+  trunk_id = request.GET.get('trunk_id')
+  doc_id = request.GET.get('doc_id')
+  user = users.get_current_user()
+
+  # Using absolute addressing
+  doc = library.fetch_doc(trunk_id, doc_id)
+  doc_score = doc.get_score(user)
+  if doc_score < 100:
+    doc_contents = library.get_doc_contents_simple(doc, user)
+    doc_score = library.get_accumulated_score(doc, user, doc_contents,
+                                              recurse=False)
+  return HttpResponse(simplejson.dumps({ 'doc_score': doc_score }))
+
+
 def update_doc_score(request):
   """Updates score for the widget and the doc and returns updated doc score.
 
@@ -897,9 +931,8 @@ def update_doc_score(request):
 
   # Using absolute addressing
   doc = library.fetch_doc(trunk_id, doc_id)
+  doc_contents = library.get_doc_contents_simple(doc, users.get_current_user())
 
-  doc_contents = library.get_doc_contents(doc, users.get_current_user(),
-                                          resolve_links=True)
   # No recursive
   doc_score = library.get_accumulated_score(doc, users.get_current_user(),
                                             doc_contents)
@@ -1142,15 +1175,18 @@ def update_notes(request):
   try:
     data = request.POST.get('data')
     it = simplejson.loads(data)
-    name = it['name']
-    name = re.sub(r'^[^-]+-', '', name)
-    library.update_notes(name, data)
+    trunk_id = it.get('trunk_id')
+    doc_id = it.get('doc_id')
+    content_id = it.get('name')
+    content_id = re.sub(r'^[^-]+-', '', content_id)
+    library.update_doc_content_annotation(trunk_id, doc_id, content_id,
+                                          users.get_current_user(), data)
   except Exception, e:
-    name = str(e)
+    content_id = str(e)
     data = request.POST.get('data')
 
   return respond(request, "Received", "debugnotes.html",
-                 { 'data': data, 'name': name })
+                 { 'data': data, 'name': content_id })
 
 
 @login_required
@@ -1168,26 +1204,33 @@ def get_notes(request):
   try:
     data = request.POST.get('data')
     it = simplejson.loads(data)
-    name = it['name']
-    name = re.sub(r'^[^-]+-', '', name)
+    trunk_id = it.get('trunk_id')
+    doc_id = it.get('doc_id')
+    content_id = it.get('name')
 
+    # Strip leading 'note##-' from the name to extract the content_id.
+    content_id = re.sub(r'^[^-]+-', '', content_id)
+
+    # Prepare default response.
     d = {'text': '', 'ball': 'plain'}
     try:
-      data = library.get_notes(name)
+      data = library.get_annotation_data(trunk_id, doc_id, content_id,
+                                         users.get_current_user())
       if data:
         d = simplejson.loads(data)
     except ValueError, e:
-      logging.warn("--------- get_notes: error = %r" % e)
+      #logging.warn("--------- get_notes: error = %r" % e)
+      pass
 
     text = d.get('text', '')
     ball = d.get('ball', 'plain')
 
   except Exception, e:
-    name = str(e)
+    content_id = str(e)
     text = request.POST.get('data')
 
   return HttpResponse(simplejson.dumps({
       'text': text,
       'ball': ball,
-      'name': name,
+      'name': content_id,
       }))

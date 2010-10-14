@@ -125,21 +125,37 @@ function chartURL(doc_score) {
 init = function() {
   if (global_score == 100) {
      toggleShow(markAsReadButton, resetButton);
-  }
-  else {
+  } else {
      toggleShow(resetButton, markAsReadButton);
   }
   var progressBar = goog.dom.getElement('docProgressBar');
   progressBar.src = chartURL(global_score);
+
+  if (global_score < 100) {
+    var xhr = new goog.net.XhrIo();
+    uri = new goog.Uri('/getDocScore');
+    uri.setParameterValue('trunk_id', '{{doc.trunk_ref|get_key}}');
+    uri.setParameterValue('doc_id', '{{doc|get_key}}');
+    goog.events.listenOnce(
+      xhr, goog.net.EventType.COMPLETE,
+      function(e){
+        var obj = xhr.getResponseJson();
+
+        global_score = obj['doc_score'];
+        var progressBar = goog.dom.getElement('docProgressBar');
+        progressBar.src = chartURL(global_score);
+     });
+    xhr.send(uri);
+  }
 }
 
 function resetScores(){
-  if(global_score == 100) {
+  if (global_score == 100) {
     var xhr = new goog.net.XhrIo();
     uri = new goog.Uri('/resetScoreAjax');
     uri.setParameterValue('trunk_id', '{{doc.trunk_ref|get_key}}');
     uri.setParameterValue('doc_id', '{{doc|get_key}}');
-    goog.events.listen(
+    goog.events.listenOnce(
       xhr, goog.net.EventType.COMPLETE,
       function(e){
         global_score = 0;
@@ -160,7 +176,7 @@ function markAsRead(){
     uri = new goog.Uri('/markAsReadAjax');
     uri.setParameterValue('trunk_id', '{{doc.trunk_ref|get_key}}');
     uri.setParameterValue('doc_id', '{{doc|get_key}}');
-    goog.events.listen(
+    goog.events.listenOnce(
       xhr, goog.net.EventType.COMPLETE,
       function(e){
         global_score = 100;
@@ -183,7 +199,10 @@ init();
 
 lantern.comm.LanternChannelFactory.initialize(global_score == 100);
 
-var noteMgr = new lantern.notes.NoteManager("notestrigger");
+var noteMgr = new lantern.notes.NoteManager(
+    'notestrigger',
+    '{{doc.trunk_ref|get_key}}',
+    '{{doc|get_key}}');
 goog.events.listenOnce(window, 'unload', function(e) {
   noteMgr.dispose();
   noteMgr = null;

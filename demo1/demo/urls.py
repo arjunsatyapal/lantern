@@ -35,7 +35,9 @@ urlpatterns = defaults.patterns(
     # XHR targets
 
     # Gets session id for a widget
-    (r'^getSessionId$', 'get_session_id_for_widget'), 
+    (r'^getSessionId$', 'get_session_id_for_widget'),
+    # Gets doc score via ajax
+    (r'^getDocScore$', 'get_doc_score'),
     # Updates progress score for widget and document for the current user
     # and returns updated accumulated score for the document.
     (r'^updateScore$', 'update_doc_score'),

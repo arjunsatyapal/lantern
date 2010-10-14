@@ -21,6 +21,7 @@ import logging
 import unittest
 import os
 import re
+import urlparse
 
 # AppEngine imports
 from google.appengine.ext import db
@@ -59,7 +60,7 @@ class UpdateVisitStackTest(unittest.TestCase):
       docs.append(library.create_new_doc(trunks[i].key()))
       docs[i].title = str(i)
       docs[i].put()
-    #graph 
+    #graph
     # 2->1->0
 
     library.insert_with_new_key(models.DocLinkModel,
@@ -84,7 +85,7 @@ class UpdateVisitStackTest(unittest.TestCase):
       docs.append(library.create_new_doc(trunks[i].key()))
       docs[i].title = str(i)
       docs[i].put()
-    #graph 
+    #graph
     # 2->1->0
 
     library.insert_with_new_key(models.DocLinkModel,
@@ -98,7 +99,7 @@ class UpdateVisitStackTest(unittest.TestCase):
     visit_stack = library.update_visit_stack(docs[0], docs[1], temp_user)
     # expect to return the path 2->1
     self.assertEquals([ docs[2].key(), docs[1].key() ], visit_stack.path)
- 
+
   def testWithParentAndParentEntry(self):
     temp_user = users.User('test1@gmail.com')
     trunks = []
@@ -108,7 +109,7 @@ class UpdateVisitStackTest(unittest.TestCase):
       docs.append(library.create_new_doc(trunks[i].key()))
       docs[i].title = str(i)
       docs[i].put()
-    #graph 
+    #graph
     # 2->1->0
 
     library.insert_with_new_key(models.DocLinkModel,
@@ -122,7 +123,7 @@ class UpdateVisitStackTest(unittest.TestCase):
     visit_stack = library.update_visit_stack(docs[0], None, temp_user)
     # expect to return the path 2->1
     self.assertEquals([ docs[2].key(), docs[1].key() ], visit_stack.path)
-    
+
     visit_stack = library.update_visit_stack(docs[4], docs[0], temp_user)
     self.assertEquals([ docs[2].key(), docs[1].key(), docs[0].key() ],
                       visit_stack.path)
@@ -136,7 +137,7 @@ class UpdateVisitStackTest(unittest.TestCase):
       docs.append(library.create_new_doc(trunks[i].key()))
       docs[i].title = str(i)
       docs[i].put
-    #graph 
+    #graph
     # 2->1->0
 
     library.insert_with_new_key(models.DocLinkModel,
@@ -154,7 +155,7 @@ class UpdateVisitStackTest(unittest.TestCase):
     visit_stack = library.update_visit_stack(docs[4], docs[1], temp_user)
     self.assertEquals([ docs[2].key(), docs[1].key()],
                       visit_stack.path)
- 
+
     visit_stack = library.update_visit_stack(docs[1], docs[0], temp_user)
     self.assertEquals([ docs[2].key()],
                       visit_stack.path)
@@ -169,7 +170,7 @@ class GetPathTillCourseTest(unittest.TestCase):
     doc1 = library.create_new_doc(trunk1.key())
     path = library.get_path_till_course(doc1)
     self.assertEquals([], path)
- 
+
   def testDocWithMultipleParents(self):
     trunks = []
     docs = []
@@ -178,11 +179,11 @@ class GetPathTillCourseTest(unittest.TestCase):
       docs.append(library.create_new_doc(trunks[i].key()))
       docs[i].title = str(i)
       docs[i].put()
-    
+
     docs[3].label = models.AllowedLabels.COURSE
     docs[3].put()
     doc = db.get(docs[3].key())
-    logging.info('~~~~~~~~~~~tititle %r', doc.title) 
+    logging.info('~~~~~~~~~~~tititle %r', doc.title)
     # Graph looks like this
     #  3 -> 1 -> 0
     #  4 -> 2 -> 0
@@ -209,7 +210,7 @@ class GetPathTillCourseTest(unittest.TestCase):
     library.insert_with_new_key(models.DocLinkModel,
       trunk_ref=docs[2].trunk_ref.key(), doc_ref=docs[2].key(),
       from_trunk_ref=docs[3].trunk_ref.key(), from_doc_ref=docs[3].key())
-  
+
     path = library.get_path_till_course(docs[0])
     self.assertEquals([docs[3].key(), docs[2].key()], path)
 
@@ -224,7 +225,7 @@ class GetPathTillCourseTest(unittest.TestCase):
       trunks.append(library.insert_with_new_key(models.TrunkModel))
       docs.append(library.create_new_doc(trunks[i].key()))
       docs[i].title = str(i)
-      docs[i].put() 
+      docs[i].put()
     docs[4].label = models.AllowedLabels.COURSE
     # Graph looks like this
     #
@@ -266,8 +267,8 @@ class GetOrCreateSessionIdTest(unittest.TestCase):
         'widget_ref =', widget)
     self.assertEquals(1, vs.count())
     self.assertEquals(id, str(vs.get().key()))
-    
- 
+
+
   def testValidGet(self):
     temp_user = users.User('test1@gmail.com')
     widget = library.insert_with_new_key(models.WidgetModel, widget_url='xx')
@@ -275,8 +276,8 @@ class GetOrCreateSessionIdTest(unittest.TestCase):
                                      widget_ref=widget, user=temp_user,
                                      progress_score=2)
     id = library.get_or_create_session_id(widget, temp_user)
-    self.assertEquals(id, str(vs.key()))   
-    
+    self.assertEquals(id, str(vs.key()))
+
 
 class UpdateRecentCourseEntryTest(unittest.TestCase):
   """Test for updating recent course entries."""
@@ -288,7 +289,7 @@ class UpdateRecentCourseEntryTest(unittest.TestCase):
     doc1 = library.create_new_doc(trunk1.key())
     e1 = library.update_recent_course_entry(doc1, doc1, temp_user)
     self.assertEquals(None, e1)
-    
+
     entry = models.RecentCourseState.all().filter('user =', temp_user).filter(
       'course_trunk_ref =', doc1.trunk_ref).get()
     self.assertEquals(None, entry)
@@ -303,7 +304,7 @@ class UpdateRecentCourseEntryTest(unittest.TestCase):
     doc2 = library.create_new_doc(trunk2.key())
     doc2.label = models.AllowedLabels.MODULE
     doc2.put()
-   
+
     library.insert_with_new_key(models.DocVisitState, trunk_ref=doc1.trunk_ref,
       doc_ref=doc1, user=temp_user, progress_score=50)
 
@@ -321,7 +322,7 @@ class UpdateRecentCourseEntryTest(unittest.TestCase):
     self.assertEquals(entry.last_visited_doc_ref.key(), doc2.key())
     self.assertEquals(50, entry.course_score)
 
-    
+
   def testUpdateWithValidCourse(self):
     temp_user = users.User('test1@gmail.com')
     trunk1 = library.insert_with_new_key(models.TrunkModel)
@@ -356,12 +357,12 @@ class UpdateRecentCourseEntryTest(unittest.TestCase):
     # Update Score
     visit_state.progress_score = 100
     visit_state.put()
-    
+
     e1 = library.update_recent_course_entry(doc1, doc1, temp_user)
     self.assertEquals(e1.course_trunk_ref.key(), trunk1.key())
     self.assertEquals(e1.course_doc_ref.key(), doc1.key())
     self.assertEquals(e1.last_visited_doc_ref.key(), doc1.key())
-    self.assertEquals(100, e1.course_score) 
+    self.assertEquals(100, e1.course_score)
 
     entry = models.RecentCourseState.all().filter('user =', temp_user).filter(
         'course_trunk_ref =', trunk1).get()
@@ -379,7 +380,7 @@ class GetRecentInProgressCoursesTest(unittest.TestCase):
     temp_user = users.User('test1@gmail.com')
     in_progress = library.get_recent_in_progress_courses(temp_user)
     self.assertEquals([], in_progress)
-  
+
   def testWithAllCompleteCourses(self):
     temp_user = users.User('test1@gmail.com')
     trunk1 = library.insert_with_new_key(models.TrunkModel)
@@ -397,7 +398,7 @@ class GetRecentInProgressCoursesTest(unittest.TestCase):
 
     library.insert_with_new_key(models.DocVisitState, trunk_ref=doc2.trunk_ref,
       doc_ref=doc2, user=temp_user, progress_score=100)
-    
+
     library.update_recent_course_entry(doc1, doc1, temp_user)
     library.update_recent_course_entry(doc2, doc2, temp_user)
 
@@ -424,15 +425,15 @@ class GetRecentInProgressCoursesTest(unittest.TestCase):
 
     e1 = library.update_recent_course_entry(doc1, doc1, temp_user)
     e2 = library.update_recent_course_entry(doc2, doc2, temp_user)
-    
+
     in_progress = library.get_recent_in_progress_courses(temp_user)
     self.assertEquals([str(e2.key()), str(e1.key())],
                       [str(x.key()) for x in in_progress])
-    
+
     entry.progress_score = 100
     entry.put()
     e2 = library.update_recent_course_entry(doc2, doc2, temp_user)
-    
+
     in_progress = library.get_recent_in_progress_courses(temp_user)
     self.assertEquals([str(e1.key())],
                       [str(x.key()) for x in in_progress])
@@ -532,6 +533,68 @@ class GetParentTest(unittest.TestCase):
     self.assertEquals(str(doc2.key()), str(doc.key()))
 
 
+class DocContentTest(unittest.TestCase):
+  """Test retrieving doc contents."""
+
+  def setUp(self):
+    doc = library.create_new_doc()
+
+    content1 = library.create_new_doc()
+    content2 = library.create_new_doc()
+
+    # creating link to previous doc
+    link1 = library.insert_with_new_key(
+        models.DocLinkModel,
+        trunk_ref=doc.trunk_ref.key(),
+        doc_ref=doc.key(),
+        from_trunk_ref=content1.trunk_ref.key(),
+        from_doc_ref=content1.key())
+    link2 = library.insert_with_new_key(
+        models.DocLinkModel,
+        trunk_ref=doc.trunk_ref.key(),
+        doc_ref=doc.key(),
+        from_trunk_ref=content2.trunk_ref.key(),
+        from_doc_ref=content2.key())
+    doc.content.append(link1.key())
+    doc.content.append(link2.key())
+    doc.put()
+
+    self.doc = doc
+    self.content1 = content1
+    self.content2 = content2
+    self.link1 = link1
+    self.link2 = link2
+
+  def testDocContentAsList(self):
+    key_list = [self.link1.key(), self.link2.key()]
+    content_list = db.get(key_list)
+    self.assertEquals(2, len(content_list))
+    self.assertEquals(self.link1.key(), content_list[0].key())
+    self.assertEquals(self.link2.key(), content_list[1].key())
+
+  def testDocContentViaDocLookup(self):
+    doc = db.get(str(self.doc.key()))
+    content_list = db.get(doc.content)
+    self.assertEquals(2, len(content_list))
+    self.assertEquals(self.link1.key(), content_list[0].key())
+    self.assertEquals(self.link2.key(), content_list[1].key())
+
+  def testDocContentWithInvalidKeys(self):
+    key_list = ['foo', 'foo1']
+    try:
+      content_list = db.get(key_list)
+      self.fail('Did not get expected db.BadKeyError')
+    except db.BadKeyError:
+      pass
+
+    key_list = [str(self.link1.key()), 'foo', str(self.link2.key())]
+    try:
+      content_list = db.get(key_list)
+      self.fail('Did not get expected db.BadKeyError')
+    except db.BadKeyError:
+      pass
+
+
 class GetAccumulatedScoreTest(unittest.TestCase):
   """Test retrieving accumulated progress score for a document."""
 
@@ -563,8 +626,10 @@ class GetAccumulatedScoreTest(unittest.TestCase):
     doc1.content.append(link.key())
     doc1.content.append(widget.key())
     doc1.put()
+#     doc_content = library.get_doc_contents(
+#         doc1, users.get_current_user(), resolve_links=True)
     doc_content = library.get_doc_contents(
-        doc1, users.get_current_user(), resolve_links=True)
+        doc1, users.get_current_user(), resolve_links=False)
 
     score = library.get_accumulated_score(
         doc1, users.get_current_user(), doc_content)
@@ -897,6 +962,30 @@ class ShowChangesTest(unittest.TestCase):
     diff = diff.replace("&nbsp;", " ")
     self.assertTrue(re.search('="diff_sub">[^<]*An original', diff))
     self.assertTrue(re.search('="diff_add">[^<]*A different', diff))
+
+
+class BaseUrlTest(unittest.TestCase):
+  """Tests for parsing URLs"""
+
+  def testGetBaseUrlWithRelativePath(self):
+    self.assertEquals(
+        "/relative_base/",
+        library.get_base_url("/relative_base?key=val&key2=val2"))
+    self.assertEquals(
+        "/relative_base/",
+        library.get_base_url("/relative_base"))
+
+  def testGetBaseUrlWithHttpPath(self):
+    self.assertEquals(
+        "http://base_url/",
+        library.get_base_url("http://base_url/somepath?key=val&key2=val2"))
+    self.assertEquals(
+        "http://base_url/",
+        library.get_base_url("http://base_url/somepath/?key=val&key2=val2"))
+
+  def testUrlparse(self):
+    result = urlparse.urlparse("http://base/relative_path?foo=a1")
+    self.assertTrue(isinstance(result, urlparse.ParseResult))
 
 
 if __name__ == "__main__":

@@ -191,16 +191,28 @@ Make your changes, commits, etc to this branch.
 
 Create a code-review branch in SVN when ready:
 
-  git svn branch -m 'Message' vchen-20100821
+  git svn branch -m 'Branch: Message' vchen-20100821
   git checkout -b local/vchen-20100821 vchen-20100821
 
   git format-patch --stdout --binary  master..myfeature | git am -s3
   git svn dcommit
 
-Ask for review. Further review and commits and dcommits happens in
+Ask for review. Further review and commits and dcommits happen in
 local/vchen-20100821.
 
-When complete, merge to trunk (this may be wrong):
+When complete, merge to trunk:
+
+  - IMPORTANT: Merge from trunk into your branch. Resolve conflicts, test,
+    and commit changes. Experimental procedure:
+
+    git checkout master
+    git svn rebase
+    git svn log   (to see the revision number of HEAD)
+    git checkout local/vchen-20100821
+    git merge --squash master
+    git commit -m 'Bring up-to-date with trunk r267'
+
+    Where the revision number is read from 'git svn log'
 
   - Checkout a copy of trunk to a temporary location:
     svn checkout https://lantern.googlecode.com/svn/trunk lantern
@@ -210,10 +222,14 @@ When complete, merge to trunk (this may be wrong):
 
   - Merge it with the branch using svn merge
     svn merge https://lantern.googlecode.com/svn/trunk \
-    https://lantern.googlecode.com/svn/branches/mukundjha-20100614
+    https://lantern.googlecode.com/svn/branches/vchen-20100821
 
   - Commit the change(merging with the branch) to the trunk:
-    svn commit -m "merging with branch mukundjha-20100614"
+    svn commit -m 'Merging vchen-20100821 with trunk: rev 252:272'
+
+    The revision numbers are the last merge point (or where the branch was
+    cut) and the head of the branch. If you were to merge again (not normal),
+    you would merge from the second the second value (e.g., 272).
 
   - The directory may be removed now.
 
