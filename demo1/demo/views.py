@@ -380,7 +380,7 @@ def create_doc(data_dict):
   for element in data_dict['doc_contents']:
 
     if element.get('obj_type') == 'rich_text':
-      text = str(element.get('val'))
+      text = element.get('val').encode('utf-8')
       object = models.RichTextModel.insert(data=text)
       doc.content.append(object.key())
 

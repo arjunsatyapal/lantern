@@ -733,7 +733,10 @@ class BaseContentModel(BaseModel):
     for prop in sorted(cls.properties()):
       if prop in ('creator', 'created'):  # Skip base properties
         continue
-      fields.append(str(kwargs.get(prop)))
+      v = kwargs.get(prop)
+      if isinstance(v, unicode):
+        v = v.encode('utf-8')
+      fields.append(str(v))
     return fields
 
   def get_score(self, user):
