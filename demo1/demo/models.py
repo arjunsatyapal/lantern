@@ -1130,6 +1130,36 @@ class DocModel(BaseContentModel):
   def contentAsComparable(self):
     return [ComparableSequenceElem(db.get(elem)) for elem in self.content]
 
+  def outline(self):
+    """Return outline of the document and its subdocuments"""
+    page = { 'doc_id': str(self.key()),
+             'trunk_id': str(self.trunk_ref.key()),
+             'title': self.title,
+             'content': [],
+             }
+    try:
+      content_list = db.get(self.content)
+    except db.BadKeyError:
+      content_list = []
+      for content_id in self.content:
+        try:
+          content = db.get(content_id)
+          content_list.append(content)
+        except BadKeyError:
+          pass
+
+    for doclink in content_list:
+      if (not doclink) or (not isinstance(doclink, DocLinkModel)):
+        continue
+      try:
+        target = db.get(doclink.trunk_ref.head)
+      except (BadKeyError, AttributeError):
+        target = None
+      if (not target) or (not isinstance(target, DocModel)):
+        continue
+      page['content'].append(target.outline())
+    return page
+
 
 class TrunkModel(BaseModel):
   """Represents a trunk.

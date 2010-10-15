@@ -42,6 +42,7 @@ import random
 import re
 import urllib
 import urlparse
+import operator
 from cStringIO import StringIO
 from xml.etree import ElementTree
 
@@ -1301,3 +1302,42 @@ def update_notepad(request):
       'text': text,
       'key': key,
       }));
+
+
+def coursemap(request, course_trunk_id):
+  """Show detailed map of a given course specified by its trunk id"""
+  try:
+    course = db.get(course_trunk_id)
+    course = db.get(course.head)
+    if (not course) or (not isinstance(course, models.DocModel)):
+      raise BadKeyError('Not a course %r' % course)
+  except BadKeyError:
+    return HttpResponse('No such course', status=404)
+  return respond(request, 'Course Map for %s' % course.title,
+                 'coursemap.html', { 'data': course.outline() })
+
+
+def sitemap(request):
+  """Build sitemap"""
+  course = request.GET.get('trunk_id', None)
+  if course:
+    return coursemap(request, course)
+
+  course = []
+  for trunk in models.TrunkModel.all():
+    try:
+      head = db.get(trunk.head)
+      if (not head) or (not isinstance(head, models.DocModel)):
+        continue
+      if head.label != models.AllowedLabels.COURSE:
+        continue
+      course.append({
+          'title': head.title,
+          'doc_id': str(head.key()),
+          'trunk_id': str(trunk.key()),
+          })
+    except BadKeyError:
+      pass
+  data = sorted(course, key=operator.itemgetter('title'))
+  return respond(request, 'Site Map', "sitemap.html",
+                 { 'data': data })
