@@ -50,7 +50,6 @@ goog.require('goog.ui.Dialog.EventType');
 
 goog.require('lantern.DataProviderXhr');
 
-
 /**
  * DragDrop manager for a list of items.
  *
@@ -553,7 +552,7 @@ lantern.edit.LinkPicker.prototype.disposeInternal = function() {
  * @param {Object} templates A map of content type to a template string
  *     containing  the HTML template to insert into the page. The keys of the
  *     map are expected to be the values of the option buttons.
- *       'rich_text', 'doc_link', 'video', 'quiz', 'widget'
+ *       'rich_text', 'doc_link', 'video', 'quiz', 'widget', 'notepad'
  *
  * @constructor
  * @extends {goog.Disposable}
@@ -721,6 +720,9 @@ lantern.edit.EditPage.prototype.addContent_ = function(contentType) {
     templateText = templateText.replace('\{\{object.title}}', '');
     templateText = templateText.replace('\{\{object.width}}', '100%');
     templateText = templateText.replace('\{\{object.height}}', '400px');
+  } else if (contentType == 'notepad') {
+    templateText = templateText.replace('\{\{object.key}}', objectId);
+    templateText = templateText.replace('\{\{object.notepad}}', '');
   } else {
     alert('Unexpected content type: ' + contentType);
     return;

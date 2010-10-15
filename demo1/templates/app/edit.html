@@ -96,6 +96,10 @@ limitations under the License.
       {% else %}
        {% ifequal object|class_name "WidgetModel" %}
         {% include 'include/edit_widget_model.html' %}
+       {% else %}
+         {% ifequal object|class_name "NotePadModel" %}
+          {% include 'include/edit_notepad_model.html' %}
+         {% endifequal %}
        {% endifequal %}
       {% endifequal %}
      {% endifequal %}
@@ -113,6 +117,7 @@ limitations under the License.
    <option value="video">Video</option>
    <option value="quiz">Quiz</option>
    <option value="widget">Widget</option>
+   <option value="notepad">Note Pad</option>
   </select>
  </div>
  <hr>
@@ -129,6 +134,7 @@ var templates = {
   'doc_link': {{template_doc_link|safe}},
   'rich_text': {{template_rich_text|safe}},
   'widget': {{template_widget|safe}},
+  'notepad': {{template_notepad|safe}},
   'video': {{template_video|safe}}};
 
 var editPage = new lantern.edit.EditPage('doc_contents', templates);

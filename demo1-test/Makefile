@@ -57,6 +57,7 @@ JS_SRCS = \
     lantern_comm.js \
     lantern_quiz.js \
     lantern_widget_channel.js \
+    wwedit.js \
     notes.js
 
 JS_FILES = $(patsubst %,static/js/%,$(JS_SRCS))
@@ -69,18 +70,25 @@ test: $(DATASTORE_DIR) .STALE
 	$(APPENGINE_DIR)/$(DEV_SERVER) $(TEST_ARGS) \
          --address $(SERVER_ADDRESS) --port $(TEST_PORT) .
 
+clean::
+	rm -f $(patsubst %,%+,$(LANTERN_JS_FILE) $(LANTERN_JS_BUNDLE_FILE))
+
 $(DATASTORE_DIR):
 	mkdir -p $@
 
 # Compiled single-file js
 $(LANTERN_JS_FILE): $(JS_FILES)
+	rm -f $@+ $@
 	$(CLOSURE_DEPS) $(patsubst %,--input=%, $^) -p $(CLOSURE_JS_DIR) \
-	  -c $(CLOSURE_COMPILER) $(CLOSURE_COMPILER_OPTS) -o compiled > $@
+	  -c $(CLOSURE_COMPILER) $(CLOSURE_COMPILER_OPTS) -o compiled >$@+
+	mv $@+ $@
 
 # Non-compiled single-file js
 $(LANTERN_JS_BUNDLE_FILE): $(JS_FILES)
+	rm -f $@+ $@
 	$(CLOSURE_DEPS) $(patsubst %,--input=%, $^) -p $(CLOSURE_JS_DIR) \
-	   -o script > $@
+	   -o script >$@+
+	mv $@+ $@
 
 deploy_js: $(LANTERN_JS_FILE) $(LANTERN_JS_BUNDLE_FILE)
 

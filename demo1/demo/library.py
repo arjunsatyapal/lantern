@@ -1273,6 +1273,44 @@ def update_doc_content_annotation(trunk_id, doc_id, content_id, user, data):
     anno.put()
 
 
+def get_notepad(key, user):
+  """Get notepad contents
+
+  Args:
+    key: key to a NotePadModel object
+    user: the user the NotePadState belongs to
+  """
+  ob = db.get(key)
+  notepad = (models.NotePadState.all()
+             .filter('user =', user)
+             .filter('object_ref =', ob))
+  if notepad.count() == 0:
+    return ""
+  return "\n\n".join([x.notepad_data for x in notepad])
+
+
+def update_notepad(key, user, text):
+  """Update notepad contents
+
+  Args:
+    key: key to a NotePadModel object
+    user: the user the NotePadState belongs to
+    text: the updated contents
+  """
+
+  ob = db.get(key)
+  notepad = (models.NotePadState.all()
+             .filter('user =', user)
+             .filter('object_ref =', ob))
+  if notepad.count() == 0:
+    notepad = models.NotePadState(user=user, object_ref=ob)
+  else:
+    notepad = notepad[0]
+
+  notepad.notepad_data = text
+  notepad.put()
+
+
 def view_doc_param(doc, visit, current, came_from):
   """Helper for getPrevNextLinks
 

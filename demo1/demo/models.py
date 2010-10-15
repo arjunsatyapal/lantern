@@ -820,7 +820,7 @@ class ObjectType(object):
   TRUNK = 'trunk'
   DOC_LINK = 'doc_link'
   WIDGET = 'widget'
-
+  NOTEPAD = 'notepad'
 
 class AllowedLabels(object):
   """Stores constants string defining various allowed labels for DocModel."""
@@ -1405,6 +1405,18 @@ class ComparableSequenceElem(object):
     return (not one) is (not two)
 
 
+class NotePadModel(BaseContentModel):
+  """An empty anchor to hook per-user notepad
+
+  The viewer will use the combination of <object of this class, user>
+  as a key to access another table, similar to annotation state, to
+  display and let the user interact with the page.  The content authored
+  by the course writer is empty.
+  """
+  def notepad(self):
+    return str(self.key())
+
+
 class WidgetModel(BaseContentModel):
   """Link to widget module.
 
@@ -1541,6 +1553,17 @@ class AnnotationState(UserStateModel):
   doc_ref = db.ReferenceProperty(DocModel, collection_name='annotation')
   last_modified = db.DateTimeProperty(auto_now=True)
   annotation_data = db.BlobProperty()
+
+
+class NotePadState(UserStateModel):
+  """Per user note embedded in the document.
+
+  Attributes:
+    object_ref: Reference to the NotePad object.
+    notepad_data: User generated rich-text data.
+  """
+  object_ref = db.ReferenceProperty(reference_class=NotePadModel)
+  notepad_data = db.TextProperty()
 
 
 class RecentCourseState(UserStateModel):

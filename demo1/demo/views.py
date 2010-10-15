@@ -97,6 +97,9 @@ class InvalidIncomingEmailError(Exception):
   """Exception raised by incoming mail handler when a problem occurs."""
 
 
+class UnknownContentTypeError(Exception):
+  """Raised when create_doc() is asked to create unknown type of document."""
+
 # ## Helper functions # ##
 
 
@@ -435,6 +438,19 @@ def create_doc(data_dict):
             is_shared=is_shared, widget_index=widget_index, trunk_id=trunk)
       doc.content.append(widget_object.key())
 
+    elif element.get('obj_type') == 'notepad':
+      try:
+        key = element.get('val')
+        object = db.get(key)
+      except db.BadKeyError:
+        object = None
+      if not object:
+        object = models.NotePadModel.insert_with_new_key()
+      doc.content.append(object.key())
+
+    else:
+      raise UnknownContentTypeError("What kind of object is that??? %r" % element)
+
   doc.put()
 
   # If we are at the tip of a trunk, we would need to update cached data.
@@ -530,6 +546,7 @@ def _GetEditTemplates():
         ('template_doc_link', 'edit_doc_link_model.html'),
         ('template_rich_text', 'edit_rich_text_model.html'),
         ('template_widget', 'edit_widget_model.html'),
+        ('template_notepad', 'edit_notepad_model.html'),
         ('template_video', 'edit_video_model.html'),
         )
     for key, fname in templates:
@@ -1234,3 +1251,53 @@ def get_notes(request):
       'ball': ball,
       'name': content_id,
       }))
+
+
+@login_required
+@post_required
+@xsrf_required
+def get_notepad(request):
+  """Get notepad contents
+
+  Parameters:
+    key: NotePad object's key
+  Returns:
+    text: NotePad data
+    key: given key (primarily for debugging)
+  """
+  try:
+    key = request.REQUEST.get('key')
+    text = library.get_notepad(str(key), users.get_current_user())
+
+  except Exception, e:
+    key = str(e)
+    text = request.REQUEST.get('key')
+
+  return HttpResponse(simplejson.dumps({
+      'text': text,
+      'key': key,
+      }))
+
+
+@login_required
+@post_required
+@xsrf_required
+def update_notepad(request):
+  """Update notepad contents
+
+  Args:
+    key: NotePad object's key
+    text: NotePad data
+  """
+  try:
+    key = request.POST.get('key')
+    text = request.POST.get('text')
+    library.update_notepad(str(key), users.get_current_user(), text)
+  except Exception, e:
+    text = key
+    key = str(e)
+
+  return HttpResponse(simplejson.dumps({
+      'text': text,
+      'key': key,
+      }));

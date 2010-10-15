@@ -50,4 +50,6 @@ urlpatterns = defaults.patterns(
     (r'^subjects/.*$', 'subjectsJson'),
     (r'^notes/update$', 'update_notes'),
     (r'^notes/get$', 'get_notes'),
+    (r'^notepad/get$', 'get_notepad'),
+    (r'^notepad/update$', 'update_notepad'),
     )
