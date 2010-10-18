@@ -145,7 +145,7 @@ Testing the Setup
 To run the demo1-test that contains the unit-testing infrastructure:
 
   cd demo1-test
-  make deploy_js
+  make deploy_files
   make test
 
   Then go to http://localhost:9094 in your browser
@@ -158,7 +158,7 @@ To test changes usually does not require restarting the server:
 
  - From demo1-test directory, run the following to recompile JavaScript
 
-    make deploy_js
+    make deploy_files
 
  - Reload the page in your browser. You may need to SHIFT-F5 to force refresh
    and sometimes clear your browser cache.
@@ -303,7 +303,7 @@ Deployment to AppEngine
 
 - From demo1-test, run:
 
-  make deploy_js
+  make deploy_files
 
 - Go to the demo1 directory, run:
 

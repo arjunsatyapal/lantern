@@ -62,6 +62,9 @@ JS_SRCS = \
 
 JS_FILES = $(patsubst %,static/js/%,$(JS_SRCS))
 
+EDITOR_CSS = static/css/editor.css
+EDITOR_CSS_SRC = $(wildcard static/css/editor/*.css)
+
 # -------
 # Rules
 # -------
@@ -72,6 +75,7 @@ test: $(DATASTORE_DIR) .STALE
 
 clean::
 	rm -f $(patsubst %,%+,$(LANTERN_JS_FILE) $(LANTERN_JS_BUNDLE_FILE))
+	rm -f $(patsubst %,% %+,$(EDITOR_CSS))
 
 $(DATASTORE_DIR):
 	mkdir -p $@
@@ -90,6 +94,16 @@ $(LANTERN_JS_BUNDLE_FILE): $(JS_FILES)
 	   -o script >$@+
 	mv $@+ $@
 
-deploy_js: $(LANTERN_JS_FILE) $(LANTERN_JS_BUNDLE_FILE)
+# Preprodcessed css
+$(EDITOR_CSS): $(EDITOR_CSS_SRC)
+	rm -f $@+ $@
+	cat $(EDITOR_CSS_SRC) >$@+
+	mv $@+ $@
+
+deploy_files:: deploy_js deploy_css
+
+deploy_js:: $(LANTERN_JS_FILE) $(LANTERN_JS_BUNDLE_FILE)
+
+deploy_css:: static/css/editor.css
 
 .STALE:
