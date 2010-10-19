@@ -202,34 +202,27 @@ local/vchen-20100821.
 
 When complete, merge to trunk:
 
-  - IMPORTANT: Merge from trunk into your branch. Resolve conflicts, test,
-    and commit changes. Experimental procedure:
-
-    git checkout master
-    git svn rebase
-    git svn log   (to see the revision number of HEAD)
-    git checkout local/vchen-20100821
-    git merge --squash master
-    git commit -m 'Bring up-to-date with trunk r267'
-
-    Where the revision number is read from 'git svn log'
+  - Determine version where branch was cut. From the local/vchen-20100821
+    branch, run 'git svn log':
+     - Call the first version printed YYY
+     - Look for the version with the "Branch:" message. Call it XXX
 
   - Checkout a copy of trunk to a temporary location:
-    svn checkout https://lantern.googlecode.com/svn/trunk lantern
+      svn checkout https://lantern.googlecode.com/svn/trunk lantern
 
   - Change to current working directory:
-    cd lantern
+      cd lantern
+      svn update
 
   - Merge it with the branch using svn merge
-    svn merge https://lantern.googlecode.com/svn/trunk \
-    https://lantern.googlecode.com/svn/branches/vchen-20100821
+    svn merge -r XXX:HEAD \
+      https://lantern.googlecode.com/svn/branches/vchen-20100821
 
   - Commit the change(merging with the branch) to the trunk:
-    svn commit -m 'Merging vchen-20100821 with trunk: rev 252:272'
+      svn commit -m 'Merging vchen-20100821 to trunk: rXXX:YYY'
 
-    The revision numbers are the last merge point (or where the branch was
-    cut) and the head of the branch. If you were to merge again (not normal),
-    you would merge from the second the second value (e.g., 272).
+    If you were to merge again (not normal), you would merge from the second
+    value (e.g., -r YYY:HEAD).
 
   - The directory may be removed now.
 
