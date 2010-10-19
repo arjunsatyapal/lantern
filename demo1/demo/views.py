@@ -389,8 +389,8 @@ def create_doc(data_dict):
       doc.content.append(object.key())
 
     elif element.get('obj_type') == 'video':
-      video_id = str(element.get('val'))
-      title = str(element.get('title'))
+      video_id = element.get('val').encode('utf-8').strip()
+      title = element.get('title').encode('utf-8')
       height = str(element.get('height'))
       width = str(element.get('width'))
       object = models.VideoModel.insert(video_id=video_id, width=width,
@@ -413,8 +413,8 @@ def create_doc(data_dict):
         doc.content.append(doc_link_object.key())
 
     elif element.get('obj_type') == 'widget':
-      widget_url = str(element.get('val'))
-      title = str(element.get('title'))
+      widget_url = element.get('val').encode('utf-8').strip()
+      title = element.get('title').encode('utf-8')
       height = str(element.get('height'))
       width = str(element.get('width'))
 
