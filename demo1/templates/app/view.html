@@ -208,11 +208,11 @@ initScores();
 
 lantern.comm.LanternChannelFactory.initialize(global_score == 100);
 
+var notepadMgr = new lantern.wwedit.NotepadManager();
 var noteMgr = new lantern.notes.NoteManager(
     'notestrigger',
     '{{doc.trunk_ref|get_key}}',
     '{{doc|get_key}}');
-var notepadMgr = new lantern.wwedit.NotepadManager();
 goog.events.listenOnce(window, 'unload', function(e) {
   noteMgr.dispose();
   noteMgr = null;

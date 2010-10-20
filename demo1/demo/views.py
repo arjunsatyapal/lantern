@@ -74,10 +74,11 @@ from django.core.urlresolvers import reverse
 # Local imports
 from common import subjects
 import constants
-# import forms
+import forms
 import library
 import models
 import settings
+import upload
 
 # Add our own template library.
 _library_name = __name__.rsplit('.', 1)[0] + '.library'
@@ -1341,3 +1342,23 @@ def sitemap(request):
   data = sorted(course, key=operator.itemgetter('title'))
   return respond(request, 'Site Map', "sitemap.html",
                  { 'data': data })
+
+
+# -------- Admin ----------
+
+
+@admin_required
+def upload_file(request):
+  """Simple upload page."""
+  if request.method == 'POST':
+    form = forms.UploadFileForm(request.POST, request.FILES)
+    if form.is_valid():
+      response = upload.handle_uploaded_file(
+          form.cleaned_data,
+          request.FILES['file'])
+      return HttpResponse(response)
+  else:
+    form = forms.UploadFileForm()
+  return respond(request, 'File Upload', "upload.html",
+                 {'form': form,
+                  })

@@ -960,7 +960,7 @@ class DocModel(BaseContentModel):
     """
     doc_id = str(self.key())
     trunk = TrunkModel.insert_with_new_key()
-    trunk.setHead(doc_id)
+    trunk.setHead(self)
     trunk.put()
     self.trunk_ref = trunk
     TrunkRevisionModel.insert_with_new_key(
@@ -978,7 +978,7 @@ class DocModel(BaseContentModel):
     """
     doc_id = str(other.key())
     trunk = self.trunk_ref
-    trunk.setHead(doc_id)
+    trunk.setHead(other)
     trunk.put()
     other.trunk_ref = trunk
     other.put()
@@ -1189,23 +1189,33 @@ class TrunkModel(BaseModel):
       'trunk_fork_commit_messages': self.fork_commit_messages
       }
 
-  def setHead(self, doc_id):
+  def setHead(self, doc_or_id):
     """Update the trunk head.
 
     Trunk caches some information on the document at its tip, and
-    here is the place to update it.  Do not use trunk.head = doc_id
+    here is the place to update it.  Do not use trunk.head = doc_id directly.
+
+    Args:
+      doc_or_id: A DocModel or an id referencing a DocModel.
     """
-    self.head = doc_id
-    try:
-      d = db.get(doc_id)
-      if isinstance(d, DocModel):
-        self.title = d.title
-    except (db.BadKeyError, db.BadRequestError):
-      # library.createnewdoc runs this inside a transaction
-      # and updating doc and trunk at the same time will throw
-      # an exception (different entity groups).
-      # the caller will take care of updating the title in that case.
-      pass
+    if isinstance(doc_or_id, basestring):
+      self.head = doc_or_id
+      try:
+        doc = db.get(doc_or_id)
+      except (db.BadKeyError, db.BadRequestError):
+        # library.createnewdoc runs this inside a transaction
+        # and updating doc and trunk at the same time will throw
+        # an exception (different entity groups).
+        # the caller will take care of updating the title in that case.
+        return
+    elif isinstance(doc_or_id, DocModel):
+      doc = doc_or_id
+      self.head = str(doc.key())
+    else:
+      # Unexpected input type. Ignore.
+      return
+    if isinstance(doc, DocModel):
+      self.title = doc.title
 
 
 class TrunkRevisionModel(BaseContentModel):

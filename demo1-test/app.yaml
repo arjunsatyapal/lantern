@@ -57,6 +57,10 @@ handlers:
 - url: /quiz.*
   script: quiz/main.py
 
+- url: /task/.*
+  script: task_process.py
+  login: admin
+
 - url: /.*
   script: main.py
   login: required
