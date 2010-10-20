@@ -31,21 +31,34 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 
 from django.utils import simplejson
 
+from demo import models
 from demo import upload
 
 
 class ImportVideos(webapp.RequestHandler):
   """Task to import videos.
 
-  The payload is expected to have a JSON encoded list of
-  (tags, title, video_uri) tuples.
+  The payload is expected to have a JSON encoded dict of the form:
+  {
+    'creator_id': creator_id,
+    'videos': [ (tags, title, video_uri), ...],
+  }
   """
   def post(self):
     logging.info('=======ImportVideos')
     response = []
-    videos_json  = self.request.body
-    videos = simplejson.loads(videos_json)
-    response = upload.import_videos(videos)
+    payload_json  = self.request.body
+    payload = simplejson.loads(payload_json)
+    creator_id = payload.get('creator_id')
+
+    account = models.Account.get_account_for_id(creator_id)
+    if not account:
+      logging.error('xxxxx ImportVideos Aborted: unrecognized creator id: %s',
+                    creator_id)
+      return
+    creator = account.user
+    videos = payload.get('videos')
+    response = upload.import_videos(videos, creator=creator)
     logging.info('IMPORT: %r' % response)
     return '<br>'.join(response)
 

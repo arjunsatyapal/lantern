@@ -952,19 +952,23 @@ class DocModel(BaseContentModel):
       setattr(cloned, attr, v)
     return cloned
 
-  def placeInNewTrunk(self):
+  def placeInNewTrunk(self, creator=None):
     """Make a new trunk and make this the latest/sole incarnation
 
+    Args:
+      creator: Allows specifying creator explicitly.
+
     Returns:
-      a new TrunkModel object
+      A new TrunkModel object
     """
+    creator = creator or users.get_current_user()
     doc_id = str(self.key())
-    trunk = TrunkModel.insert_with_new_key()
+    trunk = TrunkModel.insert_with_new_key(creator=creator)
     trunk.setHead(self)
     trunk.put()
     self.trunk_ref = trunk
     TrunkRevisionModel.insert_with_new_key(
-        parent=trunk, obj_ref=doc_id, commit_message='Cloned')
+        creator=creator, parent=trunk, obj_ref=doc_id, commit_message='Cloned')
     self.put()
     return trunk
 

@@ -65,7 +65,7 @@ _VIDEO_WIDTH = '600px'
 _VIDEO_HEIGHT = '300px'
 
 
-def create_video_page_if_not_exists(tags, title, video_uri):
+def create_video_page_if_not_exists(tags, title, video_uri, creator=None):
   """Creates a page to reference the specified video, if it does not exist.
 
   - Creates VideoModel, if it does not exist yet.
@@ -80,6 +80,8 @@ def create_video_page_if_not_exists(tags, title, video_uri):
     title: The title for the page matches that of the video.
     video_uri: The video ID is extracted and a VideoModel added, if it does
         not already exist.
+    creator: Optional creator; instance of users.User. If None, the currently
+        logged in use will be used. Will fail if not logged in (guest).
 
   Returns:
     Returns (status, attributes) where:
@@ -87,6 +89,7 @@ def create_video_page_if_not_exists(tags, title, video_uri):
       attributes is a string with (tage, title, video_id) for returning as
          feedback
   """
+  creator = creator or users.get_current_user()
   parsed = urlparse.urlparse(video_uri)
   video_id = None
   if parsed:
@@ -99,6 +102,7 @@ def create_video_page_if_not_exists(tags, title, video_uri):
   attributes = ','.join([str(tags), title, video_id])
 
   video = models.VideoModel.insert(
+      creator=creator,
       video_id=video_id,
       title=title,
       width=_VIDEO_WIDTH,
@@ -109,11 +113,11 @@ def create_video_page_if_not_exists(tags, title, video_uri):
   query = models.TrunkModel.all()
   query.filter('title =', title)
   if query.count() == 0:  # Not found
-    doc = models.DocModel.insert_with_new_key()
+    doc = models.DocModel.insert_with_new_key(creator=creator)
     doc.title = title
     doc.tags.extend([db.Category(tag) for tag in tags])
     doc.content.append(video.key())
-    trunk = doc.placeInNewTrunk()
+    trunk = doc.placeInNewTrunk(creator=creator)
     result = True
   else:
     trunk = query.get()  # Get first one and look at contents
@@ -131,11 +135,12 @@ def create_video_page_if_not_exists(tags, title, video_uri):
   return result, attributes
 
 
-def import_videos(videos):
+def import_videos(videos, creator=None):
   """Import a set of videos, creating a doc for each.
 
   Args:
     videos: A list of (tags, title, video_uri) tuples
+    creator: Optional creator, instance of users.User.
 
   Returns:
     A list of summary lines, to be displayed for status purposes.
@@ -144,7 +149,7 @@ def import_videos(videos):
   success = 0
   for tags, title, video_uri in videos:
     status, attributes = create_video_page_if_not_exists(
-        tags, title, video_uri)
+        tags, title, video_uri, creator=creator)
     if status:
       success += 1
     response.append(attributes)
@@ -189,10 +194,15 @@ def handle_khan_math_videos(uploaded_file, start_index, batch_size):
   start += batch_size
 
   # Queue remaining videos on the task queue.
+  creator_id = users.get_current_user().user_id()
   while start < count - 1:
-    videos_json = simplejson.dumps(videos[start:start + batch_size])
+    payload = {
+        'creator_id': creator_id,
+        'videos': videos[start:start + batch_size],
+        }
     start += batch_size
-    taskqueue.add(url='/task/importVideos', payload=videos_json,
+    payload_json = simplejson.dumps(payload)
+    taskqueue.add(url='/task/importVideos', payload=payload_json,
                   countdown=5)
 
   if count > batch_size:
