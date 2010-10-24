@@ -19,9 +19,11 @@
  * The LanternHostChannel wraps Host-side Lantern Widget API. To use it,
  * construct and attach callbacks to handle widget requests.
  *
- * This registers the following "services" that may be called by the Widget
+ * This registers the following XPC "services" that may be called by the Widget
  * app:
- *   init_session: Notifies Host that the widget is ready. No payload.
+ *   init_session: Notifies Host that the widget is ready. Payload may be:
+ *       'force': Force initialize the session, even if it was done already.
+ *       '': Only initialize the session if it has not been initialized.
  *   update_progress: Updates Host with widget progress/score. Payload is
  *       JSON-encoded dict of the form:
  *         {'progress': progress,
@@ -123,6 +125,9 @@ lantern.comm.LanternHostChannel = function(
   this.onUpdateProgress_ = null;
   this.onUpdateSession_ = null;
   this.onUpdateLayout_ = null;
+
+  // Whether session information have already been sent to Widget.
+  this.isWidgetInitialized_ = false;
 };
 goog.inherits(lantern.comm.LanternHostChannel, goog.Disposable);
 
@@ -264,16 +269,36 @@ lantern.comm.LanternHostChannel.prototype.sendSessionInfo = function(
 
 
 /**
- * Internal handler for init_session.
+ * Internal handler for onConnect. It sends init_session message to the
+ * Widget.
+ *
+ * @private
+ */
+lantern.comm.LanternHostChannel.prototype.onConnectInternal_ = function() {
+  this.channel_.send('init_session', '');
+  if (this.onConnect_) {
+    this.onConnect_();
+  }
+};
+
+
+/**
+ * Internal handler for init_session. This may be called multiple times when
+ * performing start-up handshake, so it checks for whether it was already
+ * initialized.
  *
  * @param {string} payload Payload sent from the widget app. Ignored.
  * @private
  */
 lantern.comm.LanternHostChannel.prototype.initWidgetSession_ = function(
     payload) {
+  if (payload != 'force' && this.isWidgetInitialized_) {
+    return;
+  }
   if (this.onInitSession_) {
     this.onInitSession_(this.iframeContainerId_);
   }
+  this.isWidgetInitialized_ = true;
 };
 
 
@@ -358,5 +383,6 @@ lantern.comm.LanternHostChannel.prototype.initialize = function(){
       'update_layout',
       goog.bind(this.updateWidgetLayout_, this));
 
-  this.channel_.connect(this.onConnect_);
+  this.channel_.connect(
+      goog.bind(this.onConnectInternal_, this));
 };

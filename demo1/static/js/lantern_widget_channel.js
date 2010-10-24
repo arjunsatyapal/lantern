@@ -41,6 +41,22 @@
  * Please see function definition below for description of each method.
  * These methods must be called after initializing the channel.
  *
+ * This class registers the following XPC "services" that may be called by
+ * the Host app:
+ *
+ *   init_session: Notifies the Widget that the Host has connected and is
+ *       ready to receive calls. Because of variability in connection set up,
+ *       this may be called after the Widget has already sent its own
+ *       'init_session' request to the Host.
+ *   send_session: Called by Host to send session information to the Widget.
+ *       The payload is a JSON-encoded object of the form:
+ *       {'session_id': session_id,
+ *        'progress': progress,
+ *        'score': score,
+ *        'user_data': user_data}
+ *       If the channel is constructed with a callback, that callback will
+ *       be called with the session info.
+ *
  * NOTE: The constructor also saves a session cookie to preserve the XPC channel
  * information.
  */
@@ -166,6 +182,8 @@ lantern.widget.LanternWidgetChannel.prototype.sendSession_ = function(
 lantern.widget.LanternWidgetChannel.prototype.initializeChannel_ = function(
     callback) {
 
+  this.channel_.registerService('init_session',
+      goog.bind(this.onInitSession_, this));
   this.channel_.registerService('send_session',
       goog.bind(this.sendSession_, this));
 
@@ -186,10 +204,32 @@ lantern.widget.LanternWidgetChannel.prototype.send = function(
 
 
 /**
+ * Sends init-session message to Host app.
+ *
+ * @param {boolean} force If true, forces re-initialization.
+ */
+lantern.widget.LanternWidgetChannel.prototype.sendInitSession = function(
+    force) {
+  this.send('init_session', force ? 'force' : '');
+};
+
+
+/**
  * Called when connection is established.
  */
 lantern.widget.LanternWidgetChannel.prototype.onConnect_ = function() {
-  this.send('init_session', '');
+  this.sendInitSession(true);
+};
+
+
+/**
+ * Called when "ini_session" message is received from the host.
+ */
+lantern.widget.LanternWidgetChannel.prototype.onInitSession_ = function(
+    payload) {
+  // This essentially completes a handshake with HOST to indicate the Widget
+  // is ready. It occurs when the host is "late" in connecting,
+  this.sendInitSession(false);
 };
 
 
