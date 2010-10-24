@@ -19,16 +19,17 @@
 </div>
 </td>
 <td style="float:right">
-<a href="javascript:openEditWindow('{{quiz_id}}')">Edit</a>
+<a id="editQuiz">Edit</a>
 </td>
 </tr>
 </table>
 <hr />
 <div id='questionContainer'>
 <div id='quizButtonContainer'>
-<input type="button" id='quizButton' 
-  class='quizButtonStyle' value='Start the quiz!!' 
-  onClick="quiz_session.init();" />
+<input type="button"
+       id="quizButton"
+       class="quizButtonStyle"
+       value="Start the quiz!!" />
 </div>
 <table border=0 width='100%'>
   <tr>
@@ -70,15 +71,14 @@
 
 //Check if embedded in an iframe:
 
-    if (top === self){
-   
-  } else {
-  var quiz_session = new lantern.quiz.QuizSession('{{quiz_trunk_id}}',
-                                                  '{{quiz_id}}');
-  /** Function to collect user's response **/
- }
-function openEditWindow(id){
-  window.open('/quiz/editQuiz?quiz_id='+id);
-} 
+if (top === self){
+  // Not embedded
+} else {
+  var quiz_session = new lantern.quiz.QuizSession(
+      '{{quiz_trunk_id}}',
+      '{{quiz_id}}',
+      'quizButton',
+      'editQuiz');
+}
 </script>
 </html>

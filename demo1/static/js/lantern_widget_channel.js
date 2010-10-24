@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
@@ -15,165 +15,233 @@
 
 /**
  * @fileoverview Library for communication back with Lantern Doc.
- * To be included in iFrame for lantern.
- * IFrame must instantiate LanternWidgetChannel object and call 
- * initializeChannel on the instantiated object.
  *
- * For accessing the channel for obtaining and updating score/data, 
- * IFrame should use following methods on the instantiated object
- * (ex. widgetChannel is the instantiated object):
+ * To be included by Widget App that is referenced in the IFRAME.
  *
- * widgetChannel.updateScore
- * widgetChannel.updateData
- * widgetChannel.getScoreAsync
- * widgetChannel.getDataAsync
+ * NOTE: Implementation depends on the Closure JavaScript Library.
+ * http://code.google.com/closure/library.
+ *
+ * To support browsers with no native transport, the Host and Widget apps must
+ * be able to serve the files, "blank.html" and "relay.html", found at:
+ * http://closure-library.googlecode.com/svn/trunk/closure/goog/demos/xpc/.
+ *
+ * Widget App must instantiate LanternWidgetChannel object.
+ *
+ * For accessing the channel for obtaining and updating score/data,
+ * the Widget App JS should use the following methods on the instantiated
+ * object (e.g., widgetChannel is the instantiated object):
+ *
+ *   widgetChannel.updateProgress
+ *   widgetChannel.updateSession
+ *   widgetChannel.updateLayout
+ *
+ * Additionally, the caller registers a callbackto receive session information
+ * from the host Lantern Doc.
  *
  * Please see function definition below for description of each method.
  * These methods must be called after initializing the channel.
+ *
+ * NOTE: The constructor also saves a session cookie to preserve the XPC channel
+ * information.
  */
 goog.provide('lantern.widget.LanternWidgetChannel');
 
-goog.require('goog.dom')
+goog.require('goog.Disposable');
+goog.require('goog.json')
+goog.require('goog.net.cookies')
 goog.require('goog.net.xpc.CrossPageChannel');
+
 
 /**
  * Constructor for widget channel.
- * @constructor
  *
- * NOTE(mukundjha): 
- *   1) This kind of initialization has problems when the
- *   page refreshes, we need to experiment more.
+ * @param {Function?} opt_onInitialize Optional callback to call when the
+ *     the Host App calls 'send_session', which means it's ready to receive
+ *     updates. The callback receives a sessionInfo object of the form:
+ *     {'session_id': session_id,  // may be treated a user id
+ *      'progress': progress,      // Last progress sent to host
+ *      'score': score,            // Last score sent to host
+ *      'user_data': user_data     // user data sent to host.
+ *     }
+ *
+ * @constructor
  */
-lantern.widget.LanternWidgetChannel = function() {
-  // Get the channel configuration from the URI parameter.
-   //alert('creating widget channel with these params:\n'+ 
-     // (new goog.Uri(window.location.href)).getParameterValue('xpc'));
+lantern.widget.LanternWidgetChannel = function(opt_onSendSession) {
+  goog.Disposable.call(this);
 
-  this.cfg_ = goog.json.parse(
-      (new goog.Uri(window.location.href)).getParameterValue('xpc'));
-  
-  this.channel_ = new goog.net.xpc.CrossPageChannel(this.cfg_);
-  this.initializeChannel();
-  this.activeRequest_ = {};
-};
+  /**
+   * Optional callback for responding to send_session
+   * @type Function
+   * @private
+   */
+  this.onSendSession_ = opt_onSendSession;
 
+  /**
+   * XPC configuration retrieved from the current URL or cookie.
+   * If null, scores will not be propagated to the Host App.
+   */
+  this.cfg_ = null;
 
-/**
- * Key for getScore.
- * @type string
- * @private
- */
-lantern.widget.LanternWidgetChannel.KEY_GET_SCORE_ = 'GET_SCORE';
-
-
-/**
- * Key for getData.
- * @type string
- * @private
- */
-lantern.widget.LanternWidgetChannel.KEY_GET_DATA_ = 'GET_DATA';
-
-
-/*
- * Function to handle score sent by parent doc.
- * @param {string} data payload sent by the parent doc.
- */
-lantern.widget.LanternWidgetChannel.prototype.processScore = function(score) {
-  var callback = this.activeRequest_[this.KEY_GET_SCORE_];
-  if(callback) { 
-    callback(score);
+  // Extract XPC parameter from the URL or cookie
+  var xpcParam = new goog.Uri(window.location.href).getParameterValue('xpc');
+  if (xpcParam) {
+    this.cfg_ = goog.json.parse(xpcParam);
+    goog.net.cookies.set(
+        lantern.widget.LanternWidgetChannel.COOKIE_NAME_XPC_, xpcParam);
+  } else {
+    xpcParam = goog.net.cookies.get(
+        lantern.widget.LanternWidgetChannel.COOKIE_NAME_XPC_);
+    if (xpcParam) {
+      this.cfg_ = goog.json.parse(xpcParam);
+    }
   }
-  delete this.activeRequest_[this.KEY_GET_SCORE_];
+
+  this.channel_ = new goog.net.xpc.CrossPageChannel(this.cfg_);
+  this.initializeChannel_(goog.bind(this.onConnect_, this));
+
+  /**
+   * Session Id sent by host. This can be treated as an opaque user ID.
+   * @type string
+   * @private
+   */
+  this.sessionId_ = null;
+};
+goog.inherits(lantern.widget.LanternWidgetChannel, goog.Disposable);
+
+
+/**
+ * Cookie name to preserve XPC channel info.
+ * @private
+ */
+lantern.widget.LanternWidgetChannel.COOKIE_NAME_XPC_ =
+    'lantern_widget_channel_cfg';
+
+
+/**
+ * @override
+ */
+lantern.widget.LanternWidgetChannel.prototype.disposeInternal = function() {
+  this.channel_.dispose();
+  this.channel_ = null;
+
+  lantern.widget.LanternWidgetChannel.superClass_.disposeInternal.call(this);
 };
 
 
-/*
- * Wrapper for exposing channel's send method.
- * @param {string} service Name of the service.	
+/**
+ * Returns current session ID.
+ */
+lantern.widget.LanternWidgetChannel.prototype.getSessionId = function() {
+  return this.sessionId_;
+};
+
+
+/**
+ * Internal handler for send_session.
+ *
+ * @param {string} payload Payload sent from Host app. It is expected to be
+ *    a JSON-encoded dict of the form:
+ *     {'session_id': session_id,  // may be treated a user id
+ *      'progress': progress,      // Last progress sent to host
+ *      'score': score,            // Last score sent to host
+ *      'user_data': user_data     // user data sent to host.
+ *     }
+ * @private
+ */
+lantern.widget.LanternWidgetChannel.prototype.sendSession_ = function(
+    payload) {
+  var sessionInfo = goog.json.parse(payload);
+  if (sessionInfo) {
+    this.sessionId_ = sessionInfo['session_id'];
+  }
+  if (this.onSendSession_) {
+    this.onSendSession_(sessionInfo);
+  }
+};
+
+
+/**
+ * Function to initialize the lanternChannel object.
+ */
+lantern.widget.LanternWidgetChannel.prototype.initializeChannel_ = function(
+    callback) {
+
+  this.channel_.registerService('send_session',
+      goog.bind(this.sendSession_, this));
+
+  this.channel_.connect(callback);
+};
+
+
+/**
+ * Wrapper for exposing XPC channel's send method.
+ *
+ * @param {string} service Name of the service.
  * @param {string} opt_payload Optional payload to be passed to the service.
  */
 lantern.widget.LanternWidgetChannel.prototype.send = function(
     service, opt_payload) {
-
   this.channel_.send(service, opt_payload);
 };
 
 
-/*
- * Method to handle 'data' sent by parent doc.
- * @param {string} data payload sent by the parent doc.
- */ 
-lantern.widget.LanternWidgetChannel.prototype.processData = function(data) {
-  var callback = this.activeRequest_[this.KEY_GET_DATA_];
-  if(callback) {
-    //alert('has callback');
-    callback(data);
-  }
-  delete this.activeRequest_[this.KEY_GET_DATA_];
+/**
+ * Called when connection is established.
+ */
+lantern.widget.LanternWidgetChannel.prototype.onConnect_ = function() {
+  this.send('init_session', '');
 };
 
 
 /**
- *Function to initialize the lanternChannel object.
+ * Updates progress, sending it to the host.
+ *
+ * @param {Object} progress dict of the form:
+ *     {'progress': progress,
+ *      'score: score,
+ *     }
  */
-lantern.widget.LanternWidgetChannel.prototype.initializeChannel = function(callBack) {
-
-  //alert('initializing iframe');
-  this.channel_.registerService('process_score',
-      goog.bind(this.processScore, this));
-  this.channel_.registerService('process_data',
-      goog.bind(this.processData, this));
-  this.channel_.connect(callBack);
+lantern.widget.LanternWidgetChannel.prototype.updateProgress = function(
+    progress) {
+  var payload = goog.json.serialize(progress);
+  this.send('update_progress', payload);
 };
 
 
-/*
- * Function to update score.
+/**
+ * Updates session info.
  * Wrapper around the native send messages via channels.
- * @param {int} score Score to be sent back to parent doc.
+ *
+ * @param {number} progress Progress, from 0 to 100.
+ * @param {number} score Score, from 0 to 100.
+ * @param {string} user_data An opaque "blob" to send to the host for
+ *     persisting. Typically, it's been JSON encoded.
  */
-lantern.widget.LanternWidgetChannel.prototype.updateScore = function(score) {
-  //alert('sending score' + this.channel_.name);
-  this.channel_.send('update_score', score);
+lantern.widget.LanternWidgetChannel.prototype.updateSession = function(
+    progress, score, user_data) {
+  var sessionInfo = {
+    'session_id': this.sessionId_,
+    'progress': progress,
+    'score': score,
+    'user_data': user_data
+  }
+  var payload = goog.json.serialize(sessionInfo);
+  this.send('update_session', payload);
 };
 
 
-/*
- * Function to update data.
+/**
+ * Updates layout info.
  * Wrapper around the native send messages via channels.
- * @param {string} data Data in string format(JSON) to be sent back to
- * parent doc.
  */
-lantern.widget.LanternWidgetChannel.prototype.updateData = function(data) {
-  //alert('sending data' + this.channel_.isConnected());
-  this.channel_.send('update_data', data);
-};
-
-
-/*
- * Function to get data.
- * Wrapper around the native send messages via channels.
- * parent doc.
- * @param {function} reportDataCallBack Callback function to handle the 
- * data when it arrives.
- */
-lantern.widget.LanternWidgetChannel.prototype.getScoreAsync = 
-    function(reportScoreCallback) {
-
-  this.activeRequest_[this.KEY_GET_SCORE_] = reportScoreCallback;
-  this.channel_.send('request_score');
-};
-
-
-/*
- * Function to get score.
- * Wrapper around the native send messages via channels.
- * parent doc.
- * @param {function} reprotScoreCallback Callback function to handle the 
- * score when it arrives.
- */
-lantern.widget.LanternWidgetChannel.prototype.getDataAsync = 
-    function(reportDataCallback) {
-  this.activeRequest_[this.KEY_GET_DATA_] = reportDataCallback;
-  this.channel_.send('request_data');
+lantern.widget.LanternWidgetChannel.prototype.updateLayout = function() {
+  var height = goog.dom.getDocumentHeight();
+  var sz = goog.dom.getViewportSize();
+  if (sz.height < height) {
+    var layout = {
+      'height': height
+    }
+    var payload = goog.json.serialize(layout);
+    this.send('update_layout', layout);
+  }
 };

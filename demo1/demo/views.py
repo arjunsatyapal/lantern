@@ -866,7 +866,7 @@ def submit_edits(request):
         '/view?trunk_id=%s&doc_id=%s&absolute=True' % (trunk_id, doc_id))
 
 
-def get_session_id_for_widget(request):
+def get_session_for_widget(request):
   """Returns session id tied with user and widget.
 
   NOTE: BadKeyError was not checked on purpose, so that exception is raised.
@@ -874,10 +874,22 @@ def get_session_id_for_widget(request):
   widget_id = request.GET.get('widget_id')
   widget = db.get(widget_id)
 
-  session_id = library.get_or_create_session_id(widget,
-                                                users.get_current_user())
-  if session_id:
-    return HttpResponse(simplejson.dumps({'session_id' : session_id}))
+  session = library.get_or_create_session(widget, users.get_current_user())
+  if session:
+    session_info = {
+        'session_id': str(session.key()),
+        'progress': session.progress_score,
+        'user_data': session.user_data,
+        }
+    return HttpResponse(simplejson.dumps(session_info))
+
+
+def get_session_id_for_widget(request):
+  """(Deprecated) Returns session id tied with user and widget.
+
+  Use get_session_for_widget().
+  """
+  return get_session_for_widget(request)
 
 
 def get_doc_score(request):
@@ -913,7 +925,7 @@ def get_doc_score(request):
 def update_doc_score(request):
   """Updates score for the widget and the doc and returns updated doc score.
 
-  Function revceives updated status (both score and progres) from widget and
+  Function receives updated status (both score and progress) from widget and
   updates score record for associated user and widget. It also recomputes
   accumulated score for the document from which updates are recieved and
   sends back updated score for the document.
@@ -958,6 +970,58 @@ def update_doc_score(request):
   library.set_dirty_bits_for_doc(doc, users.get_current_user())
 
   return HttpResponse(simplejson.dumps({'doc_score' : doc_score}))
+
+
+@login_required
+@post_required
+@xsrf_required
+def update_widget_session(request):
+  """Updates session info for the widget and the doc.
+
+  Function receives updated status (score, progress, user_data) from widget and
+  updates widget state.
+
+  NOTE(mukundjha): Doc id passed to the widget is of the same doc that is
+  presented to the user, so we can use absolute binding to update the score.
+  If we fetch the appropriate document everytime we update score, there might
+  be a case when document gets updated while user is working on it and the
+  function ends up fetching and updating score according to new document.
+
+  TODO(vchen): Check for possible race conditions on score updates.
+  TODO(vchen): Slightly inefficient with many calls to datastore,
+    should use mem-cache.
+
+  Parameters:
+    widget_id: Key for the widget.
+    progress: integer between 0-100 indicating progress of the widget.
+    score: integer between 0-100 indicating score for the widget.
+    user_data: string opaque data stored on behalf of the widget.
+    trunk_id: Key for the trunk associated with doc containing the widget.
+    doc_id: Key of the document.
+    parent_trunk: Key for the trunk associated with parent.
+    parent_doc: Key for the parent doc.
+  """
+  widget_id = request.POST.get('widget_id')
+  user_data = request.POST.get('user_data')
+  trunk_id = request.POST.get('trunk_id')
+  doc_id = request.POST.get('doc_id')
+  parent_trunk =  request.POST.get('parent_trunk')
+  parent_doc = request.POST.get('parent_doc')
+
+  # The following are optional
+  progress = request.POST.get('progress')
+  score = request.POST.get('score')
+
+  widget = db.get(widget_id)
+  if progress:
+    library.put_widget_score(widget, users.get_current_user(), int(progress),
+                             user_data=user_data)
+    doc = library.fetch_doc(trunk_id, doc_id)
+    library.set_dirty_bits_for_doc(doc, users.get_current_user())
+  else:  # Do not update progress
+    library.put_widget_score(widget, users.get_current_user(), None,
+                             user_data=user_data)
+  return HttpResponse(True)
 
 
 def update_trunk_title(request):

@@ -54,9 +54,10 @@ JS_SRCS = \
     mocksubjects.js \
     subjectmenu.js \
     edit_page.js \
+    lantern_host_channel.js \
+    lantern_widget_channel.js \
     lantern_comm.js \
     lantern_quiz.js \
-    lantern_widget_channel.js \
     wwedit.js \
     notes.js
 

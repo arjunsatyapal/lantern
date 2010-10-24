@@ -1575,10 +1575,13 @@ class WidgetProgressState(UserStateModel):
     widget_ref: Reference to quiz model.
     progress_score: Completion/progress score for the quiz.
     time_stamp: Timestamp to maintain history of progress.
+    user_data: Opaque user data stored as a BlobProperty. This is per-user
+        state to be persisted on behalf of the widget.
   """
   widget_ref = db.ReferenceProperty(WidgetModel)
   progress_score = db.RatingProperty(default=0)
   time_stamp = db.DateTimeProperty(auto_now=True)
+  user_data = db.BlobProperty()
 
 
 class AnnotationState(UserStateModel):

@@ -84,6 +84,14 @@ lantern.DataProviderXhr = function() {
                   [goog.net.EventType.ERROR,
                    goog.net.EventType.ABORT,
                    goog.net.EventType.TIMEOUT], this.onRemoteError_);
+
+  /**
+   * Auto request id.
+   * @type number
+   * @private
+   */
+  this.autoRequestId_ = 0;
+
 };
 goog.inherits(lantern.DataProviderXhr, goog.Disposable);
 
@@ -114,8 +122,8 @@ lantern.DataProviderXhr.prototype.disposeInternal = function() {
 /**
  * Issue XHR/Json request. Provide an optional callback to get the response.
  *
- * @param {string} id The request id. If a request is already in progress,
- *     an error is thrown.
+ * @param {string?} id The request id. If a request is already in progress,
+ *     an error is thrown. If it is 'undefined', then auto-create a unique id.
  * @param {string|goog.Uri} uri The request URI.
  * @param {Function} opt_callback Callback function when the request is
  *     complete.  The callback has the signature:
@@ -127,7 +135,9 @@ lantern.DataProviderXhr.prototype.disposeInternal = function() {
  */
 lantern.DataProviderXhr.prototype.sendRequest = function(
     id, uri, opt_callback, opt_method, opt_content) {
-
+  if (id == undefined) {
+    id = this.autoRequestId_++;
+  }
   if (this.currentRequests_.containsKey(id)) {
     // Because we uniquely map a callback to a request ID, we cannot handle
     // duplicate IDs.

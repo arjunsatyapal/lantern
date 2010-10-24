@@ -219,13 +219,9 @@ lantern.edit.LinkPicker.currentRequestId_ = 0;
  * Helper to send a request via XHR
  */
 lantern.edit.LinkPicker.prototype.sendRequest = function(
-    uri, callback, var_args) {
-  var id = lantern.edit.LinkPicker.currentRequestId_++;
-  var args = [id, uri, callback];
-  var i;
-  for (i = 2; i < arguments.length; i++)
-    args.push(arguments[i]);
-  this.xhr_.sendRequest.apply(this.xhr_, args);
+    uri, callback, opt_method, opt_content) {
+  this.xhr_.sendRequest(
+      undefined /* autogen ID */, callback, opt_method, opt_content);
 }
 
 

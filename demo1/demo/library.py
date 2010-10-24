@@ -811,7 +811,7 @@ def get_doc_contents(doc, user, resolve_links=False, use_history=False,
   return content_list
 
 
-def put_widget_score(widget, user, score):
+def put_widget_score(widget, user, score, user_data=None):
   """Stores progress score for a widget.
 
   Updates the entry with new score if present, else makes a new entry.
@@ -819,18 +819,30 @@ def put_widget_score(widget, user, score):
   Args:
     widget: WidgetModel object for which score is being updated.
     user: User associated with the score.
-    score: Current score.
+    score: Current score. If None, do not update it.
+    user_data: Optional per-user data to be persisted on behalf of the
+        widget.
   TODO(mukundjha): Determine if this needs to be run in a transaction.
   """
   visit_state = models.WidgetProgressState.all().filter('user =', user).filter(
     'widget_ref =', widget).get()
 
   if visit_state:
-    visit_state.progress_score = score
+    if score is not None:
+      visit_state.progress_score = score
+    if user_data:
+      visit_state.user_data = user_data
     visit_state.put()
   else:
-    visit_state = insert_with_new_key(models.WidgetProgressState, user=user,
-                                      widget_ref=widget, progress_score=score)
+    score = score or 0  # Make sure it is not None
+    if user_data:
+      visit_state = insert_with_new_key(
+          models.WidgetProgressState, user=user,
+          widget_ref=widget, progress_score=score, user_data=user_data)
+    else:
+      visit_state = insert_with_new_key(
+          models.WidgetProgressState, user=user,
+          widget_ref=widget, progress_score=score)
 
 
 def get_path_till_course(doc, path=None, path_trunk_set=None):
@@ -901,21 +913,19 @@ def get_path_till_course(doc, path=None, path_trunk_set=None):
   return path_to_return
 
 
-def get_or_create_session_id(widget, user):
-  """Retrieves or creates a new session_id for the widget.
+def get_or_create_session(widget, user):
+  """Retrieves or creates a new session for the (user, widget) pair.
 
   Session id is assumed to be the key for WidgetProgressState entry
-  for the widget. We have separate model to store data for the user
-  per widget but since we need only one unique id we can reutilize
-  the id assigned by appstore instead of creating new one for
-  every sesssion. If no entry is present, a new entry is made. Currently,
+  for the widget. If no entry is present, a new entry is made. Currently,
   we are setting dirty bits to report stale scores.
 
   Args:
     widget: WidgetModel object for which session id is required.
     user: Associated user.
+
   Returns:
-    returns key for the entry of corresponding WidgetProgressState model.
+    An instance of the WidgetProgressState model.
   """
   visit_state = models.WidgetProgressState.all().filter('user =', user).filter(
     'widget_ref =', widget).get()
@@ -923,7 +933,7 @@ def get_or_create_session_id(widget, user):
   if not visit_state:
     visit_state = insert_with_new_key(models.WidgetProgressState, user=user,
                                       widget_ref=widget, progress_score=None)
-  return str(visit_state.key())
+  return visit_state
 
 
 def set_dirty_bits_for_doc(doc, user):

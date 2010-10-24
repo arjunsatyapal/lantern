@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //      http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
@@ -21,6 +21,7 @@
 goog.provide('lantern.quiz.QuizSession');
 
 goog.require('goog.dom')
+goog.require('goog.events')
 goog.require('goog.net.XhrIo');
 goog.require('goog.ui.Button');
 goog.require('goog.ui.ButtonRenderer');
@@ -31,52 +32,60 @@ goog.require('goog.Uri');
  * Constructor for Lantern Quiz Session.
  * @param {string} quizTrunkId Quiz's trunk id.
  * @param {string} quizId Id of the quiz being presented.
+ * @param {string} startQuizId Element ID of the button to start the quiz.
+ * @param {string} editQuizId Element ID of the link to edit the quiz.
  * @constructor
  */
-lantern.quiz.QuizSession = function(quizTrunkId, quizId) {
+lantern.quiz.QuizSession = function(
+    quizTrunkId, quizId, startQuizId, editQuizId) {
   this.quizId_ = quizId;
   this.quizTrunkId_ = quizTrunkId;
-  this.widgetChannel_  = new lantern.widget.LanternWidgetChannel();
-  this.widgetChannel_.initializeChannel();
   this.sessionId_ = '';
   this.question_ = {};
   this.attempts_ = 0;
   this.xhr_ = new goog.net.XhrIo();
-};
+  this.sessionId_ = null;
 
+  var startQuizButton = goog.dom.getElement(startQuizId);
+  if (startQuizButton) {
+    goog.events.listen(startQuizButton, goog.events.EventType.CLICK,
+                       goog.bind(this.getNextQuestion, this));
+  }
+  var editQuiz = goog.dom.getElement(editQuizId);
+  if (editQuiz) {
+    goog.events.listen(editQuiz, goog.events.EventType.CLICK,
+                       goog.bind(this.openEditWindow_, this));
+  }
 
-/**
- * Callback to initiate quiz immediately after loading.
- * NOTE(mukundjha): This sometimes work properly on firefox, but
- * almost never on Chrome. This is due to delay in setting up the
- * channel.
- */
-lantern.quiz.QuizSession.prototype.getSessionId = function(){
-  this.widgetChannel_.getDataAsync(goog.bind(this.initQuiz, this));
+  this.widgetChannel_  = new lantern.widget.LanternWidgetChannel(
+      goog.bind(this.initQuiz_, this));
 };
 
 
 /**
  * Initiates the quiz by making AJAX call to load new question.
- * @param {string} session_id Unique session identifier.
+ * @param {object} sessionInfo that includes session id.
  */
-lantern.quiz.QuizSession.prototype.initQuiz = function(session_id) {
-  this.sessionId_ = session_id;
-  this.getNextQuestion();
+lantern.quiz.QuizSession.prototype.initQuiz_ = function(sessionInfo) {
+  this.sessionId_ = sessionInfo['session_id'];
+  // If want to auto-start quiz, uncomment following line.
+  //  this.getNextQuestion();
 };
+
 /**
- * Parses question body, replacing '\n' with <br> 
+ * Parses question body, replacing '\n' with <br>
  */
 lantern.quiz.QuizSession.prototype.parseQuestion = function(questionBody) {
- var htmlArray = questionBody.split('\n');
- var element = goog.dom.createDom('div');
- 
- for(var i=0; i< htmlArray.length; i++) {
-   element.appendChild(goog.dom.createTextNode(htmlArray[i]));
-   element.appendChild(goog.dom.createDom('br'));
-   }
- return element
-}
+  var htmlArray = questionBody.split('\n');
+  var element = goog.dom.createDom('div');
+
+  for (var i = 0; i< htmlArray.length; i++) {
+    element.appendChild(goog.dom.createTextNode(htmlArray[i]));
+    element.appendChild(goog.dom.createDom('br'));
+  }
+  return element
+};
+
 /**
  * Sends an AJAX call to fetch new question.
  */
@@ -92,6 +101,14 @@ lantern.quiz.QuizSession.prototype.getNextQuestion = function() {
   uri.setParameterValue('session_id', this.sessionId_);
 
   this.xhr_.send(uri);
+};
+
+
+/**
+ * Edit the quiz.
+ */
+lantern.quiz.QuizSession.prototype.openEditWindow_ = function() {
+  window.open('/quiz/editQuiz?quiz_id=' + this.quizId_);
 };
 
 
@@ -113,13 +130,13 @@ lantern.quiz.QuizSession.prototype.makeQuizDOM = function(obj) {
   if (obj.current_status) {
     this.updateStatus(obj.current_status)
   }
-  goog.dom.removeChildren(goog.dom.getElement('quizTitle'));  
+  goog.dom.removeChildren(goog.dom.getElement('quizTitle'));
   goog.dom.removeChildren(goog.dom.getElement('quizButtonContainer'));
   goog.dom.removeChildren(goog.dom.getElement('quizMessage'));
   goog.dom.removeChildren(goog.dom.getElement('nextQuestionBox'));
   goog.dom.removeChildren(goog.dom.getElement('questionBody'));
   goog.dom.removeChildren(goog.dom.getElement('choices'));
-  
+
   var quizTitleBar = goog.dom.getElement('quizTitle')
   var title = goog.dom.createDom('h2', {'class': 'quizTitle'}, obj.title)
   quizTitleBar.appendChild(title)
@@ -130,7 +147,7 @@ lantern.quiz.QuizSession.prototype.makeQuizDOM = function(obj) {
   questionDom = this.parseQuestion(obj.question.body);
   questionBodyContainer.appendChild(
       goog.dom.createDom('div', {'class': 'lanternQuizQuestion'}, questionDom));
-  
+
   var choiceContainer = goog.dom.getElement('choices');
   choiceContainer.appendChild(goog.dom.createDom('br'));
   choiceContainer.appendChild(
@@ -138,17 +155,17 @@ lantern.quiz.QuizSession.prototype.makeQuizDOM = function(obj) {
                          'Please select among the following choices:'));
 
   choiceContainer.appendChild(goog.dom.createDom('br'));
-  for (var i=0; i< obj.question.choices.length; i++) {
+  for (var i = 0; i < obj.question.choices.length; i++) {
     var choice = goog.dom.createDom('input', {
        'type': 'radio',
        'id': 'answer' + i,
-       'name': 'answer', 
+       'name': 'answer',
        'value': obj.question.choices[i].id});
 
     choiceContainer.appendChild(choice);
     var choiceLabel = goog.dom.createDom('label', { 'for': 'answer' + i},
                                          obj.question.choices[i].body);
-   
+
     choiceContainer.appendChild(choiceLabel);
     choiceContainer.appendChild(goog.dom.createDom('br'));
     goog.events.listen(choice, goog.events.EventType.CLICK,
@@ -163,7 +180,6 @@ lantern.quiz.QuizSession.prototype.makeQuizDOM = function(obj) {
  * Callback to present new question once its fetched.
  */
 lantern.quiz.QuizSession.prototype.presentQuiz = function(e) {
-  
   var obj = this.xhr_.getResponseJson();
   this.question_ = obj.question;
   this.makeQuizDOM(obj);
@@ -172,7 +188,7 @@ lantern.quiz.QuizSession.prototype.presentQuiz = function(e) {
 
 /**
  * Function to send request to reset the quiz scores.
- * Upon resetting a new question is fetched and is passed 
+ * Upon resetting a new question is fetched and is passed
  * to presentQuiz.
  */
 lantern.quiz.QuizSession.prototype.resetQuiz = function() {
@@ -195,8 +211,8 @@ lantern.quiz.QuizSession.prototype.resetQuiz = function() {
  */
 lantern.quiz.QuizSession.prototype.updateStatus = function(current_status){
 
-  this.widgetChannel_.updateScore(current_status);
-      
+  this.widgetChannel_.updateProgress(current_status);
+
   progressHtmlArray = [
       '<table border="0"><tr><td><b>Score: </b></td><td><b>',
       current_status.score, '</b></td></tr><tr><td><b>Progress:</b></td><td>',
@@ -220,8 +236,8 @@ lantern.quiz.QuizSession.prototype.updateStatus = function(current_status){
   if (current_status.progress == 100) {
     var resetButton = new goog.ui.Button('Reset Scores');
     resetButton.render(resetButtonContainer);
-    
-    var message = 'You have completed the required questions.' + 
+
+    var message = 'You have completed the required questions. ' +
                   'Click reset if you wish to reset the scores';
 
     goog.events.listen(resetButton, goog.ui.Component.EventType.ACTION,
@@ -247,7 +263,7 @@ lantern.quiz.QuizSession.prototype.updateQuizDOM = function(obj) {
      return;
   }
   if (obj.current_status) {
-    this.updateStatus(obj.current_status);      
+    this.updateStatus(obj.current_status);
   }
 
   var messageContainer = goog.dom.getElement('quizMessage');
@@ -278,11 +294,11 @@ lantern.quiz.QuizSession.prototype.updateQuizDOM = function(obj) {
  * Function to process server's response to user's selection.
  */
 lantern.quiz.QuizSession.prototype.processResponse = function(e) {
-  
+
  // alert('presenting quiz');
   var obj = this.xhr_.getResponseJson();
   if (obj.progress){
-    this.widgetChannel_.updateScore(obj.progress);
+    this.widgetChannel_.updateProgress(obj);
   }
   this.updateQuizDOM(obj);
 };
@@ -311,11 +327,3 @@ lantern.quiz.QuizSession.prototype.collectResponse = function(choice) {
   uri.setParameterValue('answer', choice);
   this.xhr_.send(uri)
 };
-
-/**
- * Initializes quiz by asking for session_id from parent doc.
- */
-lantern.quiz.QuizSession.prototype.init = function() {
-  this.widgetChannel_.getDataAsync(
-      goog.bind(this.initQuiz, this));
-}

@@ -14,10 +14,13 @@
 
 
 /**
- * @fileoverview Library for communicating with Lantern docs.
- * To be included in view.html for lantern.
+ * @fileoverview Library for communicating between Lantern docs and widgets.
+ *
+ * Lantern docs host embedded widgets. This is the host-side library that
+ * helps set up Widget IFrames and communication channels.
+ *
  * Each IFrame which needs to communicate with doc, must be registered
- * using RegisterChannel call.
+ * using registerChannel() call.
  */
 
 goog.provide('lantern.comm.LanternChannelFactory');
@@ -27,17 +30,21 @@ goog.require('goog.Disposable');
 goog.require('goog.dom');
 goog.require('goog.dom.classes');
 goog.require('goog.events');
+goog.require('goog.events.EventHandler');
 goog.require('goog.json');
-goog.require('goog.net.XhrIo');
 goog.require('goog.net.xpc.CrossPageChannel');
 goog.require('goog.structs');
 goog.require('goog.style');
 goog.require('goog.ui.Dialog');
 goog.require('goog.Uri');
 
+goog.require('lantern.DataProviderXhr');
+goog.require('lantern.comm.LanternHostChannel');
+
 
 /**
  * Constructor for Lantern Channel.
+ *
  * @param {string} thirdPartyBaseUri Base uri for the thirdparty.
  * @param {string} iframeUri Complete uri to be embedded in an iframe.
  * @param {string} widgetId Id of the widget to be embedded in the Iframe.
@@ -64,61 +71,198 @@ lantern.comm.LanternChannel = function(
   var ownUri = '/';
   var iframeContainerId = widgetId + widgetIndex;
   this.widgetId_ = widgetId;
-  this.cfg_ = {};
   this.doc_id_ = doc_id;
   this.trunk_id_ = trunk_id;
   this.absolute_ = absolute;
   this.height_ = height;
   this.width_ = width;
 
-  this.cfg_[goog.net.xpc.CfgFields.PEER_URI] = iframeUri;
-  // Configuration specific to the Iframe Polling transport. Required,
-  // because the Iframe Polling transport may be required for some
-  // browsers.
+  /**
+   * Host-side channel for communicating with Widget app.
+   * @type lantern.comm.LanternHostChannel
+   * @private
+   */
+  this.hostChannel_ = new lantern.comm.LanternHostChannel(
+      thirdPartyBaseUri, iframeUri, iframeContainerId,
+      goog.bind(this.setIframeAttrs_, this),
+      goog.bind(this.onConnect_, this));
 
-  this.cfg_[goog.net.xpc.CfgFields.PEER_POLL_URI] = thirdPartyBaseUri +
-    'blank.html';
-  this.cfg_[goog.net.xpc.CfgFields.LOCAL_POLL_URI] = ownUri + 'blank.html';
+  /**
+   * Manger for XHR requests.
+   * @type {lantern.DataProviderXhr}
+   * @private
+   */
+  this.xhr_ = new lantern.DataProviderXhr();
 
-  // Configuration specific to the Iframe Relay transport. Required,
-  // because the Iframe Relay transport may be required for some
-  // browsers.
+  /**
+   * Event handler helper.
+   * @type {goog.events.EventHandler}
+   * @private
+   */
+  this.eh_ = new goog.events.EventHandler(this);
 
-  this.cfg_[goog.net.xpc.CfgFields.PEER_RELAY_URI] = thirdPartyBaseUri
-      + 'relay.html';
-  this.cfg_[goog.net.xpc.CfgFields.LOCAL_RELAY_URI] = ownUri + 'relay.html';
-  this.channel_ = new goog.net.xpc.CrossPageChannel(this.cfg_);
-
-  this.iframeElem_ = this.channel_.createPeerIframe(
-      goog.dom.getElement(iframeContainerId),
-      goog.bind(this.setIframeAttrs, this));
-
-   this.xhr_ = new goog.net.XhrIo();
+  // Bind host channel callbacks.
+  this.hostChannel_.setOnInitSession(
+      goog.bind(this.fetchSessionInfo_, this));
+  this.hostChannel_.setOnUpdateProgress(
+      goog.bind(this.updateProgress_, this));
+  this.hostChannel_.setOnUpdateSession(
+      goog.bind(this.updateSession_, this));
+  this.hostChannel_.setOnUpdateLayout(
+      goog.bind(this.updateLayout_, this));
 };
 goog.inherits(lantern.comm.LanternChannel, goog.Disposable);
 
 
 /**
- * Sets attributes for Iframe before loading.
- * @param {IFrameElement} iFrameElm Iframe element.
- * TODO(mukundjha): Replace 'widgetFrame' with some parameter to be passed.
+ * Helper to send a request via XHR that auto-increments the request ID.
+ * @private
  */
-lantern.comm.LanternChannel.prototype.setIframeAttrs = function(iFrameElm){
+lantern.comm.LanternChannel.prototype.sendRequest_ = function(
+    uri, callback, opt_method, opt_content) {
+  this.xhr_.sendRequest(
+      undefined /* autogen ID */, uri, callback, opt_method, opt_content);
+};
+
+
+/**
+ * Sets attributes for Iframe before loading.
+ * TODO(mukundjha): Replace 'widgetFrame' with some parameter to be passed.
+ *
+ * @param {IFrameElement} iFrameElm Iframe element.
+ * @private
+ */
+lantern.comm.LanternChannel.prototype.setIframeAttrs_ = function(iFrameElm){
   goog.style.setSize(iFrameElm, this.width_, this.height_);
-  goog.dom.classes.add(iFrameElm,'widgetFrame');
+  goog.dom.classes.add(iFrameElm, 'widgetFrame');
+};
+
+
+/**
+ * Called when the connection has been established with the widget.
+ *
+ * @private
+ */
+lantern.comm.LanternChannel.prototype.onConnect_ = function(){
+  // Nothing to do for now. Waiting for Widget to send init_session message.
+};
+
+
+/**
+ * Fetches the session info and calls sendSessionToWidget_ to send it to the
+ * widget.
+ * Registered with the hostChannel_.
+ * @param {string} iframeContainerId ID of the widget container.
+ */
+lantern.comm.LanternChannel.prototype.fetchSessionInfo_ = function(
+    iframeContainerId) {
+  var uri = '/getSession?widget_id=' + this.widgetId_;
+  this.sendRequest_(uri, goog.bind(this.sendSessionToWidget_, this));
+};
+
+
+/**
+ * Sends associated session information to the widget.
+ * The function is triggered upon completion of AJAX request for session info.
+ * @private
+ */
+lantern.comm.LanternChannel.prototype.sendSessionToWidget_ = function(
+    id, result, opt_errorMsg) {
+  var sessionInfo = result;
+  // The session_info is a dict of the form:
+  //  {'session_id': session_id,
+  //   'progress': progress,
+  //   'score': score,
+  //   'user_data': user_data}
+  this.hostChannel_.sendSessionInfo(sessionInfo);
+};
+
+
+/**
+ * Updates the progress score for widget. Registered with the hostChannel_.
+ *
+ * @param {string} iframeContainerId ID of the widget container.
+ * @param {string} progress Progress/Score of the form:
+ *    {'progress': progress,
+ *     'score': score}
+ */
+lantern.comm.LanternChannel.prototype.updateProgress_ = function(
+    iframeContainerId, progress) {
+  //alert('I am loop1');
+  if ( lantern.comm.LanternChannelFactory.completed_
+       && !lantern.comm.LanternChannelFactory.warnedOnce_) {
+    //alert('I am loop 2');
+    lantern.comm.LanternChannelFactory.warnedOnce_ = true;
+    var dialog = new goog.ui.Dialog(null, true);
+    var content = '<b>'
+        + 'Attempting this will reset the score and '
+        + 'progress for this module.'
+        + '<ul>'
+        + '<li>Click \"Keep scores\" to take the quiz again <em>without</em> '
+        + 'affecting this module\'s score.'
+        + '<li>Click \"Sync quiz scores\" to have the quiz score be reflected '
+        + 'in this module.'
+        + '</ul></b>';
+    dialog.setContent(content);
+    var buttonSet = new goog.ui.Dialog.ButtonSet();
+    buttonSet.set('keep_score_button', 'Keep scores');
+    buttonSet.set('reset_score_button', 'Sync quiz scores');
+    dialog.setButtonSet(buttonSet);
+    this.eh_.listenOnce(dialog, goog.ui.Dialog.EventType.SELECT,
+                        goog.bind(this.handleResetOrKeep_, this));
+   dialog.setVisible(true);
+  }
+  if (lantern.comm.LanternChannelFactory.completed_ ||
+      lantern.comm.LanternChannelFactory.ignoreUpdateRequest_) {
+    //alert('I am loop33');
+    return;
+  }
+  var uri = new goog.Uri('/updateScore');
+  uri.setParameterValue('widget_id', this.widgetId_);
+  uri.setParameterValue('doc_id', this.doc_id_);
+  uri.setParameterValue('trunk_id', this.trunk_id_);
+  uri.setParameterValue('score', progress.score);
+  uri.setParameterValue('progress', progress.progress);
+  uri.setParameterValue('absolute', this.absolute_);
+
+  this.sendRequest_(uri, goog.bind(this.processScore_, this));
+};
+
+
+/**
+ * Handle Dialog response to keep or reset scores.
+ * @private
+ */
+lantern.comm.LanternChannel.prototype.handleResetOrKeep_ = function(e) {
+  if (e.key == 'reset_score_button'){
+    //alert('i have chosen reset');
+    lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = false;
+    lantern.comm.LanternChannelFactory.completed_ = false;
+  } else if (e.key == 'keep_score_button'){
+    //alert('i have chosen to keep scores');
+    lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = true;
+    lantern.comm.LanternChannelFactory.completed_ = false;
+  }
 };
 
 
 /**
  * Updates the accumulated progress score for the document.
+ * This is an XHR callback to set the progress bar.
+ *
+ * @param {number} id Request ID associated with this response.
+ * @param {object} response JSON decoded response (if possible) or the original
+ *     response.
+ * @param {string?} opt_errorMsg Optional XHR error message.
+ * @private
  */
-lantern.comm.LanternChannel.prototype.processScore = function() {
-  var obj = this.xhr_.getResponseJson();
+lantern.comm.LanternChannel.prototype.processScore_ = function(
+    id, result, opt_errorMsg) {
   //alert('updating score : ' + obj);
   var docProgressBar = goog.dom.getElement('docProgressBar');
-   progressHtmlArray = [
+  var progressHtmlArray = [
       'http://chart.apis.google.com/chart?chs=150x25&chd=t:',
-      obj.doc_score,
+      result.doc_score,
       '|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||',
       '&chm=N,000000,0,-1,11'];
 
@@ -127,148 +271,69 @@ lantern.comm.LanternChannel.prototype.processScore = function() {
 
 
 /**
- * Updates the progress score for widget. This is registered as a service.
- * param {string} data Incomming payload.
+ * Updates session info for widget. Registered with hostChannel_.
+ *
+ * @param {string} iframeContainerId ID of the Widget container.
+ * @param {Object} sessionInfo Session info to write back to the server.
  */
-lantern.comm.LanternChannel.prototype.updateScore = function(data) {
-  //alert('I am loop1');
-  if ( lantern.comm.LanternChannelFactory.completed_
-       && !lantern.comm.LanternChannelFactory.warnedOnce_) {
-    //alert('I am loop 2');
-    lantern.comm.LanternChannelFactory.warnedOnce_ = true;
-    var dialog = new goog.ui.Dialog(null, true);
-    var content = '<b> Attempting this will reset the score and '
-        + 'progress for this module.<br/>'
-        + 'If you wish to keep the current scores '
-        + ' please click \'Keep scores\'. <br/>you will still be able '
-        + 'to attempt but it will'
-        + ' not reflect on this module.<br/> Or click Reset scores to '
-        + 'reset it </b>';
-    dialog.setContent(content);
-    var buttonSet = new goog.ui.Dialog.ButtonSet();
-    buttonSet.set('keep_score_button', 'Keep scores');
-    buttonSet.set('reset_score_button', 'Reset scores');
-    dialog.setButtonSet(buttonSet);
-    goog.events.listen(dialog, goog.ui.Dialog.EventType.SELECT, function(e) {
-      if (e.key == 'reset_score_button'){
-        //alert('i have chosen reset');
-        lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = false;
-        lantern.comm.LanternChannelFactory.completed_ = false;
-        return;
-      }
-      else if (e.key == 'keep_score_button'){
-        //alert('i have chosen to keep scores');
-        lantern.comm.LanternChannelFactory.ignoreUpdateRequest_ = true;
-        lantern.comm.LanternChannelFactory.completed_ = false;
-        return;
-      }
-    });
-   dialog.setVisible(true);
+lantern.comm.LanternChannel.prototype.updateSession_ = function(
+    iframeContainerId, sessionInfo) {
+  var uri = new goog.Uri('/updateWidgetSession');
+  var qd = new goog.Uri.QueryData();
+  qd.set('xsrf_token', xsrfToken /* global var */);
+  qd.set('widget_id', this.widgetId_);
+  qd.set('doc_id', this.doc_id_);
+  qd.set('trunk_id', this.trunk_id_);
+  qd.set('absolute', this.absolute_);
+
+  qd.set('user_data', sessionInfo['user_data']);
+  if (!lantern.comm.LanternChannelFactory.completed_ &&
+      !lantern.comm.LanternChannelFactory.ignoreUpdateRequest_) {
+    qd.set('score', sessionInfo['score']);
+    qd.set('progress', sessionInfo['progress']);
   }
-  if (lantern.comm.LanternChannelFactory.completed_ ||
-      lantern.comm.LanternChannelFactory.ignoreUpdateRequest_) {
-    //alert('I am loop33');
-    return;
+  this.sendRequest_(
+      uri, goog.bind(this.processScore_, this), 'POST', qd.toString());
+};
+
+
+/**
+ * Request to update layout. The current implementation only adjusts
+ * the viewport height to fit the widget.
+ *
+ * @param {string} iframeContainerId ID of the Widget container.
+ * @param {Object} layout A dict of the form:
+ *     {'width': width,
+ *      'height': height}
+ */
+lantern.comm.LanternChannel.prototype.updateLayout_ = function(
+    iframeContainerId, layout) {
+  if (this.hostChannel_) {
+    var iframe = this.hostChannel_.getWidgetIframe();
+    if (iframe && layout['height']) {
+      this.height_ = layout['height'] + 'px';
+      goog.style.setSize(iframe, this.width_, this.height_);
+    }
   }
-  var obj = goog.json.parse(data);
-  var uri = new goog.Uri('/updateScore');
-  uri.setParameterValue('widget_id', this.widgetId_);
-  uri.setParameterValue('doc_id', this.doc_id_);
-  uri.setParameterValue('trunk_id', this.trunk_id_);
-  uri.setParameterValue('score', obj.score);
-  uri.setParameterValue('progress', obj.progress);
-  uri.setParameterValue('absolute', this.absolute_);
-
-  goog.events.removeAll(this.xhr_);
-  goog.events.listen(
-      this.xhr_, goog.net.EventType.COMPLETE,
-      goog.bind(this.processScore, this));
-  this.xhr_.send(uri);
-};
-
-
-/**
- * Updates data for widget. This is registered as a service.
- * param {string} data Incomming payload.
- * TODO(mukundjha): Write ajax calls to store the data.
- */
-lantern.comm.LanternChannel.prototype.updateData = function(data) {
-
-};
-
-
-/**
- * Responds with an updated progress score to the widget.
- * This is registered as a service.
- * param {string} data Incomming payload.
- * TODO(mukundjha): Respond with current data state.
- */
-lantern.comm.LanternChannel.prototype.requestScore = function(data) {
-
-};
-
-
-/**
- * Request to update the viewport height from the widget.
- * @param {number} Height in pixels, expressed as an integer.
- */
-lantern.comm.LanternChannel.prototype.updateHeight = function(height) {
-  if (this.iframeElem_) {
-    this.height_ = height + 'px';
-    goog.style.setSize(this.iframeElem_, this.width_, this.height_);
-  }
-};
-
-
-/**
- * Sends associated session_id to the widget.
- * The function is triggred upon completion of AJAX request for
- * session_id.
- */
-lantern.comm.LanternChannel.prototype.sendSessionId = function() {
-  var obj = this.xhr_.getResponseJson();
-  this.channel_.send('process_data', obj.session_id);
-  //alert('sending data from trunk');
-};
-
-
-/**
- * Responds with an updated progress score to the widget.
- * This is registered as a service.
- * param {string} data Incomming payload.
- */
-lantern.comm.LanternChannel.prototype.requestData = function(data) {
-
-  url = '/getSessionId?widget_id=' + this.widgetId_;
-  goog.events.removeAll(this.xhr_);
-  goog.events.listen(
-      this.xhr_, goog.net.EventType.COMPLETE,
-      goog.bind(this.sendSessionId, this));
-  this.xhr_.send(url);
 };
 
 
 /**
  * Initializes LanternChannel object by registering required methods.
+ * This represents the API that the Widget can use to call the Host app.
  */
 lantern.comm.LanternChannel.prototype.initializeChannel = function(){
-  this.channel_.registerService('update_score',
-      goog.bind(this.updateScore, this));
-  this.channel_.registerService('update_data',
-      goog.bind(this.updateData, this));
-  this.channel_.registerService('request_score',
-      goog.bind(this.requestScore, this));
-  this.channel_.registerService('request_data',
-      goog.bind(this.requestData, this));
-  this.channel_.registerService('update_height',
-      goog.bind(this.updateHeight, this));
-  this.channel_.connect();
+  this.hostChannel_.initialize();
 };
 
 
+/**
+ * @override
+ */
 lantern.comm.LanternChannel.prototype.disposeInternal = function() {
   this.channel_.dispose();
   this.xhr_.dispose();
+  this.eh_.dispose();
 
   lantern.comm.LanternChannel.superClass_.disposeInternal.call(this);
 };
@@ -279,6 +344,7 @@ lantern.comm.LanternChannel.prototype.disposeInternal = function() {
  * @constructor
  */
 lantern.comm.LanternChannelFactory = function() {
+  // Nothing
 };
 
 
@@ -366,6 +432,7 @@ lantern.comm.LanternChannelFactory.initialize = function(isCompleted) {
        lantern.comm.LanternChannelFactory.dispose();
      });
 };
+
 
 /**
  * Clean up channels. To be called from a window-unload handler.
