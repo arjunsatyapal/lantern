@@ -1002,7 +1002,7 @@ def update_widget_session(request):
     parent_doc: Key for the parent doc.
   """
   widget_id = request.POST.get('widget_id')
-  user_data = request.POST.get('user_data')
+  user_data = request.POST.get('user_data').encode('utf-8')
   trunk_id = request.POST.get('trunk_id')
   doc_id = request.POST.get('doc_id')
   parent_trunk =  request.POST.get('parent_trunk')
@@ -1021,7 +1021,7 @@ def update_widget_session(request):
   else:  # Do not update progress
     library.put_widget_score(widget, users.get_current_user(), None,
                              user_data=user_data)
-  return HttpResponse(True)
+  return HttpResponse('True')
 
 
 def update_trunk_title(request):
