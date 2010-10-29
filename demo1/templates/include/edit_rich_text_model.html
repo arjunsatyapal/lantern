@@ -1,7 +1,11 @@
  <div class="doc_property">
-  <label class="label label_for">HTML text:</label>
-  <textarea class="value" rows="10" cols="100"
-    name="data_val">{{object.data}}</textarea>
+  <label class="label label_for">Text:</label>
+  <div class="rtcontainer">
+    <div class="controlbar"><input type="button" class="toggleHTML" /></div>
+    <textarea class="value" rows="10" cols="100"
+              name="data_val">{{object.data}}</textarea>
+    <div class="edittb"></div><div class="rteditor"></div>
+  </div>
   <input type="hidden" name="data_type" value="rich_text" />
   <input type="hidden" name="data_title" value="notitel" />
   <input type="hidden" name="data_width" value="0" />

@@ -438,7 +438,7 @@ button.notestrigger {
   overflow-y: auto;
 }
 
-div.notepad {
+div.notepad, div.rteditor {
   width: 600px;
   background-color: white;
   border: 1px solid grey;

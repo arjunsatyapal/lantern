@@ -17,6 +17,7 @@
  */
 
 goog.provide('lantern.wwedit.NotepadManager');
+goog.provide('lantern.wwedit.RTEditorManager');
 
 goog.require('goog.dom');
 goog.require('goog.editor.Command');
@@ -35,87 +36,113 @@ goog.require('goog.editor.plugins.UndoRedo');
 goog.require('goog.ui.editor.DefaultToolbar');
 goog.require('goog.ui.editor.ToolbarController');
 goog.require('goog.events.EventHandler');
+goog.require('goog.events.EventType');
 goog.require('goog.style');
 
 goog.require('lantern.DataProviderXhr');
 
 /**
- * Keep track of all the NotePad on a page, so that
- * we can get rid of them at once at the end
+ * Keep track of all the HTMLEditors on a page, so that
+ * we can get rid of them at once at the end.
+ *
+ * This is meant to be used as a base class.  enumeratEditorTargets
+ * method should return an array of DOM element, each to be fed to
+ * its newHTMLEditor method that return a subclass of HTMLEditor_.
+ *
+ * @constructor
  */
-lantern.wwedit.NotepadManager = function () {
+lantern.wwedit.HTMLEditorManager_ = function() {
   goog.Disposable.call(this);
-  var notepads = goog.dom.getElementsByTagNameAndClass('div', 'notepad');
-  this.notepads_ = []
-  for (var i = 0; i < notepads.length; i++) {
-    this.notepads_.push(new lantern.wwedit.NotePad(notepads[i]));
+  var editors = this.enumerateEditorTargets();
+  this.editors_ = []
+  for (var i = 0; i < editors.length; i++) {
+    this.editors_.push(this.newHTMLEditor(editors[i]));
   }
 };
-goog.inherits(lantern.wwedit.NotepadManager, goog.Disposable);
-
+goog.inherits(lantern.wwedit.HTMLEditorManager_, goog.Disposable);
 
 /**
  * @override
  */
-lantern.wwedit.NotepadManager.prototype.disposeInternal = function() {
-  for (var i = 0; i < this.notepads_.length; i++) {
-    var notepad = this.notepads_[i];
-    notepad.dispose();
+lantern.wwedit.HTMLEditorManager_.prototype.disposeInternal = function() {
+  for (var i = 0; i < this.editors_.length; i++) {
+    this.editors_[i].dispose();
   }
-  this.notepads_ = null;
+  this.editors_ = null;
 };
 
-lantern.wwedit.isNotePadKey_ = function (node) {
-  return (node.tagName == 'INPUT') && (node.name == 'key');
+/**
+ * Keep track of all the NotePad on a page, so that
+ * we can get rid of them at once at the end
+ */
+lantern.wwedit.NotepadManager = function() {
+  lantern.wwedit.HTMLEditorManager_.call(this);
+};
+goog.inherits(lantern.wwedit.NotepadManager, lantern.wwedit.HTMLEditorManager_);
+
+/**
+ * @override
+ */
+lantern.wwedit.NotepadManager.prototype.enumerateEditorTargets = function() {
+  return goog.dom.getElementsByTagNameAndClass('div', 'notepad');
 };
 
-lantern.wwedit.isNotePadEdit_ = function (node) {
-  return (node.tagName == 'DIV') && (node.className == 'googedit');
+lantern.wwedit.NotepadManager.prototype.newHTMLEditor = function(elem) {
+  return new lantern.wwedit.NotePad(elem);
 };
 
-lantern.wwedit.isNotePadEditToolbar_ = function (node) {
-  return (node.tagName == 'DIV') && (node.className == 'edittb');
+/**
+ * Keep track of all the RichTextEditor on a page, so that
+ * we can get rid of them at once at the end
+ */
+lantern.wwedit.RTEditorManager = function() {
+  lantern.wwedit.HTMLEditorManager_.call(this);
+};
+goog.inherits(lantern.wwedit.RTEditorManager, lantern.wwedit.HTMLEditorManager_);
+
+/**
+ * @override
+ */
+lantern.wwedit.RTEditorManager.prototype.enumerateEditorTargets = function() {
+  return goog.dom.getElementsByTagNameAndClass('div', 'rteditor');
 };
 
-lantern.wwedit.NotePad = function (node) {
+lantern.wwedit.RTEditorManager.prototype.newHTMLEditor = function(elem) {
+  return new lantern.wwedit.RTEditor(elem);
+};
+
+/**
+ * HTMLEditor_
+ *
+ * This is meant to be used as a base class.
+ *
+ * @param {Element} htmlEdit: a <div> element to be used as a Wysiwyg editor
+ * @param {Element} htmlEditToolbar: a <div> element to be used as the toolbar
+ *                  for the Wysiwyg editor
+ * @constructor
+ */
+lantern.wwedit.HTMLEditor_ = function(htmlEdit, htmlEditToolbar) {
   goog.Disposable.call(this);
-  var notepadKey = goog.dom.findNode(node, lantern.wwedit.isNotePadKey_);
-  this.notepadId_ = notepadKey.value;
-  this.notepadEdit_ = goog.dom.findNode(node, lantern.wwedit.isNotePadEdit_);
-  this.notepadEditToolbar_ = goog.dom.findNode(node, lantern.wwedit.isNotePadEditToolbar_);
-  if (!this.notepadEdit_.id) {
-    this.notepadEdit_.id = 'wwedit' + lantern.wwedit.NotePad.IdSequence_++;
+  if (!htmlEdit.id) {
+    htmlEdit.id = 'wwedit' + lantern.wwedit.HTMLEditor_.IdSequence_++;
   }
-  this.notepadField_ = new goog.editor.SeamlessField(this.notepadEdit_.id);
-  this.notepadCTEW_ = new goog.editor.ClickToEditWrapper(this.notepadField_);
-
+  this.htmlEdit_ = htmlEdit;
+  this.htmlField_ = new goog.editor.SeamlessField(this.htmlEdit_.id);
+  this.htmlEditToolbar_ = htmlEditToolbar;
   this.xhr_ = new lantern.DataProviderXhr();
   this.currentRequestId_ = 0;
   this.eh_ = new goog.events.EventHandler(this);
-
-  var key = this.notepadId_;
-  this.sendRequest('/notepad/get',
-                   goog.bind(this.receiveNotePadValue_, this, null),
-                   'POST',
-                   'key=' + encodeURIComponent(key) + '&amp;' +
-                   'xsrf_token=' + xsrfToken);
 };
-goog.inherits(lantern.wwedit.NotePad, goog.Disposable);
+goog.inherits(lantern.wwedit.HTMLEditor_, goog.Disposable);
 
-/**
- * @private
- */
-lantern.wwedit.NotePad.IdSequence_ = 0;
+lantern.wwedit.HTMLEditor_.IdSequence_ = 0;
 
-lantern.wwedit.NotePad.prototype.receiveNotePadValue_ = function(
-    callback, requestId, result, opt_errMsg) {
-  var myField = this.notepadField_;
-
-  text = (result ? result.text : "");
-  if (text == "") {
-    text = "<br />";
+lantern.wwedit.HTMLEditor_.prototype.setup = function(initial_text) {
+  var myField = this.htmlField_;
+  if (initial_text == "") {
+    initial_text = "<br />";
   }
-  myField.setHtml(false, text);
+  myField.setHtml(false, initial_text);
 
   // Create and register all of the editing plugins you want to use.
   myField.registerPlugin(new goog.editor.plugins.BasicTextFormatter());
@@ -157,22 +184,62 @@ lantern.wwedit.NotePad.prototype.receiveNotePadValue_ = function(
                  ];
   var myToolbar = goog.ui.editor.DefaultToolbar.makeToolbar(
       buttons,
-      this.notepadEditToolbar_);
+      this.htmlEditToolbar_);
 
   // Hook the toolbar into the field.
   var myToolbarController =
       new goog.ui.editor.ToolbarController(myField, myToolbar);
 
-  goog.events.listen(myField, goog.editor.Field.EventType.BEFOREFOCUS,
-                     goog.bind(this.showToolBar_, this, true));
-  goog.events.listen(myField, goog.editor.Field.EventType.BLUR,
-                     goog.bind(this.showToolBar_, this, false));
+  this.eh_.listen(myField, goog.editor.Field.EventType.BEFOREFOCUS,
+                  goog.bind(this.showToolBar_, this, true));
+  this.eh_.listen(myField, goog.editor.Field.EventType.BLUR,
+                  goog.bind(this.showToolBar_, this, false));
+};
 
+lantern.wwedit.HTMLEditor_.prototype.showToolBar_ = function(show) {
+  goog.style.showElement(this.htmlEditToolbar_, show);
+};
+
+/**
+ * NotePad - an area on the page that student can scribble per-user notes
+ * @constructor
+ */
+lantern.wwedit.NotePad = function(node) {
+  var divEdit = goog.dom.findNode(node,
+                                  function(child) {
+                                    return ((child.tagName == 'DIV') &&
+                                            (child.className == 'googedit'));
+                                  });
+  var divTB = goog.dom.findNode(node,
+                                function(child) {
+                                  return ((child.tagName == 'DIV') &&
+                                          (child.className == 'edittb'));
+                                });
+  lantern.wwedit.HTMLEditor_.call(this, divEdit, divTB);
+  this.htmlCTEW_ = new goog.editor.ClickToEditWrapper(this.htmlField_);
   this.showToolBar_(false);
 
-  if (callback) {
-    callback(this);
-  }
+  var notepadKey = goog.dom.findNode(node,
+                                     function(child) {
+                                       return ((child.tagName == 'INPUT') &&
+                                               (child.name == 'key'));
+                                     });
+  this.notepadId_ = notepadKey.value;
+  this.sendRequest('/notepad/get',
+                   goog.bind(this.receiveNotePadValue_, this),
+                   'POST',
+                   'key=' + encodeURIComponent(this.notepadId_) + '&amp;' +
+                   'xsrf_token=' + xsrfToken);
+};
+goog.inherits(lantern.wwedit.NotePad, lantern.wwedit.HTMLEditor_);
+
+/**
+ * @private
+ */
+lantern.wwedit.NotePad.prototype.receiveNotePadValue_ = function(
+    requestId, result, opt_errMsg) {
+  text = (result ? result.text : "");
+  this.setup(text);
 };
 
 
@@ -181,12 +248,12 @@ lantern.wwedit.NotePad.prototype.showToolBar_ = function(show) {
     /* losing focus now; the contents need saving */
     this.updateNotePadValue_();
   }
-  goog.style.showElement(this.notepadEditToolbar_, show);
+  lantern.wwedit.HTMLEditor_.prototype.showToolBar_.call(this, show);
 };
 
 
 lantern.wwedit.NotePad.prototype.updateNotePadValue_ = function() {
-  var text = this.notepadField_.getCleanContents();
+  var text = this.htmlField_.getCleanContents();
   var key = this.notepadId_;
 
   this.sendRequest('/notepad/update',
@@ -205,11 +272,82 @@ lantern.wwedit.NotePad.prototype.updatedNotePadValue_ = function(
 
 
 /**
+ * RTEditor
+ * @constructor
+ */
+lantern.wwedit.RTEditor = function(node) {
+  var divEdit = node;
+  var divTB = goog.dom.findNode(node.parentNode,
+                                function(child) {
+                                  return ((child.tagName == 'DIV') &&
+                                          (child.className == 'edittb'));
+                                });
+  lantern.wwedit.HTMLEditor_.call(this, divEdit, divTB);
+  this.htmlField_.makeEditable();
+
+  var divCB = goog.dom.findNode(node.parentNode,
+                                function(child) {
+                                  return ((child.tagName == 'DIV') &&
+                                          (child.className == 'controlbar'));
+                                });
+  this.toggleHTMLButton_ = goog.dom.findNode(node.parentNode,
+                                             function(child) {
+                                               return ((child.tagName == 'INPUT') &&
+                                                       (child.className == 'toggleHTML'));
+                                             });
+  this.toggleHTMLButton_.value = 'Edit HTML';
+  this.eh_.listen(this.toggleHTMLButton_, goog.events.EventType.CLICK,
+                  goog.bind(this.toggleHTMLEdit, this));
+  divCB.appendChild(this.toggleHTMLButton_);
+  this.teSource_ = goog.dom.findNode(node.parentNode.parentNode,
+                                     function(child) {
+                                       return ((child.tagName == 'TEXTAREA') &&
+                                               (child.className == 'value'));
+                                     });
+  goog.style.showElement(this.teSource_, false);
+  goog.style.showElement(node, true);
+  this.setup(this.teSource_.value);
+  this.showToolBar_(true);
+};
+goog.inherits(lantern.wwedit.RTEditor, lantern.wwedit.HTMLEditor_);
+
+
+lantern.wwedit.RTEditor.prototype.showToolBar_ = function(show) {
+  if (!show) {
+    this.updateTESource();
+  }
+};
+
+
+lantern.wwedit.RTEditor.prototype.updateTESource = function() {
+  this.teSource_.value = this.htmlField_.getCleanContents();
+};
+
+
+lantern.wwedit.RTEditor.prototype.toggleHTMLEdit = function() {
+  var b = this.toggleHTMLButton_;
+  if (b.value == 'Edit HTML') {
+    this.updateTESource();
+    goog.style.showElement(this.htmlEditToolbar_, false);
+    goog.style.showElement(this.htmlEdit_, false);
+    goog.style.showElement(this.teSource_, true);
+    b.value = 'Edit Rich Text';
+  } else {
+    this.htmlField_.setHtml(false, this.teSource_.value);
+    goog.style.showElement(this.htmlEditToolbar_, true);
+    goog.style.showElement(this.htmlEdit_, true);
+    goog.style.showElement(this.teSource_, false);
+    b.value = 'Edit HTML';
+  }
+};
+
+
+/**
  * Helper to send a request via XHR
  */
 lantern.wwedit.NotePad.prototype.sendRequest = function(
     uri, callback, var_args) {
-  var id = this.currentReequestId_++;
+  var id = this.currentRequestId_++;
   var args = [id, uri, callback];
   var i;
   for (i = 2; i < arguments.length; i++)
@@ -220,17 +358,24 @@ lantern.wwedit.NotePad.prototype.sendRequest = function(
 /**
  * @override
  */
-lantern.wwedit.NotePad.prototype.disposeInternal = function() {
-  this.updateNotePadValue_();
-
-  this.notepadCTEW_.dispose();
-  this.notepadCTEW_ = null;
-  this.notepadField_.dispose();
-  this.notepadField_ = null;
+lantern.wwedit.HTMLEditor_.prototype.disposeInternal = function() {
+  this.htmlField_.dispose();
+  this.htmlField_ = null;
   this.xhr_.dispose();
   this.xhr_ = null;
+  this.eh_.dispose();
+  this.eh_ = null;
+}
+
+lantern.wwedit.NotePad.prototype.disposeInternal = function() {
+  this.updateNotePadValue_();
+  lantern.wwedit.HTMLEditor_.disposeInternal.call(this);
+  this.htmlCTEW_.dispose();
+  this.htmlCTEW_ = null;
 };
 
 // Export for use in HTML.
 goog.exportSymbol('lantern.wwedit.NotepadManager',
                   lantern.wwedit.NotepadManager);
+goog.exportSymbol('lantern.wwedit.RTEditorManager',
+                  lantern.wwedit.RTEditorManager);

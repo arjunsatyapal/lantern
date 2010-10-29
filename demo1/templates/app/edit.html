@@ -15,11 +15,15 @@ limitations under the License.
 {% extends "app/base1col.html" %}
 
 {% block extra_head %}
+ <link rel="stylesheet" href="/static/css/editor.css" />
  <style>
   .modal-dialog {
     width: 400px;
   }
   </style>
+  <script>
+  goog.require('lantern.wwedit.RTEditorManager');
+  </script>
 {% endblock %}
 
 {% block title %} {{ title }} {% endblock %}
@@ -139,7 +143,9 @@ var templates = {
 
 var editPage = new lantern.edit.EditPage('doc_contents', templates);
 var deleteRow = goog.bind(editPage.deleteRow, editPage);
+var rteditMgr = new lantern.wwedit.RTEditorManager();
 goog.events.listenOnce(window, 'unload', function(e) {
+  rteditMgr.dispose();
   editPage.dispose();
   editPage = null;
 });
