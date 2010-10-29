@@ -208,21 +208,13 @@ goog.inherits(lantern.edit.LinkPicker, goog.Disposable);
 
 
 /**
- * Unique id for each request.
- * @type number
- * @private
- */
-lantern.edit.LinkPicker.currentRequestId_ = 0;
-
-
-/**
  * Helper to send a request via XHR
  */
 lantern.edit.LinkPicker.prototype.sendRequest = function(
     uri, callback, opt_method, opt_content) {
   this.xhr_.sendRequest(
-      undefined /* autogen ID */, callback, opt_method, opt_content);
-}
+      undefined /* autogen ID */, uri, callback, opt_method, opt_content);
+};
 
 
 /**
