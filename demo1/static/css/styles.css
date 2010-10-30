@@ -439,9 +439,16 @@ button.notestrigger {
 }
 
 div.notepad, div.rteditor {
-  width: 600px;
   background-color: white;
   border: 1px solid grey;
+}
+
+div.notepad {
+  width: 600px;
+}
+
+div.rteditor {
+  width: 100%;
 }
 
 iframe.googedit {
