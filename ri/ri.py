@@ -33,7 +33,7 @@ class RIinput(StringIO.StringIO):
 
   def append(self, data):
     """Stuff data to be returned by further read(), readline(), etc."""
-    self.buflist.append(data)
+    self.buflist.append(data.encode('utf-8'))
 
   def readline(self, length=None):
     l = StringIO.StringIO.readline(self, length)

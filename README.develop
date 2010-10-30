@@ -97,12 +97,9 @@ Install pymox: http://code.google.com/p/pymox 0.5.3 into site-packages
   probably skip site-packages.
 
 Load and extract appengine SDK.
- - Create a symlink to the app-engine directory in each "app", e.g.
+ - Create a symlink to the app-engine directory, e.g.,
 
-   cd demo1
    ln -s /usr/local/apps/google_appengine .google_appengine
-
-   Do the same in demo1-test.
 
 Download and extract GAEunit, coying gaeunit into the test source tree (e.g.,
   demo1-test).
@@ -134,9 +131,7 @@ To set up sym links in the development tree, e.g.,
   $ ln -s /usr/local/google/home/<you>/apps/closure-library \
       demo1/static/js/closure
   $ ln -s /usr/local/google/home/<you>/apps/closure-compiler \
-      demo1/.closure_compiler
-  $ ln -s /usr/local/google/home/<you>/apps/closure-compiler \
-      demo1-test/.closure_compiler
+      .closure_compiler
 
 -----------
 Testing the Setup

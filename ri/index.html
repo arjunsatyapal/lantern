@@ -1,6 +1,6 @@
 <html>
-  <head>
-   <style>
+<head>
+<style>
 input[type="text"] {
   width: 80%;
   border-style: solid;
@@ -10,76 +10,95 @@ div.codeBox {
  max-height:250px;
  overflow: auto;
 }
-   </style>
-    <script src="/static/js/closure/closure/goog/base.js"></script>
-    <script src="/static/js/lantern_widget_channel.js"></script>
-    <script>
-     goog.require('goog.events');
-    </script>
-    <script> 
-     var widgetChannel  = new lantern.widget.LanternWidgetChannel();
-     widgetChannel.initializeChannel();
-    </script>
-  </head>
-  <body{% if alive %} onLoad="document.lineinterpreter.input.focus();" {% endif %}>
-   <!--<input type='button' name='but1' value='start' onclick="widgetChannel.getDataAsync(putIdInForm);"/>-->
-    <form action="/" method="post" name="lineinterpreter" id="lineinterpreter" onSubmit='checkForId("run","go")'>
-      <div class="codeBox">
-        <pre>{{ output }}{% if alive %}<input type="text" value="" name="input" id="inputBox">{% endif %}</pre>
-      </div>
-      {% if alive %}
-        {% if sofar %}
-         <input type="hidden" name="sofar" value={{sofar}}> 
-        {% endif %}
-      <hr />
-      <div>
-        <input type="button" value="Go" name="run" onClick="javascript:checkForId('run', 'Go');">
-        <input type="button" value="Edit" name="edit" onClick="javascript:checkForId('edit', 'Edit');">
-      </div>
-      {% else %}
-      <a href="/">Again</a>
-      {% endif %}
-    </form>
-     <script>
-     var inElement = goog.dom.getElement('inputBox');
-     goog.events.listen(document, goog.events.EventType.KEYDOWN, function(e) {
-      var code = e.keyCode;
-        switch (code) {
-          case 3:
-          case 13:
-            e.preventDefault();
-            checkForId('run', 'Go');
-            break;
-          default:
-            // no-op
-        }
-     });
+</style>
+<script src="/static/js/pyshellJs.js"></script>
+<!-- <script src="/static/js/closure/closure/goog/base.js"></script> -->
+<!-- <script type="text/javascript"> -->
+<!--   goog.require('goog.Disposable'); -->
+<!--   goog.require('goog.dom'); -->
+<!--   goog.require('goog.events'); -->
+<!-- </script> -->
+<!-- <script src="/static/js/lantern_widget_channel.js"></script> -->
+</head>
+<body>
+<form action="/" method="post" name="lineinterpreter"
+      id="lineinterpreter" onSubmit='submitInput("run","go")'>
+  <div class="codeBox">
+    <pre>{{ output }}{% if alive %}<input type="text" value=""
+                                          name="input"
+                                          id="inputBox">{% endif %}</pre>
+  </div>
+  {% if alive %}
+    {% if sofar %}
+      <input type="hidden" name="sofar" value={{sofar}}>
+    {% endif %}
+    <hr />
+    <div>
+      <input type="button" value="Go" name="run"
+             onClick="javascript:submitInput('run', 'Go');">
+      <input type="button" value="Edit" name="edit"
+             onClick="javascript:submitInput('edit', 'Edit');">
+    </div>
+  {% else %}
+    <a href="/">Again</a>
+  {% endif %}
+</form>
+<script type="text/javascript">
+var widgetChannel;
+var inElement = goog.dom.getElement('inputBox');
 
-     function putIdInForm(id){
-//       alert(id);
-       var formElement = goog.dom.getElement('lineinterpreter');
-       html = '<input type="hidden" name="sofar" value="'+ id +'">';
-       var inputElement = goog.dom.createDom('input', {'type': 'hidden', 
-                                             'name': 'sofar', 'value': id});
-       formElement.appendChild(inputElement);
-       formElement.submit();
-     }
-     var sofar = '{{sofar}}';
+goog.events.listen(document, goog.events.EventType.KEYDOWN, function(e) {
+    var code = e.keyCode;
+    switch (code) {
+     case 3:
+     case 13:
+      e.preventDefault();
+      submitInput('run', 'Go');
+      break;
+     default:
+      // no-op
+    }
+  });
 
-     checkForId = function(name, value){
-       var formElement = goog.dom.getElement('lineinterpreter');
-       var inputElement = goog.dom.createDom('input', {'type': 'hidden', 
-                                             'name': name, 'value': value});
-       formElement.appendChild(inputElement);
-       if (sofar != 'None'){
-   //      alert(sofar);
-         formElement.submit();
-       }
-       else {
-          //alert('called');
-          widgetChannel.getDataAsync(putIdInForm);
-       }
-     }
-     
-    </script> </body>
+var sofar = '{{sofar}}';
+
+submitInput = function(name, value) {
+  var formElement = goog.dom.getElement('lineinterpreter');
+  var inputElement = goog.dom.createDom('input', {'type': 'hidden',
+                                        'name': name, 'value': value});
+  formElement.appendChild(inputElement);
+  if (sofar != 'None') {
+   // alert(sofar);
+    formElement.submit();
+  }
+};
+
+putIdInForm = function(id) {
+// alert(id);
+  var formElement = goog.dom.getElement('lineinterpreter');
+  var html = '<input type="hidden" name="sofar" value="'+ id +'">';
+  var inputElement = goog.dom.createDom('input', {'type': 'hidden',
+                                        'name': 'sofar', 'value': id});
+  formElement.appendChild(inputElement);
+  formElement.submit();
+};
+
+onSessionId = function(sessionInfo) {
+  if (sofar == 'None') {
+    var id = sessionInfo['session_id'];
+    putIdInForm(id);
+  }
+};
+
+if (window != top) {
+  var widgetChannel  = new lantern.widget.LanternWidgetChannel(onSessionId);
+  if (sofar != 'None') {  // Don't set focus on initial load.
+    var inElement = goog.dom.getElement('inputBox');
+    if (inElement) {
+      inElement.focus();
+    }
+  }
+}
+</script>
+</body>
 </html>

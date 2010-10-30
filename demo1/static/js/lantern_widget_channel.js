@@ -21,6 +21,12 @@
  * NOTE: Implementation depends on the Closure JavaScript Library.
  * http://code.google.com/closure/library.
  *
+ * Typical usage:
+ * <script type="text/javascript">
+ *   goog.require('goog.Disposable');
+ * </script>
+ * <script src="/js/lantern_widget_channel.js"></script>
+ *
  * To support browsers with no native transport, the Host and Widget apps must
  * be able to serve the files, "blank.html" and "relay.html", found at:
  * http://closure-library.googlecode.com/svn/trunk/closure/goog/demos/xpc/.
@@ -63,9 +69,11 @@
 goog.provide('lantern.widget.LanternWidgetChannel');
 
 goog.require('goog.Disposable');
-goog.require('goog.json')
-goog.require('goog.net.cookies')
+goog.require('goog.dom');
+goog.require('goog.json');
+goog.require('goog.net.cookies');
 goog.require('goog.net.xpc.CrossPageChannel');
+goog.require('goog.Uri');
 
 
 /**
