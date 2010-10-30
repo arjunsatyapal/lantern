@@ -293,9 +293,9 @@ Deployment to AppEngine
 
   make deploy_files
 
-- Go to the demo1 directory, run:
+- Go to the directory above 'demo1', run:
 
-  .google_appengine/appcfg.py --email=yourname@google.com update .
+  .google_appengine/appcfg.py --email=yourname@google.com update demo1
 
 -----------------
 Misc
