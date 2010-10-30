@@ -39,7 +39,7 @@ CLOSURE_COMPILER = $(CLOSURE_COMPILER_DIR)/compiler.jar
 CLOSURE_COMPILER_OPTS = # -f --compilation_level=ADVANCED_OPTIMIZATIONS
 
 # Closure javascript location
-CLOSURE_JS_DIR = static/js/closure-library-read-only
+CLOSURE_JS_DIR = ../closure
 CLOSURE_DEPS = $(CLOSURE_JS_DIR)/closure/bin/calcdeps.py
 
 # JavaScript files
