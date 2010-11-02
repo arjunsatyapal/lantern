@@ -687,10 +687,12 @@ lantern.edit.EditPage.prototype.addWidgetLink_ = function(link, isShared) {
 lantern.edit.EditPage.prototype.addContent_ = function(contentType) {
   var objectId = this.nextObjectId_();
   var templateText = this.templates_['preamble'] + this.templates_[contentType];
+  var postprocess = null;
 
   if (contentType == 'rich_text') {
     templateText = templateText.replace('\{\{object.key}}', objectId);
     templateText = templateText.replace('\{\{object.data}}', '');
+    postprocess = goog.bind(rteditMgr.populate, rteditMgr);
 
   } else if (contentType == 'video') {
     templateText = templateText.replace('\{\{object.key}}', objectId);
@@ -716,7 +718,10 @@ lantern.edit.EditPage.prototype.addContent_ = function(contentType) {
     return;
   }
   if (templateText) {
-    this.addContentToPage_(objectId, templateText);
+    var node = this.addContentToPage_(objectId, templateText);
+    if (postprocess) {
+      postprocess(node);
+    }
   }
 };
 
@@ -735,6 +740,7 @@ lantern.edit.EditPage.prototype.addContentToPage_ = function(objectId, html) {
   el1.appendChild(newRow);
   // Reinitialize drag drop after changing contents.
   this.dragDrop_.init();
+  return newRow;
 };
 
 

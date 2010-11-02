@@ -53,13 +53,17 @@ goog.require('lantern.DataProviderXhr');
  */
 lantern.wwedit.HTMLEditorManager_ = function() {
   goog.Disposable.call(this);
-  var editors = this.enumerateEditorTargets();
-  this.editors_ = []
+  this.editors_ = [];
+  this.populate(document);
+};
+goog.inherits(lantern.wwedit.HTMLEditorManager_, goog.Disposable);
+
+lantern.wwedit.HTMLEditorManager_.prototype.populate = function(node) {
+  var editors = this.enumerateEditorTargets(node);
   for (var i = 0; i < editors.length; i++) {
     this.editors_.push(this.newHTMLEditor(editors[i]));
   }
 };
-goog.inherits(lantern.wwedit.HTMLEditorManager_, goog.Disposable);
 
 /**
  * @override
@@ -83,8 +87,12 @@ goog.inherits(lantern.wwedit.NotepadManager, lantern.wwedit.HTMLEditorManager_);
 /**
  * @override
  */
-lantern.wwedit.NotepadManager.prototype.enumerateEditorTargets = function() {
-  return goog.dom.getElementsByTagNameAndClass('div', 'notepad');
+lantern.wwedit.NotepadManager.prototype.enumerateEditorTargets = function(root) {
+  return goog.dom.findNodes(root,
+                            function(child) {
+                              return ((child.tagName == 'DIV') &&
+                                      (child.className == 'notepad'));
+                            });
 };
 
 lantern.wwedit.NotepadManager.prototype.newHTMLEditor = function(elem) {
@@ -103,8 +111,12 @@ goog.inherits(lantern.wwedit.RTEditorManager, lantern.wwedit.HTMLEditorManager_)
 /**
  * @override
  */
-lantern.wwedit.RTEditorManager.prototype.enumerateEditorTargets = function() {
-  return goog.dom.getElementsByTagNameAndClass('div', 'rteditor');
+lantern.wwedit.RTEditorManager.prototype.enumerateEditorTargets = function(root) {
+  return goog.dom.findNodes(root,
+                            function(child) {
+                              return ((child.tagName == 'DIV') &&
+                                      (child.className == 'rteditor'));
+                            });
 };
 
 lantern.wwedit.RTEditorManager.prototype.newHTMLEditor = function(elem) {
