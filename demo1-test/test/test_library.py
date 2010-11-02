@@ -262,7 +262,7 @@ class GetOrCreateSessionIdTest(unittest.TestCase):
     temp_user = users.User('test1@gmail.com')
     widget = library.insert_with_new_key(models.WidgetModel, widget_url='xx')
 
-    id = library.get_or_create_session_id(widget, temp_user)
+    id = str(library.get_or_create_session(widget, temp_user).key())
     vs = models.WidgetProgressState.all().filter('user =', temp_user).filter(
         'widget_ref =', widget)
     self.assertEquals(1, vs.count())
@@ -275,7 +275,7 @@ class GetOrCreateSessionIdTest(unittest.TestCase):
     vs = library.insert_with_new_key(models.WidgetProgressState,
                                      widget_ref=widget, user=temp_user,
                                      progress_score=2)
-    id = library.get_or_create_session_id(widget, temp_user)
+    id = str(library.get_or_create_session(widget, temp_user).key())
     self.assertEquals(id, str(vs.key()))
 
 
