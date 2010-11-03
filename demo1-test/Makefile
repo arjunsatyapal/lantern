@@ -63,8 +63,36 @@ JS_SRCS = \
 
 JS_FILES = $(patsubst %,static/js/%,$(JS_SRCS))
 
-EDITOR_CSS = static/css/editor.css
-EDITOR_CSS_SRC = $(wildcard static/css/editor/*.css)
+LOCAL_CSS_SRC = \
+    dialog.css \
+    pygments.css \
+    styles.css \
+    tlcspy.css \
+    editor/bubble.css \
+    editor/linkdialog.css
+
+CLOSURE_CSS_SRC = \
+    button.css \
+    colormenubutton.css \
+    colorpalette.css \
+    common.css \
+    dialog.css \
+    editortoolbar.css \
+    linkbutton.css \
+    menu.css \
+    menubutton.css \
+    menuitem.css \
+    menuseparator.css \
+    palette.css \
+    tab.css \
+    tabbar.css \
+    toolbar.css
+
+LANTERN_CSS = static/css/lantern.css
+LANTERN_CSS_SRC = \
+    $(patsubst %,../closure/closure/goog/css/%,$(CLOSURE_CSS_SRC)) \
+    $(patsubst %,static/css/%,$(LOCAL_CSS_SRC))
+
 
 # -------
 # Rules
@@ -76,7 +104,7 @@ test: $(DATASTORE_DIR) .STALE
 
 clean::
 	rm -f $(patsubst %,%+,$(LANTERN_JS_FILE) $(LANTERN_JS_BUNDLE_FILE))
-	rm -f $(patsubst %,% %+,$(EDITOR_CSS))
+	rm -f $(patsubst %,% %+,$(LANTERN_CSS))
 
 $(DATASTORE_DIR):
 	mkdir -p $@
@@ -95,16 +123,16 @@ $(LANTERN_JS_BUNDLE_FILE): $(JS_FILES)
 	   -o script >$@+
 	mv $@+ $@
 
-# Preprodcessed css
-$(EDITOR_CSS): $(EDITOR_CSS_SRC)
+# Preprocessed css
+$(LANTERN_CSS): $(LANTERN_CSS_SRC)
 	rm -f $@+ $@
-	cat $(EDITOR_CSS_SRC) >$@+
+	cat $^ >$@+
 	mv $@+ $@
 
 deploy_files:: deploy_js deploy_css
 
 deploy_js:: $(LANTERN_JS_FILE) $(LANTERN_JS_BUNDLE_FILE)
 
-deploy_css:: static/css/editor.css
+deploy_css:: $(LANTERN_CSS)
 
 .STALE:
