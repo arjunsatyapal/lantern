@@ -477,7 +477,8 @@ lantern.edit.LinkPicker.prototype.processWidgetList_ = function(
     var widgetLink = goog.dom.createDom('a', null, widgetItem.title);
 
     handler.listen(widgetLink, goog.events.EventType.CLICK,
-                   goog.partial(widgetLinkCallback, widgetItem.link));
+                   goog.partial(widgetLinkCallback, widgetItem.link,
+                                widgetItem.is_shared));
 
     var row = goog.dom.createDom(
         'tr', null,

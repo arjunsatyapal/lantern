@@ -83,7 +83,7 @@ Development setup (2010-05-06)
 Install django-1.1.1 to local machine's Python site-packages
  - NOTE: you might need to chmod -R a+wX in the extracted directory before
    running:
-      python setup.py install
+      sudo python setup.py install
 
 Install pymox: http://code.google.com/p/pymox 0.5.3 into site-packages
  - Need to symlink mox.py and stubout.py into the demo1-test directory or
@@ -101,8 +101,8 @@ Load and extract appengine SDK.
 
    ln -s /usr/local/apps/google_appengine .google_appengine
 
-Download and extract GAEunit, coying gaeunit into the test source tree (e.g.,
-  demo1-test).
+Download and extract GAEunit for Django, copying gaeunit into the test source
+  tree (e.g., demo1-test).
 
 -----------
 Closure JavaScript Library
@@ -129,7 +129,7 @@ Closure Compiler:
 To set up sym links in the development tree, e.g.,
 
   $ ln -s /usr/local/google/home/<you>/apps/closure-library \
-      demo1/static/js/closure
+      closure
   $ ln -s /usr/local/google/home/<you>/apps/closure-compiler \
       .closure_compiler
 
