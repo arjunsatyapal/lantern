@@ -1,0 +1,57 @@
+{% comment %}
+Copyright 2010 Google Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Pass a recently_finished or recently_touched list as "recently" and let
+it be drawn as a list.
+{% endcomment %}
+<table class='recently_finished' width='100%'>
+{% for entry in recently %}
+  <tr class={% cycle '"oddrow"' '"evenrow"' %}>
+  <td>
+  {% for i in entry.path|length|get_range %}
+  {% ifequal i 0 %}
+  {% with entry.path|get_element:i as current %}
+  <a href='/view?trunk_id={{current.trunk_ref|get_key}}&doc_id={{current|get_key}}'>{{current.title}}</a>/
+  {% endwith %}
+  {% else %}
+  {% with entry.path|get_element:i as current %}
+  {% with i|subtract_one as prev_index %}
+  {% with entry.path|get_element:prev_index as prev %}
+  <a href='/view?trunk_id={{current.trunk_ref|get_key}}&doc_id={{current|get_key}}&parent_trunk={{prev.trunk_ref|get_key}}&parent_id={{prev|get_key}}'>{{current.title}}</a>/
+  {% endwith %}
+  {% endwith %}
+  {% endwith %}
+  {% endifequal %}
+{% endfor %}
+  {% if entry.path|length %}
+  {% with entry.path|length as temp %}
+  {% with temp|subtract_one as last_index %}
+  {% with entry.path|get_element:last_index as prev %}
+  <a href='/view?trunk_id={{entry.doc.trunk_ref|get_key}}&doc_id={{entry.doc|get_key}}&parent_trunk={{prev.trunk_ref|get_key}}&parent_id={{prev|get_key}}'>{{entry.doc.title}}</a>
+  {% endwith %}
+  {% endwith %}
+  {% endwith %}
+  {% else %}
+  <a href='/view?trunk_id={{entry.doc.trunk_ref|get_key}}&doc_id={{entry.doc|get_key}}'>{{entry.doc.title}}</a>
+  {% endif %}
+  </td>
+{% if show_progress %}
+  <td style='float:right'>
+     <img src="http://chart.apis.google.com/chart?chs=150x25&chd=t:{{entry.progress_score}}|100&cht=bhs&chds=0,100&chco=4D89F9,C6D9FD&chxt=y,r&chxl=0:||1:||&chm=N,000000,0,-1,11">
+  </td>
+{% endif %}
+  </tr>
+{% endfor %}
+</table>

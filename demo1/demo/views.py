@@ -474,8 +474,19 @@ def index(request):
       'user =', users.get_current_user()).filter(
       'progress_score =', 100).order('-last_visit').fetch(5)
 
+  # Recently touched pages
+  recently_touched = []
+  for e in models.DocVisitState.all().filter(
+      'user =', users.get_current_user()).order(
+          '-last_visit'):
+      if 100 <= e.progress_score:
+        continue
+      recently_touched.append(e)
+      if 5 <= len(recently_touched):
+        break
+
   # Fetching the latest version
-  for entry in recently_finished:
+  for entry in recently_finished + recently_touched:
     entry.doc = library.fetch_doc(entry.trunk_ref.key())
     doc_path_entry = models.TraversalPath.all().filter(
       'current_trunk =', entry.trunk_ref).filter(
@@ -492,7 +503,9 @@ def index(request):
       users.get_current_user())
   return respond(request, constants.DEFAULT_TITLE, "homepage.html",
                  {'recently_finished': recently_finished,
-                 'in_progress_courses': in_progress_courses})
+                  'in_progress_courses': in_progress_courses,
+                  'recently_touched': recently_touched,
+                  })
 
 
 def list_docs(request):
