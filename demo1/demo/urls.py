@@ -35,6 +35,8 @@ urlpatterns = defaults.patterns(
     (r'^sitemap$', 'sitemap'),
 
     (r'^admin/upload$', 'upload_file'),
+    (r'^admin/notifyAll$', 'notify_all'),
+    (r'^admin/notifyUser$', 'notify_user'),
 
     # XHR targets
 

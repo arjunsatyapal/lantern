@@ -114,6 +114,11 @@ indexes:
   - name: time_stamp
     direction: desc
 
+- kind: SubscriptionNotification
+  properties:
+  - name: trunk
+  - name: timestamp
+
 - kind: TrunkRevisionModel
   properties:
   - name: trunk_ref

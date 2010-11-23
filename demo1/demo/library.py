@@ -1415,3 +1415,19 @@ def getPrevNextLinks(doc, visit, came_from):
   next_param = view_doc_param(next, visit, here, next_came_from)
 
   return (prev_param, next_param)
+
+
+def auto_subscribe(user, trunk):
+  """Auto-subscribe the user who edited to further changes of the page.
+
+  Args:
+    user    : the user who edited this page
+    trunk   : the trunk object that represents the page
+  """
+  query = (models.Subscription.all().
+           filter('user =', user).
+           filter('trunk =', trunk))
+  if query.count():
+    return
+  subscription = models.Subscription(user=user, trunk=trunk)
+  subscription.put()

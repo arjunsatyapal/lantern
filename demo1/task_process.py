@@ -28,11 +28,13 @@ use_library('django', '1.1')
 # AppEngine
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
+from google.appengine.ext import db
 
 from django.utils import simplejson
 
 from demo import models
 from demo import upload
+from demo import notify
 
 
 class ImportVideos(webapp.RequestHandler):
@@ -63,8 +65,25 @@ class ImportVideos(webapp.RequestHandler):
     return '<br>'.join(response)
 
 
+class NotifyUser(webapp.RequestHandler):
+  """Notify recent changes to the pages the user watches"""
+  def post(self):
+    subscription = self.request.get('s')
+    if not subscription:
+      logging.warning("notify_user request without a subscription?")
+      return 'Huh'
+    subscription = db.get(subscription)
+    if not subscription:
+      return 'Heh'
+    user = subscription.user
+    notify.notifyUser(user)
+    return 'Done'
+
+  get = post
+
 application = webapp.WSGIApplication([
     ('/task/importVideos', ImportVideos),
+    ('/task/notifyUser', NotifyUser),
     ],
     debug=True)
 
