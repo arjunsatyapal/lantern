@@ -82,6 +82,12 @@ indexes:
   - name: last_visit
     direction: desc
 
+- kind: DocVisitState
+  properties:
+  - name: user
+  - name: last_visit
+    direction: desc
+
 - kind: QuizQuestionListModel
   properties:
   - name: quiz

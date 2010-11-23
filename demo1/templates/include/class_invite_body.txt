@@ -1,0 +1,10 @@
+{{ classroom.user.nickname }} has invited you to join the class:
+
+  Subject: {{ classroom.course_doc_ref.title }}
+  Class: {{ classroom.name }}
+
+Please click the following link to accept the invitation:
+
+  http://{{ server }}/accept?class={{ classroom.key.name }}&invite={{ key }}
+
+--Lantern

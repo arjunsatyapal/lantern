@@ -30,17 +30,17 @@ import re
 import string
 import urlparse
 
+from google.appengine.ext import db
 from google.appengine.api import memcache
 from google.appengine.api import users
-from google.appengine.ext import db
 
 import django.template
 import django.utils.safestring
 from django.core.urlresolvers import reverse
 
+import constants
 import models
 import yaml
-import constants
 
 # For registering filter and tag libs.
 register = django.template.Library()

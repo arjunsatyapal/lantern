@@ -1659,3 +1659,48 @@ class VideoState(UserStateModel):
   """
   video_ref = db.ReferenceProperty(VideoModel)
   paused_time = db.FloatProperty(default=0)
+
+
+class Classroom(UserStateModel):
+  """Defines a classroom to be managed by the current user (teacher).
+
+  Links to list of students (enrollment).  Should be able to get the enrollment
+  list using:
+
+    enrolled_students = classroom.enrollment_set.get()
+
+  Attributes:
+    user: The teacher that manages the classroom.
+    name: Name for the classroom, e.g., year, quarter, period, etc. to be
+        defined by the teacher.
+    start_date: Effective start date of the class.
+    course_trunk_ref: Reference to the trunk of the course.
+    course_doc_ref: Reference to the doc model the course.
+    max_enrollment: Maximum number of students for the class. Defaults to 100.
+    class_score: Keeps track of overall progress for the class.
+  """
+  name = db.StringProperty()
+  start_date = db.DateTimeProperty()
+  course_trunk_ref = db.ReferenceProperty(TrunkModel)
+  course_doc_ref = db.ReferenceProperty(DocModel)
+  max_enrollment = db.IntegerProperty(default=100)
+  class_score = db.RatingProperty()
+
+
+class Enrollment(db.Model):
+  """An enrollment entry for a Classroom.
+
+  Attributes:
+    classroom: The classroom for which this enrollment belongs.
+    email: Email of the student that should receive an invitation to join the
+        class.
+    is_invited: False until invitation is sent.
+    is_enrolled: False until the student accepts the invitation.
+    student: Set to the student's UserProperty when accepting the invitation.
+        Should be None before enrollment.
+  """
+  classroom = db.ReferenceProperty(Classroom)
+  email = db.StringProperty()
+  is_invited = db.BooleanProperty()
+  is_enrolled = db.BooleanProperty()
+  student = db.UserProperty()
