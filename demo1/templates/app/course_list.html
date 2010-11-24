@@ -1,5 +1,5 @@
 {% extends "app/base1col.html" %}
-<!-- Copyright 2010 Google Inc.
+Copyright 2010 Google Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -12,7 +12,6 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
--->
 
 {% block title %} {{ doc_title }} {% endblock %}
 
@@ -30,10 +29,10 @@ limitations under the License.
   <tr>
   <td ><b><a href='/view?trunk_id={{element.trunk_ref|get_key}}&doc_id={{element|get_key}}'>{{element.title}}</a></b></td>
   </tr>
-{% endfor %} 
+{% endfor %}
 </table>
 {% else %}
-  <h3>Currently there are no courses under this tag.<br> 
+  <h3>Currently there are no courses under this tag.<br>
   Please click <a href='/edit'>create</a> if you would like to create one.</h3>
 {% endif %}
 {% endblock %}
