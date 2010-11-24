@@ -1,4 +1,5 @@
-<!-- Copyright 2010 Google Inc.
+{% extends "app/base1col.html" %}
+Copyright 2010 Google Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -11,8 +12,6 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
--->
-{% extends "app/base1col.html" %}
 
 {% block title %} {{ doc_title }} {% endblock %}
 
@@ -37,17 +36,17 @@ Score: <div id='quizContainer2scoreBox'>0</div>
 </table>
 <script>
 /*
- * Scripts and functions below are only for testing lantern_comm and 
- * lanter_widget_channel scripts and should be replaced with relevant 
+ * Scripts and functions below are only for testing lantern_comm and
+ * lanter_widget_channel scripts and should be replaced with relevant
  * scripts.
  */
     var dialog1 = new goog.ui.Dialog();
 
     dialog1.setContent('Hello')
     dialog1.setTitle('My favorite');
- 
+
     dialog1.setButtonSet(goog.ui.Dialog.ButtonSet.CONTINUE_SAVE_CANCEL);
- 
+
     goog.events.listen(dialog1, goog.ui.Dialog.EventType.SELECT, function(e) {
       alert('You chose: ' + e.key);
     });
