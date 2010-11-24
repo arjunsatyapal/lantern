@@ -17,7 +17,7 @@
 #  To start the test server:
 #    make test
 
-# ASSUMPTION: .google_appenine is a symbolic link to the SDK. May be replaced
+# ASSUMPTION: .google_appengine is a symbolic link to the SDK. May be replaced
 # with absolute path.
 APPENGINE_DIR = ../.google_appengine
 
@@ -26,7 +26,7 @@ SERVER_ADDRESS = $(shell hostname -f)
 
 DEV_SERVER = dev_appserver.py
 APP_CFG = appcfg.py
-DATASTORE_DIR = /usr/local/google/tmp/$(shell basename $(shell pwd))
+DATASTORE_DIR = /usr/local/google/home/$(USER)/$(shell basename $(shell pwd))
 
 TEST_ARGS = \
     --datastore_path=$(DATASTORE_DIR)/dev_appserver.datastore
