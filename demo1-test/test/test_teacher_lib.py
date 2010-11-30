@@ -50,12 +50,13 @@ class ClassroomTest(unittest.TestCase):
     self.math_course.grade_level = 3
     self.math_course.put()
 
-    self.python_course = library.create_new_doc(commit_message='For testing')
-    self.python_course.title = 'Basic Python'
-    self.python_course.label = models.AllowedLabels.COURSE
-    self.python_course.tags = [db.Category('python'), db.Category('software')]
-    self.python_course.grade_level = 3
-    self.python_course.put()
+    # Initialize accounts
+    for idx, email in enumerate(('abc@gmail.com', 'ghi@gmail.com')):
+      user_id = str(2984762 + idx)
+      user = users.User(email=email, _user_id=user_id)
+      models.Account.get_or_insert(
+          '<%s>' % user_id, user=user, user_id=user_id, email=email,
+          nickname=email, fresh=True)
 
     # Stub out mail
     self.mail_messages = []
@@ -137,6 +138,15 @@ class ClassroomTest(unittest.TestCase):
     result = teacher_lib.enroll_students(classroom, students)
     self.assertEqual(3, len(result))
     self.assertEqual(3, models.Enrollment.all().count())
+
+    enrollment = dict((e.email, e) for e in result)
+    self.assertFalse(enrollment['abc@gmail.com'].account_key.startswith(
+        teacher_lib._PROVISIONAL_PREFIX))
+    self.assertFalse(enrollment['ghi@gmail.com'].account_key.startswith(
+        teacher_lib._PROVISIONAL_PREFIX))
+
+    self.assertTrue(enrollment['def@gmail.com'].account_key.startswith(
+        teacher_lib._PROVISIONAL_PREFIX))
 
   def testEnrollment_NoDuplicates(self):
     dt = datetime.datetime.strptime('2011-08-23', '%Y-%m-%d')
@@ -237,11 +247,14 @@ class ClassroomTest(unittest.TestCase):
         ]
     keys = []
     for student in students:
-      keys.append(teacher_lib.get_invite_key(classroom, student))
+      keys.append(teacher_lib.get_invite_key(
+          classroom, student, '<%s>' % student))
 
     for student, key in itertools.izip(students, keys):
-      self.assertEqual(key, teacher_lib.get_invite_key(classroom, student))
-      key1 = teacher_lib.get_invite_key(classroom1, student)
+      self.assertEqual(key, teacher_lib.get_invite_key(
+          classroom, student, '<%s>' % student))
+      key1 = teacher_lib.get_invite_key(
+          classroom1, student, '<%s>' % student)
 
       logging.info('KEY: %s <> %s' % (key, key1))
       self.assertNotEqual(key, key1)
@@ -258,20 +271,23 @@ class ClassroomTest(unittest.TestCase):
         'mno@gmail.com',
         ]
     result = teacher_lib.enroll_students(classroom, students)
+    enrollment = dict((e.email, e) for e in result)
 
     keys = []
     for student in students:
-      keys.append(teacher_lib.get_invite_key(classroom, student))
+      keys.append(teacher_lib.get_invite_key(
+          classroom, student, enrollment[student].account_key))
 
-    user = users.User(email='def@gmail.com')  # Doesn't have real ID
+    # Doesn't have real ID
+    user = users.User(email='def-new@gmail.com', _user_id='1938')
     result = teacher_lib.accept_enrollment_invite(
-        classroom.key().name(), user, keys[1])
+        classroom.key().name(), user, 'def@gmail.com', keys[1])
     self.assertTrue(result)
 
     enrolled = teacher_lib.get_enrollment(classroom, enrolled_only=True)
     self.assertEqual(1, len(enrolled))
     self.assertEqual('def@gmail.com', enrolled[0].email)
-    self.assertEqual('def@gmail.com', enrolled[0].student.email())
+    self.assertEqual('def-new@gmail.com', enrolled[0].student.email())
 
   def testSendInvite(self):
     dt = datetime.datetime.strptime('2011-08-23', '%Y-%m-%d')

@@ -25,9 +25,7 @@ import base64
 import cgi
 import logging
 import os
-import random
 import re
-import string
 import urlparse
 
 from google.appengine.ext import db
@@ -306,27 +304,6 @@ def parse_leaf(path):
 
 ### Library function to interact with datastore ###
 
-def gen_random_string(num_chars=16):
-  """Generates a random string of the specified number of characters.
-
-  First char is chosen from set of alphabets as app engine requires
-  key name to start with an alphabet. Also '-_' are used instead of
-  '+/' for 64 bit encoding.
-
-  Args:
-    num_chars: Length of random string.
-  Returns:
-    Random string of length = num_chars
-  """
-  # Uses base64 encoding, which has roughly 4/3 size of underlying data.
-  first_letter = random.choice(string.letters)
-  num_chars -= 1
-  num_bytes = ((num_chars + 3) / 4) * 3
-  random_byte = os.urandom(num_bytes)
-  random_str = base64.b64encode(random_byte, altchars='-_')
-  return first_letter+random_str[:num_chars]
-
-
 def insert_with_new_key(cls, parent=None, **kwargs):
   """Insert model into datastore with a random key.
 
@@ -340,17 +317,7 @@ def insert_with_new_key(cls, parent=None, **kwargs):
 
   TODO(mukundjha): Check for race condition.
   """
-  while True:
-    key_name = gen_random_string()
-    entity = cls.get_by_key_name(key_name, parent=parent)
-    if entity is None:
-      entity = cls(key_name=key_name, parent=parent, **kwargs)
-      entity.put()
-      break
-    else:
-      logging.info("Entity with key "+key_name+" exists")
-
-  return entity
+  return models.insert_model_with_new_key(cls, parent=parent, **kwargs)
 
 
 def create_new_trunk_with_doc(doc_id, commit_message=None):

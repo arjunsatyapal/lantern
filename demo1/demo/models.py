@@ -23,14 +23,17 @@
 
 # Python imports
 import base64
+import datetime
 import difflib
 import itertools
 import logging
 import md5
 import operator
 import os
+import random
 import re
 import sha
+import string
 import time
 
 # AppEngine imports
@@ -66,344 +69,52 @@ def gql(cls, clause, *args, **kwds):
   query.bind(*args, **kwds)
   return query
 
-### Pedagogy ###
 
+def gen_random_string(num_chars=16):
+  """Generates a random string of the specified number of characters.
 
-class PedagogyModel(db.Model):
-  """Base class of items in a pedagogy hierarchy.
+  First char is chosen from set of alphabets as app engine requires
+  key name to start with an alphabet. Also '-_' are used instead of
+  '+/' for 64 bit encoding.
 
-  The hieracrchy consists of the levels:
-    - Curriculum
-    - Course
-    - Lesson
-    - Module
-    - Content and Exercise
-
-  The meta information at each layer of the hierarchy are essentially the
-  same, e.g., authorship, dates, labels, rating, etc.
-
-  Each entry is expected to be stored with a randomly generate key name,
-  although there may be some structure to the keyname to hint at the layer of
-  the hierarchy.
-
-  Do not instantiate this class directly; use one of its derived classes.
-
-  Attributes:
-    title: The title of the item.
-    creator: The user that created the item.
-    created: The timestamp when the item was created.
-    modified: The timestamp when the item was last modified.
-    authors: An optional list of additional authors.
-    ddc: Optional Dewey Decimal Classification, using ID of one of the
-        "divisions".
-    labels: Optional list of tags.
-    language: Language in which the content is written.
-    grade_level: Optional indication of grade level of the item.
-    rating: Optional rating for the item.
-
-    revision: Revision number of the entry.
-        TODO(vchen): How to autoincrement? It should really be
-        CounterProperty().
-        Where do old revisions go?
-    is_published: Whether this is published to the world.
-
-    template_reference: References another instance that represents a template
-        from which to "inherit" content. Optional.
-
-    _kname: Temporary holder of key name before it is stored.
-    _refs: Temporary storage of references before persisting
-
-  TODO(vchen): Are there permissions, acls?
-  TODO(vchen): Determine how to handle revision history!
+  Args:
+    num_chars: Length of random string.
+  Returns:
+    Random string of length = num_chars
   """
+  # Uses base64 encoding, which has roughly 4/3 size of underlying data.
+  first_letter = random.choice(string.letters)
+  num_chars -= 1
+  num_bytes = ((num_chars + 3) / 4) * 3
+  random_byte = os.urandom(num_bytes)
+  random_str = base64.b64encode(random_byte, altchars='-_')
+  return first_letter+random_str[:num_chars]
 
-  title = db.StringProperty(required=True)
-  creator = db.UserProperty(auto_current_user_add=True, required=True)
-  created = db.DateTimeProperty(auto_now=True)
-  modified = db.DateTimeProperty(auto_now=True)
-  description = db.TextProperty();
-  authors = db.ListProperty(users.User)  # Multiple authors allowed
-  ddc = db.StringProperty(verbose_name='Dewey Decimal')
-  labels = db.ListProperty(db.Category)
-  language = db.StringProperty()
-  grade_level = db.IntegerProperty()
-  rating = db.RatingProperty()
-  revision = db.IntegerProperty(default=0)
-  is_published = db.BooleanProperty(default=False)
 
-  template_reference = db.SelfReferenceProperty()
+def insert_model_with_new_key(cls, parent=None, **kwargs):
+  """Insert model into datastore with a random key.
 
-  # Separator to use between parts of the key.
-  _KEY_SEPARTOR = ':'
+  Args:
+    cls: Data model class (ex. models.DocModel).
+    parent: optional parent argument to bind models in same entity group.
+      NOTE: If parent argument is passed, key_name may not be unique across
+      all entities.
+  Returns:
+    Data model entity or None if error.
 
-  def __init__(self, *args, **kwargs):
-    super(PedagogyModel, self).__init__(*args, **kwargs)
-    self._kname = None
-    self._refs = []
-
-  @classmethod
-  def gen_random_string(cls, num_chars):
-    """Generates a random string of the specified number of characters."""
-    # Uses base64 encoding, which has roughly 4/3 size of underlying data.
-    remainder = num_chars % 4
-    num_bytes = ((num_chars + remainder) / 4) * 3
-    random = os.urandom(num_bytes)
-    random_str = base64.b64encode(random)
-    return random_str[:num_chars]
-
-  @classmethod
-  def insert_with_random_key(cls, key_prefix, num_random_chars, **kwargs):
-    """Generates a random key, making sure it's not in the current database.
-
-    Args:
-      key_prefix: If not empty or None, it is prepended to the randomly
-        generated key string.
-      num_random_chars: Number of random characters to generate for the key.
-      kwargs: The initial values for the required fields, passed to
-        get_or_insert()
-
-    Returns:
-      The newly inserted object.
-    """
-    while True:
-      key_name = cls.gen_random_string(num_random_chars)
-      if key_prefix:
-        key_name = "".join((key_prefix, cls._KEY_SEPARTOR, key_name))
-
-      record = cls.get_or_insert(key_name, **kwargs)
-      # Validate
-      is_valid = True
-      for field, value in kwargs.iteritems():
-        if value != getattr(record, field, None):
-          is_valid = False
-          break
-      if is_valid:
-        break
-    return record
-
-  # Instance methods
-
-  def get_references(self, content_ref_class):
-    """Gets the reference objects that have this item as a parent.
-
-    This is a utility function that returns the references to the associated
-    "content".  If there is a template reference, the returned list merges
-    the template's list.  Direct references override the template ones at the
-    same ordinal locations.  When an override reference is None, it implies
-    erasure.
-
-    For example:
-    - A Course is associated with references to all its Lessons.
-    - A Lesson is assoicated with references to all its Modules.
-
-    Args:
-      content_ref_class: A derived class of PedagogyRef model that represents
-         a reference to content.
-
-    Returns:
-      A list of references (instances of content_ref_class class), sorted by
-      ordinal.
-    """
-    if not self.is_saved():
-      return self._refs
-    base_content_refs = []
-    if self.template_reference:
-      base_content_refs = self.template_reference.get_references(
-          content_ref_class)
-
-    content_refs = content_ref_class.all().ancestor(self).order('ordinal')
-    if not base_content_refs:
-      return [r for r in content_refs]
-    if content_refs.count() == 0:
-      return base_content_refs
-
-    # Need to merge
-    ordinal_map = dict([
-        (ref.ordinal, idx) for idx, ref in enumerate(base_content_refs)])
-    needs_sort = False
-    delete_indexes = []
-    for ref in content_refs:
-      idx = ordinal_map.get(ref.ordinal)
-      if idx is None:
-        if ref.reference:
-          base_content_refs.append(ref)
-          needs_sort = True
-      else:
-        if ref.reference:
-          base_content_refs[idx] = ref
-        else:
-          delete_indexes.append(idx)
-
-    # Delete any
-    if delete_indexes:
-      for idx in reversed(delete_indexes):
-        del base_content_refs[idx]
-    if needs_sort:
-      return sorted(base_content_refs, key=lambda x: x.ordinal)
+  TODO(mukundjha): Check for race condition.
+  """
+  while True:
+    key_name = gen_random_string()
+    entity = cls.get_by_key_name(key_name, parent=parent)
+    if entity is None:
+      entity = cls(key_name=key_name, parent=parent, **kwargs)
+      entity.put()
+      break
     else:
-      return base_content_refs
+      logging.info("Entity with key "+key_name+" exists")
+  return entity
 
-
-class PedagogyRef(db.Model):
-  """An abstract reference model that binds two layers of the pedagogy together.
-
-  For example
-    - A Course has an ordered list of references to Lessons.
-    - A Lesson has an ordered list of references to Modules.
-
-  A set of references that share the same parent should have unique ordinal
-  numbers.
-    - The parent represents a container.
-    - The set of references represents the contents of the container.
-
-  Derived classes are expected to define a 'reference' property of type
-  ReferenceProperty that references the "content" model.
-
-  Each instance of a reference is expected to be created with a parent.
-
-  Attributes:
-    reference: To be defined by derived class.
-    ordinal: A numeric value that controls the ordering of content and
-        the override locations.
-    section_label: A displayed label to associate with this reference. If
-        unspecified, it will be the 1-based index of the item within the
-        collection.
-
-    _reference: Convenient object reference before the storing into the
-      database, because the actual reference key may not exist yet. When
-      bulk-loading, this provides a way to bind the objects together before
-      storing.
-  """
-
-  reference = None  # To be overridden by derived classes
-  ordinal = db.IntegerProperty(required=True)
-  section_label = db.StringProperty()
-
-  def __init__(self, *args, **kwargs):
-    super(PedagogyRef, self).__init__(*args, **kwargs)
-    self._ref = None
-
-  def get_reference(self):
-    """Convenience method to return one of the reference objects.
-
-    If the actual datastore reference is not None, it is returned. Otherwise,
-    returns the object reference.
-    """
-    if self.is_saved():
-      return self.reference
-    return self._ref
-
-
-# Concrete Pedagogy classes
-
-class ModuleContent(PedagogyModel):
-  """A pointer to the educational content for a Module.
-
-  A module should be a small unit of instruction consisting of educational
-  content and a set of exercises. It is expected that most modules would have
-  a reference to a single URI for the content.
-
-  The actual content referenced by this item could be complex, further
-  embedding multi-media presentations.
-
-  Attributes:
-    uri: This is intended to point to content that can be embedded within the
-        the application.  The URI could refer to static content provided by the
-        app, data from a git repository, external web content, etc.
-        Since StringProperty has a limit of 500 characters, uri uses a
-        TextProperty....can't be indexed.
-
-  TODO(vchen): Probably need to support different types/styles of content,
-  unless it's always IFRAME....The content type may itself be multi-part,
-  "rich" content that includes template of how to lay out its content?
-  """
-
-  uri = db.LinkProperty(required=True)
-
-
-class ModuleExercise(PedagogyModel):
-  """A pointer to an exercise for a Module.
-
-  TODO(vchen): Determine how to model an exercise.  There needs to be type
-  of exercise, problem statement, content, answers, evaluator for the answer,
-  etc.
-  """
-
-  difficulty = db.RatingProperty(default=10)
-
-
-class LessonModule(PedagogyModel):
-  """A Module consists of educational content and a set of exercises.
-  """
-
-  def get_content_refs(self):
-    return self.get_references(ContentRef)
-
-  def get_exercise_refs(self):
-    return self.get_references(ExerciseRef)
-
-
-class CourseLesson(PedagogyModel):
-  """A Lesson consists of an ordered list of Modules.
-  """
-
-  def get_modules(self):
-    return self.get_references(ModuleRef)
-
-
-class Course(PedagogyModel):
-  """A Course consists of an ordered list of Lessons.
-  """
-
-  def get_lessons(self):
-    return self.get_references(LessonRef)
-
-
-class ContentRef(PedagogyRef):
-  """A ContentRef has a LessonModule as its parent.
-
-  This class represents a Module's reference to content. An ordered collection
-  of these may be associated with each Module. The ordinal numbers for each
-  member of the collection should be unique and defines the sort order.
-  """
-
-  reference = db.ReferenceProperty(ModuleContent)
-
-
-class ExerciseRef(PedagogyRef):
-  """A ExerciseRef has a LessonModule as its parent.
-
-  This class represents a Module's reference to an exercise. An ordered
-  collection of these may be associated with each Module. The ordinal numbers
-  for each member of the collection should be unique and defines the sort
-  order.
-  """
-
-  reference = db.ReferenceProperty(ModuleExercise)
-
-
-class ModuleRef(PedagogyRef):
-  """A ModuleRef has a CourseLesson as its parent.
-
-  This class represents a Lesson's reference to a Module. An ordered
-  collection of these may be associated with each Lesson. The ordinal numbers
-  for each member of the collection should be unique and defines the sort
-  order.
-  """
-
-  reference = db.ReferenceProperty(LessonModule)
-
-
-class LessonRef(PedagogyRef):
-  """A LessonRef has a Course as its parent.
-
-  This class represents a Course's reference to a Lesson. An ordered
-  collection of these may be associated with each Course. The ordinal numbers
-  for each member of the collection should be unique and defines the sort
-  order.
-  """
-
-  reference = db.ReferenceProperty(CourseLesson)
 
 class Account(db.Model):
   """Maps a user or email address to a user-selected nickname, and more.
@@ -430,7 +141,7 @@ class Account(db.Model):
   user_id = db.StringProperty(required=True)  # key == <user_id>
   email = db.EmailProperty(required=True)
   nickname = db.StringProperty(required=True)
-  created = db.DateTimeProperty(auto_now=True)
+  created = db.DateTimeProperty(auto_now_add=True)
   modified = db.DateTimeProperty(auto_now=True)
   stars = db.ListProperty(str)  # key names of all starred modules.
   fresh = db.BooleanProperty()
@@ -603,6 +314,61 @@ class Account(db.Model):
     return m.hexdigest()
 
 
+class ProvisionalAccount(db.Model):
+  """Account based on email only, before user has logged in.
+
+  This is used to inviting someone that has not logged into Lantern yet.
+
+  Attributes:
+    email: The email to use for the account.
+    real_account: References the real account when it is created.
+    created: The date/time that the account was created.
+    modified: The date/time that the account was modified.
+  """
+
+  email = db.EmailProperty(required=True)
+  created = db.DateTimeProperty(auto_now_add=True)
+  modified = db.DateTimeProperty(auto_now=True)
+  real_account = db.ReferenceProperty(Account)
+
+  lower_email = db.StringProperty()
+
+  # Note that this doesn't get called when doing multi-entity puts.
+  def put(self):
+    self.lower_email = str(self.email).lower()
+    super(ProvisionalAccount, self).put()
+
+  @classmethod
+  def get_accounts_for_email(cls, email, expiration_days=30):
+    """Get list of Accounts that have this email.
+
+    Args:
+      email: Email address to use for lookup.
+      expiration_days: If non-zero, returns accounts that were created within
+          the specified number of days.
+    Returns:
+      A list of matching accounts. It may be an empty list.
+    """
+    assert email
+    query = cls.all().filter('lower_email =', email.lower())
+    if expiration_days:
+      dt = datetime.datetime.now() - datetime.timedelta(days=expiration_days)
+      query.filter('created >', dt).order('-created').order('-modified')
+    return [a for a in query]
+
+  @classmethod
+  def get_or_create_account_for_email(cls, email):
+    """Create a new temporary account for the specified email."""
+    assert email
+    accounts = cls.get_accounts_for_email(email)
+    if not accounts:
+      account = insert_model_with_new_key(cls, email=email, nickname='')
+    else:
+      # Just returns the first match.
+      account = accounts[0]
+    return account
+
+
 class InvalidTrunkError(Exception):
   """Exception raised for invalid trunk access."""
 
@@ -622,22 +388,9 @@ class InvalidQuizError(Exception):
 class InvalidWidgetError(Exception):
   """Exception raised for invalid widget access."""
 
-### New Models ###
 
 class BaseModel(db.Model):
   """Abstract base class inherited by all Lantern models."""
-
-  @classmethod
-  def gen_random_string(cls, num_chars=None):
-    """Generates a random string of the specified number of characters."""
-    if not num_chars:
-      num_chars = 16
-    # Uses base64 encoding, which has roughly 4/3 size of underlying data.
-    remainder = num_chars % 4
-    num_bytes = ((num_chars + remainder) / 4) * 3
-    random = os.urandom(num_bytes)
-    random_str = base64.b64encode(random)
-    return random_str[:num_chars]
 
   @classmethod
   def insert_with_new_key(cls, parent=None, **kwargs):
@@ -651,16 +404,7 @@ class BaseModel(db.Model):
     Returns:
       The newly inserted object.
     """
-    while True:
-      key_name = cls.gen_random_string()
-      object = cls.get_by_key_name(key_name, parent=parent)
-      if object is None:
-        object = cls(key_name=key_name, parent=parent, **kwargs)
-        object.put()
-        break
-      else:
-        logging.info("Entity with key "+key_name+" exists")
-    return object
+    return insert_model_with_new_key(cls, parent=parent, **kwargs)
 
 
 class UserStateModel(db.Model):
@@ -682,7 +426,7 @@ class BaseContentModel(BaseModel):
     created: Time of creation.
   """
   creator = db.UserProperty(auto_current_user_add=True, required=True)
-  created = db.DateTimeProperty(auto_now=True)
+  created = db.DateTimeProperty(auto_now_add=True)
 
   @classmethod
   def insert(cls, **kwargs):
@@ -1679,10 +1423,10 @@ class Classroom(UserStateModel):
     max_enrollment: Maximum number of students for the class. Defaults to 100.
     class_score: Keeps track of overall progress for the class.
   """
-  name = db.StringProperty()
-  start_date = db.DateTimeProperty()
-  course_trunk_ref = db.ReferenceProperty(TrunkModel)
-  course_doc_ref = db.ReferenceProperty(DocModel)
+  name = db.StringProperty(required=True)
+  start_date = db.DateTimeProperty(required=True)
+  course_trunk_ref = db.ReferenceProperty(TrunkModel, required=True)
+  course_doc_ref = db.ReferenceProperty(DocModel, required=True)
   max_enrollment = db.IntegerProperty(default=100)
   class_score = db.RatingProperty()
 
@@ -1694,13 +1438,15 @@ class Enrollment(db.Model):
     classroom: The classroom for which this enrollment belongs.
     email: Email of the student that should receive an invitation to join the
         class.
+    account_key: The key name of the Account
     is_invited: False until invitation is sent.
     is_enrolled: False until the student accepts the invitation.
     student: Set to the student's UserProperty when accepting the invitation.
         Should be None before enrollment.
   """
-  classroom = db.ReferenceProperty(Classroom)
-  email = db.StringProperty()
+  classroom = db.ReferenceProperty(Classroom, required=True)
+  email = db.StringProperty(required=True)
+  account_key = db.StringProperty()
   is_invited = db.BooleanProperty()
   is_enrolled = db.BooleanProperty()
   student = db.UserProperty()
