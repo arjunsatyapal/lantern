@@ -46,6 +46,10 @@ class NoSuchClassroomError(Error):
   """Cannot find specified classroom."""
 
 
+class MaxEnrollmentError(Error):
+  """Maximum enrollment reached."""
+
+
 class InvalidInvitationError(Error):
   """Cannot verify invitation."""
 
@@ -62,7 +66,8 @@ class InvitationAlreadyAcceptedError(Error):
   """Invitation was already accepted."""
 
 
-def get_or_create_classroom(teacher, name, course, start_date):
+def get_or_create_classroom(teacher, name, course, start_date,
+                            max_enrollment=None):
   """Gets or creates a classroom for the specified teacher.
 
   If the specified classroom does not yet exist, creates a new instance.
@@ -74,10 +79,13 @@ def get_or_create_classroom(teacher, name, course, start_date):
     course: A DocModel for the course to be taught.
     start_date: The datetime.datetime object corresponding to when the class
         is to start.
+    max_enrollment: Maximum of students to be enrolled. If not specified, uses
+        the model's default value of 100.
 
   Returns:
     An instance of Classroom.
   """
+  max_enrollment = max_enrollment or models.Classroom.DEFAULT_MAX_ENROLLMENT
   classroom = models.Classroom.all().filter('user =', teacher).filter(
       'course_trunk_ref =', course.trunk_ref).filter(
       'name = ', name).filter(
@@ -89,7 +97,8 @@ def get_or_create_classroom(teacher, name, course, start_date):
         name=name,
         start_date=start_date,
         course_trunk_ref=course.trunk_ref,
-        course_doc_ref=course)
+        course_doc_ref=course,
+        max_enrollment=max_enrollment)
   return classroom
 
 
@@ -135,12 +144,23 @@ def enroll_students(classroom, students):
         are enrolled.
   Returns:
     List of newly enrolled Enrollment entries.
+  Raises:
+    MaxEnrollmentError: The call would cause max_enrollment to be exceeded.
+        No new students are added.
   """
   new_students = set(students)
-  existing_students = classroom.enrollment_set.fetch(classroom.max_enrollment)
-  if existing_students:
+  existing_students = classroom.enrollment_set
+  total = len(new_students)
+  if existing_students.count(1):  # If at least 1, then get emails.
     enrolled_set = set((student.email for student in existing_students))
     new_students -= enrolled_set
+    total = len(enrolled_set) + len(new_students)
+
+  # Validate max enrollment
+  if total > classroom.max_enrollment:
+    raise MaxEnrollmentError(
+        'Total enrollment of %d would exceed maximum of %d. Please change the '
+        'limit or remove some entries' % (total, classroom.max_enrollment))
   new_entries = []
   for email in new_students:
     entry = enroll_student(classroom, email)
@@ -176,7 +196,7 @@ def unenroll_students(classroom, students):
     List of emails that were removed.
   """
   students_to_delete = set(students)
-  existing_students = classroom.enrollment_set.fetch(classroom.max_enrollment)
+  existing_students = classroom.enrollment_set
 
   removals = [student for student in existing_students
               if student.email in students_to_delete]
@@ -308,7 +328,7 @@ def send_enrollment_invitations(classroom):
 
   sent_emails = []
   bad_emails = []
-  for enrollment in classroom.enrollment_set.fetch(classroom.max_enrollment):
+  for enrollment in classroom.enrollment_set:
     if enrollment.is_invited:
       continue
     if not mail.is_email_valid(enrollment.email):

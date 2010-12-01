@@ -170,6 +170,36 @@ class ClassroomTest(unittest.TestCase):
     self.assertEqual(2, len(result))
     self.assertEqual(5, models.Enrollment.all().count())
 
+  def testEnrollment_MaxEnrollment(self):
+    dt = datetime.datetime.strptime('2011-08-23', '%Y-%m-%d')
+    classroom = teacher_lib.get_or_create_classroom(
+        self.teacher, 'Fall 2011, Period 1', self.math_course, dt)
+    classroom.max_enrollment = 2
+    classroom.put()
+
+    students = [
+        'abc@gmail.com',
+        'def@gmail.com',
+        'ghi@gmail.com',
+        ]
+    self.assertRaises(teacher_lib.MaxEnrollmentError,
+                      teacher_lib.enroll_students, classroom, students)
+
+    # Now adjust maximum to allow enrollment.
+    classroom.max_enrollment = 3
+    classroom.put()
+
+    result = teacher_lib.enroll_students(classroom, students)
+    self.assertEqual(3, len(result))
+    self.assertEqual(3, models.Enrollment.all().count())
+
+    students.extend([
+        'jkl@gmail.com',
+        'mno@gmail.com',
+        ])
+    self.assertRaises(teacher_lib.MaxEnrollmentError,
+                      teacher_lib.enroll_students, classroom, students)
+
   def testUnenroll(self):
     dt = datetime.datetime.strptime('2011-08-23', '%Y-%m-%d')
     classroom = teacher_lib.get_or_create_classroom(

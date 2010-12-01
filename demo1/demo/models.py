@@ -1413,6 +1413,9 @@ class Classroom(UserStateModel):
 
     enrolled_students = classroom.enrollment_set.get()
 
+  Class Attributes:
+    DEFAULT_MAX_ENROLLMENT: Default maximum for number of students (100).
+
   Attributes:
     user: The teacher that manages the classroom.
     name: Name for the classroom, e.g., year, quarter, period, etc. to be
@@ -1423,11 +1426,13 @@ class Classroom(UserStateModel):
     max_enrollment: Maximum number of students for the class. Defaults to 100.
     class_score: Keeps track of overall progress for the class.
   """
+  DEFAULT_MAX_ENROLLMENT = 100
+
   name = db.StringProperty(required=True)
   start_date = db.DateTimeProperty(required=True)
   course_trunk_ref = db.ReferenceProperty(TrunkModel, required=True)
   course_doc_ref = db.ReferenceProperty(DocModel, required=True)
-  max_enrollment = db.IntegerProperty(default=100)
+  max_enrollment = db.IntegerProperty(default=DEFAULT_MAX_ENROLLMENT)
   class_score = db.RatingProperty()
 
 
