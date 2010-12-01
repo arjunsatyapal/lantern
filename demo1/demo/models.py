@@ -1667,29 +1667,31 @@ class Subscription(db.Model):
   """Maps trunks to people who subscribed for the changes.
 
   Attributes:
-    trunk       : the trunk
-    user        : the user who subscribed for the page
-    recursive   : the subscription covers all the subpages
-    method      : how should the user be notified; possible values
-                  TBD, including (immediate, onceaday, meh)
+    trunk: the trunk
+    user: the user who subscribed for the page
+    recursive: the subscription covers all the subpages
+    method: how should the user be notified; possible values
+            TBD, including (immediate, onceaday, meh)
   """
+  # Preferred notification methods
   METH_IMMEDIATE = 'immediate'  # one mail per one detection of change
   METH_ONCEADAY = 'onceaday'    # aggregated into one message per day
   METH_MEH = 'meh'              # do not bother me
+
+  # Changes to the same trunk within this number of seconds
+  # are collapsed into a single notification.
+  ASYNC_SLOP_SEC = 120
+
+  # DateTime format used for logging
+  DATETIME_STRING_FORMAT = "%Y-%m-%d %H:%M:%S (%Z)"
 
   trunk = db.ReferenceProperty(TrunkModel, required=True)
   user = db.UserProperty(auto_current_user_add=True, required=True)
   recursive = db.BooleanProperty(default=False, required=True)
   method = db.StringProperty(default=METH_ONCEADAY, required=True)
 
-  # Changes to the same trunk within this number of seconds
-  # are collapsed into a single notification
-  ASYNC_SLOP = 120
-  # DateTime format used for logging
-  DATETIME_STRING_FORMAT = "%Y-%m-%d %H:%M:%S (%Z)"
-
   @classmethod
-  def notifyChange(self, trunk):
+  def notifyChange(cls, trunk):
     """The Web interface notifies that trunk-tip has changed
 
     Do minimum here and have asynchronous process to take care
@@ -1697,16 +1699,16 @@ class Subscription(db.Model):
     """
     now = datetime.datetime.utcnow()
     logging.info("Notifying change at %s to %s." % (
-        now.strftime(self.DATETIME_STRING_FORMAT),
+        now.strftime(cls.DATETIME_STRING_FORMAT),
         trunk.title))
-    ago = now - datetime.timedelta(seconds=self.ASYNC_SLOP)
+    ago = now - datetime.timedelta(seconds=cls.ASYNC_SLOP_SEC)
     query = (SubscriptionNotification.all().filter('trunk =', trunk).
              filter('timestamp >', ago))
     if 0 < query.count():
       logging.info("Notification for the same trunk exists (%d)." % query.count())
       for e in query:
         logging.info("Other was made at %s" %
-                     e.timestamp.strftime(self.DATETIME_STRING_FORMAT))
+                     e.timestamp.strftime(cls.DATETIME_STRING_FORMAT))
       return
     note = SubscriptionNotification(trunk=trunk)
     note.put()
@@ -1722,10 +1724,10 @@ class ChangesSeen(db.Model):
   """Records what document was seen at the tip of trunk.
 
   Attributes:
-    trunk        : the trunk
-    user         : the user who observed the trunk
-    doc          : the DocModel that was at the tip of the trunk
-    timestamp    : the time the observation was last made
+    trunk: the trunk
+    user: the user who observed the trunk
+    doc: the DocModel that was at the tip of the trunk
+    timestamp: the time the observation was last made
   """
   trunk = db.ReferenceProperty(TrunkModel, required=True)
   user = db.UserProperty(auto_current_user_add=True, required=True)

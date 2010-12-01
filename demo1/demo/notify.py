@@ -37,8 +37,8 @@ def sendChanges(user, result):
   """Send out summary of changes to watched pages.
 
   Args:
-    user     : the user
-    result   : an array of (trunk, old_tip, new_tip) tuples
+    user: the user
+    result: an array of (trunk, old_tip, new_tip) tuples
   """
   logging.info("Notifying %s <%s>" % (user.nickname(), user.email()))
   for (trunk, old, new) in result:
@@ -52,7 +52,7 @@ def notifyUser(user):
   """Notify changes to a single user.
 
   Args:
-    user    : a user who has subscription(s)
+    user: a user who has subscription(s)
   """
 
   result = []

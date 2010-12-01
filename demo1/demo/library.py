@@ -1421,8 +1421,8 @@ def auto_subscribe(user, trunk):
   """Auto-subscribe the user who edited to further changes of the page.
 
   Args:
-    user    : the user who edited this page
-    trunk   : the trunk object that represents the page
+    user: the user who edited this page
+    trunk: the trunk object that represents the page
   """
   query = (models.Subscription.all().
            filter('user =', user).
