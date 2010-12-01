@@ -173,9 +173,8 @@ class ClassroomTest(unittest.TestCase):
   def testEnrollment_MaxEnrollment(self):
     dt = datetime.datetime.strptime('2011-08-23', '%Y-%m-%d')
     classroom = teacher_lib.get_or_create_classroom(
-        self.teacher, 'Fall 2011, Period 1', self.math_course, dt)
-    classroom.max_enrollment = 2
-    classroom.put()
+        self.teacher, 'Fall 2011, Period 1', self.math_course, dt,
+        max_enrollment=2)
 
     students = [
         'abc@gmail.com',
