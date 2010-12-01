@@ -10,6 +10,13 @@ indexes:
 # automatically uploaded to the admin console when you next deploy
 # your application using appcfg.py.
 
+- kind: ChangesSeen
+  properties:
+  - name: trunk
+  - name: user
+  - name: timestamp
+    direction: desc
+
 - kind: DocLinkModel
   properties:
   - name: doc_ref

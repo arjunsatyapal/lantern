@@ -41,6 +41,7 @@ from django.core.urlresolvers import reverse
 import models
 import yaml
 import constants
+import notify
 
 # For registering filter and tag libs.
 register = django.template.Library()
@@ -1431,3 +1432,13 @@ def auto_subscribe(user, trunk):
     return
   subscription = models.Subscription(user=user, trunk=trunk)
   subscription.put()
+
+  # Create initial observation point for new pages being watched.
+  watched = set([w.trunk for w in notify.watchedPages(user)])
+  existing = set([c.trunk for c in (models.ChangesSeen.all().
+                                    filter('user =', user))])
+  if existing:
+    watched -= existing
+  for trunk in watched:
+    doc = db.get(trunk.head)
+    models.ChangesSeen(trunk=trunk, user=user, doc=doc).put()

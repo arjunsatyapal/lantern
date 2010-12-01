@@ -1732,4 +1732,4 @@ class ChangesSeen(db.Model):
   trunk = db.ReferenceProperty(TrunkModel, required=True)
   user = db.UserProperty(auto_current_user_add=True, required=True)
   doc = db.ReferenceProperty(DocModel, required=True)
-  timestamp = db.DateTimeProperty(auto_now=True, required=True)
+  timestamp = db.DateTimeProperty(required=True)

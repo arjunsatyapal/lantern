@@ -59,24 +59,28 @@ def notifyUser(user):
 
   for w in watchedPages(user):
     trunk = w.trunk
+
+    # Be defensive by making sure the latest one, if more than one row
+    # exists for whatever reason.  ChangesSeen is supposed to have a
+    # single row per <user, trunk> tuple; it is used to record the
+    # last timestamp of the changes we noticed and sent e-mail about
+    # to the user on the trunk, so the latest timestamp matters.
     changes_seen = (models.ChangesSeen.all().filter('user =', user).
-         filter('trunk =', trunk))
+                    filter('trunk =', trunk).
+                    order('-timestamp'))
 
     if not changes_seen.count():
-      q = models.SubscriptionNotification.all().filter('trunk =', trunk)
+      cutoff = None
     else:
       cutoff = changes_seen[0].timestamp
-      q = (models.SubscriptionNotification.all().filter('trunk =', trunk).
-           filter('timestamp >', cutoff))
+
+    q = models.SubscriptionNotification.all().filter('trunk =', trunk)
+    if cutoff:
+      q.filter('timestamp >', cutoff)
     if not q.count():
       continue # nothing to report
 
-    # Find the latest in case q has more than one
-    latest_change = None
-    for e in q:
-      if not latest_change or latest_change.timestamp < e.timestamp:
-        latest_change = e
-
+    latest_change = q[0]
     old_tip = None
     if changes_seen.count():
       old_tip = changes_seen[0].doc
@@ -87,6 +91,15 @@ def notifyUser(user):
     if changes_seen.count():
       changes_seen[0].timestamp = timestamp
       changes_seen[0].doc = new_tip
+      # Make sure ChangesSeen has a singleton per <user, trunk>
+      # by removing older ones.  Unfortunately, we cannot iterate
+      # over changes_seen[1:] as "Open-ended slices are not supported"
+      first = True
+      for extra in changes_seen:
+        if first:
+          first = False
+        else:
+          extra.delete()
     else:
       changes_seen = [models.ChangesSeen(trunk=trunk, user=user,
                                          doc=new_tip,
