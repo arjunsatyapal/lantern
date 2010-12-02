@@ -5,6 +5,6 @@
 
 Please click the following link to accept the invitation:
 
-  http://{{ server }}/accept?class={{ classroom.key.name }}&invite={{ key }}
+  http://{{ server }}/accept?class={{ classroom.key.name }}&email={{ email }}&invite={{ key }}
 
 --Lantern

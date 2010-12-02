@@ -334,6 +334,7 @@ def send_enrollment_invitations(classroom):
     if not mail.is_email_valid(enrollment.email):
       bad_emails.append(enrollment.email)
       continue
+    context['email'] = enrollment.email
     context['key'] = get_invite_key(
         classroom, enrollment.email, enrollment.account_key)
     body = django.template.loader.render_to_string(
