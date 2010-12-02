@@ -17,6 +17,7 @@
 """Tests for the Lantern data models."""
 
 # Python imports
+import datetime
 import logging
 import unittest
 
@@ -25,6 +26,7 @@ from google.appengine.ext import db
 from google.appengine.api import users
 
 # local imports
+import stubout
 from demo import models
 
 class AccountTest(unittest.TestCase):
@@ -53,7 +55,7 @@ class AccountTest(unittest.TestCase):
     self.assertEquals("<%s>" % user.user_id(),
                       account.key().name())
 
-  def testInnsertWithSameKeyNameOverwrites(self):
+  def testInsertWithSameKeyNameOverwrites(self):
     user = users.get_current_user()
     account = models.Account.get_account_for_user(user)
     account.put()
@@ -230,6 +232,81 @@ class AccountTest(unittest.TestCase):
 
     self.assertEquals(user.email(), a1.email)
     logging.info(a1.email)
+
+
+class ProvisionalAccountTest(unittest.TestCase):
+  """Tests the ProvisionalAccount model."""
+
+  def setUp(self):
+    self.stubs = stubout.StubOutForTesting()
+
+  def tearDown(self):
+    self.stubs.SmartUnsetAll()
+
+  def testAccountForEmail(self):
+    email = 'joe@dot.com'
+    acct = models.ProvisionalAccount.get_or_create_account_for_email(email)
+
+    self.assertEqual(email, acct.email)
+
+    accounts = models.ProvisionalAccount.get_accounts_for_email(email)
+    self.assertEqual(1, len(accounts))
+
+    self.assertEqual(acct.key(), accounts[0].key())
+
+  def testMultipleGetOrCreateAccountsForEmail(self):
+    email = 'joe@dot.com'
+    accounts = []
+    for i in xrange(5):
+      accounts.append(
+          models.ProvisionalAccount.get_or_create_account_for_email(email))
+
+    accounts1 = models.ProvisionalAccount.get_accounts_for_email(email)
+    self.assertEqual(1, len(accounts1))
+
+  def testExpirationAccountsForEmail(self):
+    email1 = 'joe@dot.com'
+    acct1 = models.ProvisionalAccount.get_or_create_account_for_email(
+        email1)
+    email2 = 'jill@dot.com'
+
+    # Fake date
+    dt = datetime.datetime.now() - datetime.timedelta(days=2)
+    old_datetime = datetime.datetime
+
+    class _StubClass(datetime.datetime):
+
+      @classmethod
+      def now(cls):
+        return dt
+
+      @classmethod
+      def accounts(cls, email):
+        return []
+
+    self.stubs.SmartSet(models.datetime, 'datetime', _StubClass)
+    self.stubs.SmartSet(models.ProvisionalAccount, 'get_accounts_for_email',
+                        _StubClass.accounts)
+
+    acct2 = models.ProvisionalAccount.get_or_create_account_for_email(
+        email2)
+
+    self.stubs.SmartUnsetAll()
+
+    # Validate
+    accounts = models.ProvisionalAccount.get_accounts_for_email(
+        email1)
+    self.assertEqual(1, len(accounts))
+    accounts = models.ProvisionalAccount.get_accounts_for_email(
+        email1, expiration_days=1)
+    self.assertEqual(1, len(accounts))
+
+    accounts = models.ProvisionalAccount.get_accounts_for_email(
+        email2)
+    self.assertEqual(1, len(accounts))
+    accounts = models.ProvisionalAccount.get_accounts_for_email(
+        email2, expiration_days=1)
+    self.assertEqual(0, len(accounts))
 
 
 if __name__ == "__main__":
