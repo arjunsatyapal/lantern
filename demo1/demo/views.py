@@ -79,6 +79,7 @@ import library
 import models
 import settings
 import upload
+import notify
 
 # Add our own template library.
 _library_name = __name__.rsplit('.', 1)[0] + '.library'
@@ -872,8 +873,11 @@ def submit_edits(request):
   if not doc:
     return HttpResponse("Error in creating document", status=404)
   else:
+    trunk = doc.trunk_ref
+    library.auto_subscribe(users.get_current_user(), trunk)
+
     # redirect to view mode
-    trunk_id = doc.trunk_ref.key()
+    trunk_id = trunk.key()
     doc_id = doc.key()
     return HttpResponseRedirect(
         '/view?trunk_id=%s&doc_id=%s&absolute=True' % (trunk_id, doc_id))
@@ -1439,3 +1443,10 @@ def upload_file(request):
   return respond(request, 'File Upload', "upload.html",
                  {'form': form,
                   })
+
+
+@admin_required
+def notify_all(request):
+  """Cron job entry point for notification"""
+  notify.notifyAll()
+  return HttpResponse('Done', status=200)

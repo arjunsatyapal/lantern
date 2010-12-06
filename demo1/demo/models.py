@@ -964,6 +964,7 @@ class TrunkModel(BaseModel):
       return
     if isinstance(doc, DocModel):
       self.title = doc.title
+    Subscription.notifyChange(self)
 
 
 class TrunkRevisionModel(BaseContentModel):
@@ -1455,3 +1456,75 @@ class Enrollment(db.Model):
   is_invited = db.BooleanProperty()
   is_enrolled = db.BooleanProperty()
   student = db.UserProperty()
+
+
+class Subscription(db.Model):
+  """Maps trunks to people who subscribed for the changes.
+
+  Attributes:
+    trunk: the trunk
+    user: the user who subscribed for the page
+    recursive: the subscription covers all the subpages
+    method: how should the user be notified; possible values
+            TBD, including (immediate, onceaday, meh)
+  """
+  # Preferred notification methods
+  METH_IMMEDIATE = 'immediate'  # one mail per one detection of change
+  METH_ONCEADAY = 'onceaday'    # aggregated into one message per day
+  METH_MEH = 'meh'              # do not bother me
+
+  # Changes to the same trunk within this number of seconds
+  # are collapsed into a single notification.
+  ASYNC_SLOP_SEC = 120
+
+  # DateTime format used for logging
+  DATETIME_STRING_FORMAT = "%Y-%m-%d %H:%M:%S (%Z)"
+
+  trunk = db.ReferenceProperty(TrunkModel, required=True)
+  user = db.UserProperty(auto_current_user_add=True, required=True)
+  recursive = db.BooleanProperty(default=False, required=True)
+  method = db.StringProperty(default=METH_ONCEADAY, required=True)
+
+  @classmethod
+  def notifyChange(cls, trunk):
+    """The Web interface notifies that trunk-tip has changed
+
+    Do minimum here and have asynchronous process to take care
+    of the most of the notification task.
+    """
+    now = datetime.datetime.utcnow()
+    logging.info("Notifying change at %s to %s." % (
+        now.strftime(cls.DATETIME_STRING_FORMAT),
+        trunk.title))
+    ago = now - datetime.timedelta(seconds=cls.ASYNC_SLOP_SEC)
+    query = (SubscriptionNotification.all().filter('trunk =', trunk).
+             filter('timestamp >', ago))
+    if 0 < query.count(1):
+      logging.info("Notification for the same trunk exists (%d)." % query.count())
+      for e in query:
+        logging.info("Other was made at %s" %
+                     e.timestamp.strftime(cls.DATETIME_STRING_FORMAT))
+      return
+    note = SubscriptionNotification(trunk=trunk)
+    note.put()
+
+
+class SubscriptionNotification(db.Model):
+  """List of trunk changes"""
+  trunk = db.ReferenceProperty(TrunkModel, required=True)
+  timestamp = db.DateTimeProperty(auto_now=True, required=True)
+
+
+class ChangesSeen(db.Model):
+  """Records what document was seen at the tip of trunk.
+
+  Attributes:
+    trunk: the trunk
+    user: the user who observed the trunk
+    doc: the DocModel that was at the tip of the trunk
+    timestamp: the time the observation was last made
+  """
+  trunk = db.ReferenceProperty(TrunkModel, required=True)
+  user = db.UserProperty(auto_current_user_add=True, required=True)
+  doc = db.ReferenceProperty(DocModel, required=True)
+  timestamp = db.DateTimeProperty(required=True)

@@ -23,6 +23,7 @@
 
 import base64
 import cgi
+import datetime
 import logging
 import os
 import re
@@ -39,6 +40,7 @@ from django.core.urlresolvers import reverse
 import constants
 import models
 import yaml
+import notify
 
 # For registering filter and tag libs.
 register = django.template.Library()
@@ -1382,3 +1384,31 @@ def getPrevNextLinks(doc, visit, came_from):
   next_param = view_doc_param(next, visit, here, next_came_from)
 
   return (prev_param, next_param)
+
+
+def auto_subscribe(user, trunk):
+  """Auto-subscribe the user who edited to further changes of the page.
+
+  Args:
+    user: the user who edited this page
+    trunk: the trunk object that represents the page
+  """
+  query = (models.Subscription.all().
+           filter('user =', user).
+           filter('trunk =', trunk))
+  if query.count(1):
+    return
+  subscription = models.Subscription(user=user, trunk=trunk)
+  subscription.put()
+
+  # Create initial observation point for new pages being watched.
+  now = datetime.datetime.utcnow()
+  watched = set([w.trunk for w in notify.watchedPages(user)])
+  existing = set([c.trunk for c in (models.ChangesSeen.all().
+                                    filter('user =', user))])
+  if existing:
+    watched -= existing
+  for trunk in watched:
+    doc = db.get(trunk.head)
+    models.ChangesSeen(trunk=trunk, user=user, doc=doc,
+                       timestamp=now).put()
