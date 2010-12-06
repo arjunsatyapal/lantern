@@ -54,7 +54,6 @@ def notifyUser(user):
   Args:
     user: a user who has subscription(s)
   """
-
   result = []
 
   for w in watchedPages(user):
@@ -69,7 +68,7 @@ def notifyUser(user):
                     filter('trunk =', trunk).
                     order('-timestamp'))
 
-    if not changes_seen.count():
+    if not changes_seen.count(1):
       cutoff = None
     else:
       cutoff = changes_seen[0].timestamp
@@ -77,18 +76,18 @@ def notifyUser(user):
     q = models.SubscriptionNotification.all().filter('trunk =', trunk)
     if cutoff:
       q.filter('timestamp >', cutoff)
-    if not q.count():
+    if not q.count(1):
       continue # nothing to report
 
     latest_change = q[0]
     old_tip = None
-    if changes_seen.count():
+    if changes_seen.count(1):
       old_tip = changes_seen[0].doc
 
     # Update the ChangesSeen record
     new_tip = db.get(trunk.head)
     timestamp = latest_change.timestamp
-    if changes_seen.count():
+    if changes_seen.count(1):
       changes_seen[0].timestamp = timestamp
       changes_seen[0].doc = new_tip
       # Make sure ChangesSeen has a singleton per <user, trunk>

@@ -1704,7 +1704,7 @@ class Subscription(db.Model):
     ago = now - datetime.timedelta(seconds=cls.ASYNC_SLOP_SEC)
     query = (SubscriptionNotification.all().filter('trunk =', trunk).
              filter('timestamp >', ago))
-    if 0 < query.count():
+    if 0 < query.count(1):
       logging.info("Notification for the same trunk exists (%d)." % query.count())
       for e in query:
         logging.info("Other was made at %s" %

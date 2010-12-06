@@ -23,6 +23,7 @@
 
 import base64
 import cgi
+import datetime
 import logging
 import os
 import random
@@ -1428,12 +1429,13 @@ def auto_subscribe(user, trunk):
   query = (models.Subscription.all().
            filter('user =', user).
            filter('trunk =', trunk))
-  if query.count():
+  if query.count(1):
     return
   subscription = models.Subscription(user=user, trunk=trunk)
   subscription.put()
 
   # Create initial observation point for new pages being watched.
+  now = datetime.datetime.utcnow()
   watched = set([w.trunk for w in notify.watchedPages(user)])
   existing = set([c.trunk for c in (models.ChangesSeen.all().
                                     filter('user =', user))])
@@ -1441,4 +1443,5 @@ def auto_subscribe(user, trunk):
     watched -= existing
   for trunk in watched:
     doc = db.get(trunk.head)
-    models.ChangesSeen(trunk=trunk, user=user, doc=doc).put()
+    models.ChangesSeen(trunk=trunk, user=user, doc=doc,
+                       timestamp=now).put()
