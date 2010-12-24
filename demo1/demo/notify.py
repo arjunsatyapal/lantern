@@ -99,8 +99,9 @@ def notifyUser(user):
     new_tip = db.get(trunk.head)
     timestamp = latest_change.timestamp
     if changes_seen.count(1):
-      changes_seen[0].timestamp = timestamp
-      changes_seen[0].doc = new_tip
+      change_info = changes_seen[0]
+      change_info.timestamp = timestamp
+      change_info.doc = new_tip
       # Make sure ChangesSeen has a singleton per <user, trunk>
       # by removing older ones.  Unfortunately, we cannot iterate
       # over changes_seen[1:] as "Open-ended slices are not supported"
@@ -111,10 +112,10 @@ def notifyUser(user):
         else:
           extra.delete()
     else:
-      changes_seen = [models.ChangesSeen(trunk=trunk, user=user,
-                                         doc=new_tip,
-                                         timestamp=timestamp)]
-    changes_seen[0].put()
+      change_info = models.ChangesSeen(trunk=trunk, user=user,
+                                       doc=new_tip,
+                                       timestamp=timestamp)
+    change_info.put()
     result.append((trunk, old_tip, new_tip))
 
   if result:
