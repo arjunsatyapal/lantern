@@ -20,9 +20,13 @@ import logging
 # AppEngine imports
 from google.appengine.ext import db
 from google.appengine.api.labs import taskqueue
+from google.appengine.api import mail
 
 # Local imports
 import models
+
+# The sender address
+LANTERN_SENDER = 'lantern@example.xz'
 
 
 def watchedPages(user):
@@ -41,12 +45,17 @@ def sendChanges(user, result):
     result: an array of (trunk, old_tip, new_tip) tuples
   """
   logging.info("Notifying %s <%s>" % (user.nickname(), user.email()))
+  body = []
   for (trunk, old, new) in result:
-    # NEEDSWORK: format the e-mail text here...
     logging.info("Trunk %s changed from %s to %s" %
                  (trunk.title, str(old), str(new)))
-  # NEEDSWORK: ... and send it out to the user
-
+    # NEEDSWORK: format the e-mail text a bit better here...
+    body.append("Page '%s' changed from '%s' to '%s'\n" %
+                (trunk.title, str(old), str(new)))
+  mail.send_mail(sender=LANTERN_SENDER,
+                 to=user.email(),
+                 subject="Recent changes to the Lantern pages",
+                 body="".join(body))
 
 def notifyUser(user):
   """Notify changes to a single user.
