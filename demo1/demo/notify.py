@@ -20,13 +20,9 @@ import logging
 # AppEngine imports
 from google.appengine.ext import db
 from google.appengine.api.labs import taskqueue
-from google.appengine.api import mail
 
 # Local imports
 import models
-
-# The sender address
-LANTERN_SENDER = 'lantern@example.xz'
 
 
 def watchedPages(user):
@@ -45,17 +41,12 @@ def sendChanges(user, result):
     result: an array of (trunk, old_tip, new_tip) tuples
   """
   logging.info("Notifying %s <%s>" % (user.nickname(), user.email()))
-  body = []
   for (trunk, old, new) in result:
+    # NEEDSWORK: format the e-mail text here...
     logging.info("Trunk %s changed from %s to %s" %
                  (trunk.title, str(old), str(new)))
-    # NEEDSWORK: format the e-mail text a bit better here...
-    body.append("Page '%s' changed from '%s' to '%s'\n" %
-                (trunk.title, str(old), str(new)))
-  mail.send_mail(sender=LANTERN_SENDER,
-                 to=user.email(),
-                 subject="Recent changes to the Lantern pages",
-                 body="".join(body))
+  # NEEDSWORK: ... and send it out to the user
+
 
 def notifyUser(user):
   """Notify changes to a single user.
@@ -69,9 +60,9 @@ def notifyUser(user):
     trunk = w.trunk
 
     # Be defensive by making sure the latest one, if more than one row
-    # exists for whatever reason, is used.  ChangesSeen is supposed to
-    # have a single row per <user, trunk> tuple; it is used to record
-    # the last timestamp of the changes we noticed and sent e-mail about
+    # exists for whatever reason.  ChangesSeen is supposed to have a
+    # single row per <user, trunk> tuple; it is used to record the
+    # last timestamp of the changes we noticed and sent e-mail about
     # to the user on the trunk, so the latest timestamp matters.
     changes_seen = (models.ChangesSeen.all().filter('user =', user).
                     filter('trunk =', trunk).
@@ -82,9 +73,7 @@ def notifyUser(user):
     else:
       cutoff = changes_seen[0].timestamp
 
-    q = (models.SubscriptionNotification.all().
-         filter('trunk =', trunk).
-         order('-timestamp'))
+    q = models.SubscriptionNotification.all().filter('trunk =', trunk)
     if cutoff:
       q.filter('timestamp >', cutoff)
     if not q.count(1):
@@ -99,9 +88,8 @@ def notifyUser(user):
     new_tip = db.get(trunk.head)
     timestamp = latest_change.timestamp
     if changes_seen.count(1):
-      change_info = changes_seen[0]
-      change_info.timestamp = timestamp
-      change_info.doc = new_tip
+      changes_seen[0].timestamp = timestamp
+      changes_seen[0].doc = new_tip
       # Make sure ChangesSeen has a singleton per <user, trunk>
       # by removing older ones.  Unfortunately, we cannot iterate
       # over changes_seen[1:] as "Open-ended slices are not supported"
@@ -112,10 +100,10 @@ def notifyUser(user):
         else:
           extra.delete()
     else:
-      change_info = models.ChangesSeen(trunk=trunk, user=user,
-                                       doc=new_tip,
-                                       timestamp=timestamp)
-    change_info.put()
+      changes_seen = [models.ChangesSeen(trunk=trunk, user=user,
+                                         doc=new_tip,
+                                         timestamp=timestamp)]
+    changes_seen[0].put()
     result.append((trunk, old_tip, new_tip))
 
   if result:

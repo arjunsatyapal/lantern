@@ -1,5 +1,5 @@
 Welcome to Lantern
-------------------
+-------------------
 
 This project represents a prototype of an education/online text book
 application.  It uses Django on Google App Engine. It requires Django version
