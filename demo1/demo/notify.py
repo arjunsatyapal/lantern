@@ -60,9 +60,9 @@ def notifyUser(user):
     trunk = w.trunk
 
     # Be defensive by making sure the latest one, if more than one row
-    # exists for whatever reason.  ChangesSeen is supposed to have a
-    # single row per <user, trunk> tuple; it is used to record the
-    # last timestamp of the changes we noticed and sent e-mail about
+    # exists for whatever reason, is used.  ChangesSeen is supposed to
+    # have a single row per <user, trunk> tuple; it is used to record
+    # the last timestamp of the changes we noticed and sent e-mail about
     # to the user on the trunk, so the latest timestamp matters.
     changes_seen = (models.ChangesSeen.all().filter('user =', user).
                     filter('trunk =', trunk).
@@ -73,7 +73,9 @@ def notifyUser(user):
     else:
       cutoff = changes_seen[0].timestamp
 
-    q = models.SubscriptionNotification.all().filter('trunk =', trunk)
+    q = (models.SubscriptionNotification.all().
+         filter('trunk =', trunk).
+         order('-timestamp'))
     if cutoff:
       q.filter('timestamp >', cutoff)
     if not q.count(1):
