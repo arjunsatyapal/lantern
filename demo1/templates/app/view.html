@@ -20,6 +20,7 @@ limitations under the License.
 <script>
 goog.require('goog.net.XhrIo');
 goog.require('lantern.wwedit.NotepadManager');
+goog.require('lantern.subscription.PageStatus');
 </script>
 {% endblock %}
 {% block titlebar %}
@@ -210,11 +211,16 @@ var noteMgr = new lantern.notes.NoteManager(
     'notestrigger',
     '{{doc.trunk_ref|get_key}}',
     '{{doc|get_key}}');
+var subscriptionLink = new lantern.subscription.PageStatus(
+    'subscribed-p',
+    '{{doc.trunk_ref|get_key}}');
 goog.events.listenOnce(window, 'unload', function(e) {
   noteMgr.dispose();
   noteMgr = null;
   notepadMgr.dispose();
   notepadMgr = null;
+  subscriptionLink.dispose();
+  subscriptionLink = null;
 });
 --></script>
 {% endblock end_script %}

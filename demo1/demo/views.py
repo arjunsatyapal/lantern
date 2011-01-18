@@ -784,6 +784,7 @@ def view_doc(request):
     '<a href="/duplicate?%s">Duplicate</a>' % urllib.urlencode(dup_params),
     link_to_prev,
     '<a href="/history?trunk_id=%s">History</a>' % (trunk.key()),
+    '<a id="subscribed-p"></a>',
     ]
 
   main_menu = ' | '.join(menu_items)

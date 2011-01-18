@@ -51,6 +51,7 @@ JS_SRCS = \
     subject.js \
     subjectmenu.js \
     subjectxhr.js \
+    subscription.js \
     mocksubjects.js \
     subjectmenu.js \
     edit_page.js \
