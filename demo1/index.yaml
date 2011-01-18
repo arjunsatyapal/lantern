@@ -121,6 +121,17 @@ indexes:
   - name: time_stamp
     direction: desc
 
+- kind: Subscription
+  properties:
+  - name: trunk
+  - name: user
+  - name: method
+
+- kind: Subscription
+  properties:
+  - name: user
+  - name: method
+
 - kind: SubscriptionNotification
   properties:
   - name: trunk
