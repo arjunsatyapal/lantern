@@ -56,14 +56,13 @@ lantern.subscription.PageStatus.prototype.disposeInternal = function() {
 
 lantern.subscription.PageStatus.prototype.asyncGetStatus = function() {
   var callback = goog.bind(this.processStatus, this);
-  var id = lantern.subscription.PageStatus.currentRequestId_++;
   var uri = this.getXhrUri_('get');
   var data = { 'trunk_id': this.trunk_id };
   var contents = ["data=",
                   goog.json.serialize(data),
                   '&amp;xsrf_token=',
                   xsrfToken].join('');
-  this.xhr_.sendRequest(id, uri, callback, 'POST', contents);
+  this.xhr_.sendRequest(undefined /* auto id */, uri, callback, 'POST', contents);
 };
 
 
@@ -73,14 +72,6 @@ lantern.subscription.PageStatus.prototype.processStatus = function(
     goog.dom.setTextContent(this.aElt_, result['status']);
   }
 };
-
-
-/**
- * Monotonically increasing counter for the request ID.
- * @type {number}
- * @private
- */
-lantern.subscription.PageStatus.currentRequestId_ = 0;
 
 
 /**
