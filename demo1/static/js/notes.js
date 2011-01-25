@@ -465,14 +465,6 @@ goog.inherits(lantern.notes.NoteProvider, goog.Disposable);
 
 
 /**
- * Monotonically increasing counter for the request ID.
- * @type {number}
- * @private
- */
-lantern.notes.NoteProvider.currentRequestId_ = 0;
-
-
-/**
  * Default base URL for XHR requests.
  * @type {string}
  * @private
@@ -504,8 +496,7 @@ lantern.notes.NoteProvider.prototype.getNote = function(
                   goog.json.serialize(data),
                   '&amp;xsrf_token=',
                   xsrfToken].join('');
-  var id = lantern.notes.NoteProvider.currentRequestId_++;
-  this.xhr_.sendRequest(id, uri, callback, 'POST', contents);
+  this.xhr_.sendRequest(undefined, uri, callback, 'POST', contents);
 };
 
 
@@ -537,8 +528,7 @@ lantern.notes.NoteProvider.prototype.updateNote = function(
                   goog.json.serialize(data),
                   '&amp;xsrf_token=',
                   xsrfToken].join('');
-  var id = lantern.notes.NoteProvider.currentRequestId_++;
-  this.xhr_.sendRequest(id, uri, callback, 'POST', contents);
+  this.xhr_.sendRequest(undefined, uri, callback, 'POST', contents);
 };
 /**
  * Returns the URI to use for XHR.

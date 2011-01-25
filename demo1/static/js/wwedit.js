@@ -142,7 +142,6 @@ lantern.wwedit.HTMLEditor_ = function(htmlEdit, htmlEditToolbar) {
   this.htmlField_ = new goog.editor.SeamlessField(this.htmlEdit_.id);
   this.htmlEditToolbar_ = htmlEditToolbar;
   this.xhr_ = new lantern.DataProviderXhr();
-  this.currentRequestId_ = 0;
   this.eh_ = new goog.events.EventHandler(this);
 };
 goog.inherits(lantern.wwedit.HTMLEditor_, goog.Disposable);
@@ -359,8 +358,7 @@ lantern.wwedit.RTEditor.prototype.toggleHTMLEdit = function() {
  */
 lantern.wwedit.NotePad.prototype.sendRequest = function(
     uri, callback, var_args) {
-  var id = this.currentRequestId_++;
-  var args = [id, uri, callback];
+  var args = [undefined, uri, callback];
   var i;
   for (i = 2; i < arguments.length; i++)
     args.push(arguments[i]);
