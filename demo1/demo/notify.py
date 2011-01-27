@@ -31,10 +31,21 @@ LANTERN_SENDER = 'lantern@example.xz'
 
 def watchedPages(user):
   """The set of pages the user is watching"""
-  watched_pages = models.Subscription.all().filter('user =', user)
+  watched_pages = (models.Subscription.all().
+                   filter('user =', user).
+                   filter('method !=', models.Subscription.METH_MEH))
   # NEEDSWORK: handle recursive subscription, filtering "once-a-day"
   # subscription when run before the "end of the day", etc.
   return watched_pages
+
+
+def isPageWatched(user, trunk):
+  """Is the page being watched by the user?"""
+  result = (models.Subscription.all().
+            filter('user =', user).
+            filter('trunk =', trunk).
+            filter('method !=', models.Subscription.METH_MEH))
+  return result.count(1) != 0
 
 
 def sendChanges(user, result):

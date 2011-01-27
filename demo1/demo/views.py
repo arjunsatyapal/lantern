@@ -784,6 +784,7 @@ def view_doc(request):
     '<a href="/duplicate?%s">Duplicate</a>' % urllib.urlencode(dup_params),
     link_to_prev,
     '<a href="/history?trunk_id=%s">History</a>' % (trunk.key()),
+    '<a id="subscribed-p"></a>',
     ]
 
   main_menu = ' | '.join(menu_items)
@@ -1384,6 +1385,34 @@ def update_notepad(request):
       'text': text,
       'key': key,
       }));
+
+
+@login_required
+@post_required
+@xsrf_required
+def get_subscription(request):
+  """Get the subscription status of the given page
+
+  This is called to update the Subscribed? link in the top menu of the
+  view page lazily.  The POST data consists of 'trunk_id'; the service
+  is expected to return the subscription status as 'status' in the JSON
+  object it returns.
+  """
+  errors = ''
+  status = 'Subscribed?'
+  try:
+    data = simplejson.loads(request.POST.get('data'))
+    trunk = db.get(data.get('trunk_id'))
+    if notify.isPageWatched(request.user, trunk):
+      status = 'Subscribed!'
+    else:
+      status = 'Not Subscribed'
+  except Exception, e:
+    errors = str(e)
+  return HttpResponse(simplejson.dumps({
+      'status': status,
+      'errors': errors,
+      }))
 
 
 def coursemap(request, course_trunk_id):
