@@ -38,6 +38,7 @@ lantern.subscription.PageStatus = function(id, trunk_id) {
   this.xhr_ = new lantern.DataProviderXhr();
   goog.dom.removeChildren(this.aElt_);
   goog.dom.setTextContent(this.aElt_, "Subscribed?");
+  this.lElt_ = document.getElementById('toggle-subscribed-label')
   this.asyncGetStatus();
 };
 goog.inherits(lantern.subscription.PageStatus, goog.Disposable);
@@ -69,7 +70,20 @@ lantern.subscription.PageStatus.prototype.asyncGetStatus = function() {
 lantern.subscription.PageStatus.prototype.processStatus = function(
     id, result, opt_errMsg) {
   if (result && 'status' in result) {
-    goog.dom.setTextContent(this.aElt_, result['status']);
+    var label = '?';
+    var toggle = '?';
+    switch (result['status']) {
+      case 0:
+        label = 'Not Subscribed';
+        toggle = 'Subscribe';
+        break;
+      case 1:
+        label = 'Subscribed';
+        toggle = 'Unsubscribe';
+        break;
+    }
+    goog.dom.setTextContent(this.aElt_, label);
+    goog.dom.setTextContent(this.lElt_, toggle);
   }
 };
 

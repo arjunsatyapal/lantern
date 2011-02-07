@@ -45,21 +45,48 @@ limitations under the License.
      </div>
      <br /><br />
      <div id="page-title">
-      {% if mainmenu %}
-      <div id="mainmenu" class="goog-toolbar">{{ mainmenu|safe }}</div>
-      {% endif %}
-      <div id="confirmation_container">
-        <div id="confirmation" class="confirmation" style="display:none;">
-        </div>
-      </div>
-      <div id="titlebar">
-        <div id="loading" class="loading" style="display:none;">Loading...
-            <span id="loadingCount"></span>
-        </div>
-        {% block titlebar %}
+       {% if mainmenu %}
+       <div id="mainmenu" class="goog-toolbar">
+	 <div class="goog-toolbar-menu-button">
+           <span id="edit-label">Edit</span>
+           <div class="goog-menu">
+             <div class="goog-menuitem" id="create-new-document">
+               <span id="create-new-label">Create New</span>
+             </div>
+             <div class="goog-menuitem" id="edit-this-document">
+               <span id="edit-this-label">Edit this page</span>
+             </div>
+             <div class="goog-menuitem" id="duplicate-this-document">
+               <span id="duplicate-this-label">Duplicate</span>
+             </div>
+             <hr />
+             <div class="goog-menuitem" id="document-history">
+               <span id="document-history-label">History</span>
+             </div>
+           </div>
+         </div>
+	 <div class="goog-toolbar-menu-button">
+           <span id="subscribed-label">S u b s c r i b e d ?</span>
+           <div class="goog-menu">
+             <div class="goog-menuitem" id="toggle-subscribed">
+               <span id="toggle-subscribed-label">T o g g l e</span>
+             </div>
+           </div>
+         </div>
+       </div>
+       {% endif %}
+       <div id="confirmation_container">
+         <div id="confirmation" class="confirmation" style="display:none;">
+         </div>
+       </div>
+       <div id="titlebar">
+         <div id="loading" class="loading" style="display:none;">Loading...
+           <span id="loadingCount"></span>
+         </div>
+         {% block titlebar %}
          <div id="title-name" class="title">{{ page_title|safe }}</div>
-        {% endblock %}
-      </div>
+         {% endblock %}
+       </div>
      </div> <!-- page-title -->
     </div>
    </div>
