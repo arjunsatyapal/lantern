@@ -60,4 +60,5 @@ urlpatterns = defaults.patterns(
     (r'^notepad/get$', 'get_notepad'),
     (r'^notepad/update$', 'update_notepad'),
     (r'^subscription/get$', 'get_subscription'),
+    (r'^subscription/put$', 'update_subscription'),
     )

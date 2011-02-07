@@ -1389,6 +1389,31 @@ def get_subscription(request):
       }))
 
 
+@login_required
+@post_required
+@xsrf_required
+def update_subscription(request):
+  """Subscribe to/Unsubscribe from the given page
+
+  The POST data consists of 'trunk_id' and 'status' (0 for unsubscribe,
+  1 for subscribe), and sets the subscription status for the page for
+  the current user.
+  """
+  result = -1
+  errors = ''
+  try:
+    data = simplejson.loads(request.POST.get('data'))
+    trunk = db.get(data.get('trunk_id'))
+    status = data.get('status')
+    result = notify.setSubscription(request.user, trunk, status)
+  except Exception, e:
+    errors = str(e)
+  return HttpResponse(simplejson.dumps({
+      'status': result,
+      'errors': errors,
+      }))
+
+
 def coursemap(request, course_trunk_id):
   """Show detailed map of a given course specified by its trunk id"""
   try:

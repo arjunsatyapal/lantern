@@ -205,6 +205,8 @@ initScores();
 {% block end_script %}
 <script type="text/javascript"><!--
 
+var subscriptionLink; // forward...
+
 if (goog.dom.getElement('mainmenu')) {
   var initMenu = function (trunk_id, doc_id, parent_trunk_id, parent_id) {
     var it;
@@ -235,7 +237,12 @@ if (goog.dom.getElement('mainmenu')) {
 	function (e) {
           document.location.href = '/history?trunk_id=' + trunk_id; });
 
-  }
+    it = goog.dom.getElement('toggle-subscribed');
+    goog.events.listen(it, goog.events.EventType.CLICK,
+	function (e) {
+          subscriptionLink.toggleSubscription();
+        });
+  };
   initMenu('{{ trunk_id }}', '{{ doc_id }}', '{{ parent_trunk_id }}', '{{ parent_id }}');
 }
 
@@ -246,7 +253,7 @@ var noteMgr = new lantern.notes.NoteManager(
     'notestrigger',
     '{{doc.trunk_ref|get_key}}',
     '{{doc|get_key}}');
-var subscriptionLink = new lantern.subscription.PageStatus(
+subscriptionLink = new lantern.subscription.PageStatus(
     'subscribed-label',
     '{{doc.trunk_ref|get_key}}');
 goog.events.listenOnce(window, 'unload', function(e) {
