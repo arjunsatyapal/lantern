@@ -777,17 +777,28 @@ def view_doc(request):
         ('parent_id', parent.key())
         ])
 
-  menu_items = [
+  toolbar_items = []
+  edit_menu = []
+  for item in [
     '<a href="/edit">Create New</a>',
     '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a>' %
     (trunk.key(), doc.key()),
     '<a href="/duplicate?%s">Duplicate</a>' % urllib.urlencode(dup_params),
-    link_to_prev,
-    '<a href="/history?trunk_id=%s">History</a>' % (trunk.key()),
-    '<a id="subscribed-p"></a>',
-    ]
-
-  main_menu = ' | '.join(menu_items)
+    ]:
+    edit_menu.append('<div class="goog-menuitem">%s</div>' % item)
+  edit_menu.append('<hr />')
+  edit_menu.append('<div class="goog-menuitem">%s</div>' %
+                   ('<a href="/history?trunk_id=%s">History</a>' % (trunk.key())))
+  edit_menu = '<div class="goog-menu">%s</div>' % "".join(edit_menu)
+  toolbar_items.append('<div class="goog-toolbar-menu-button">Edit%s</div>' %
+                       edit_menu)
+  toolbar_items.append('''<div class="goog-toolbar-menu-button">
+    <span id="subscribed-p">Sub</span>
+    <div class="goog-menu">
+      <div class="goog-menuitem" id="toggle-subscribed">Toggle</div>
+    </div>
+  </div>''')
+  main_menu = "".join(toolbar_items)
 
   title_items = [
     constants.DEFAULT_TITLE,

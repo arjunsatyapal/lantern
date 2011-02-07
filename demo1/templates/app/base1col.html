@@ -45,7 +45,9 @@ limitations under the License.
      </div>
      <br /><br />
      <div id="page-title">
-      <div id="mainmenu">{{ mainmenu|safe }}</div>
+      {% if mainmenu %}
+      <div id="mainmenu" class="goog-toolbar">{{ mainmenu|safe }}</div>
+      {% endif %}
       <div id="confirmation_container">
         <div id="confirmation" class="confirmation" style="display:none;">
         </div>

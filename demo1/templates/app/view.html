@@ -18,6 +18,7 @@ limitations under the License.
         src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
 </script>
 <script>
+goog.require('goog.ui.Toolbar');
 goog.require('goog.net.XhrIo');
 goog.require('lantern.wwedit.NotepadManager');
 goog.require('lantern.subscription.PageStatus');
@@ -203,6 +204,11 @@ initScores();
 
 {% block end_script %}
 <script type="text/javascript"><!--
+
+if (goog.dom.getElement('mainmenu')) {
+  var mainmenu = new goog.ui.Toolbar();
+  mainmenu.decorate(goog.dom.getElement('mainmenu'));
+}
 
 lantern.comm.LanternChannelFactory.initialize(global_score == 100);
 

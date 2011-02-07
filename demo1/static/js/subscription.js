@@ -34,7 +34,7 @@ lantern.subscription.PageStatus = function(id, trunk_id) {
 
   this.trunk_id = trunk_id;
   this.eh_ = new goog.events.EventHandler(this);
-  this.aElt_ = document.getElementById(id);
+  this.aElt_ = document.getElementById(id).firstChild;
   this.xhr_ = new lantern.DataProviderXhr();
   goog.dom.removeChildren(this.aElt_);
   goog.dom.setTextContent(this.aElt_, "Subscribed?");
