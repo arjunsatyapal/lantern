@@ -1473,6 +1473,8 @@ class Subscription(db.Model):
   METH_ONCEADAY = 'onceaday'    # aggregated into one message per day
   METH_MEH = 'meh'              # do not bother me
 
+  METH_DEFAULT = METH_ONCEADAY
+
   # Changes to the same trunk within this number of seconds
   # are collapsed into a single notification.
   ASYNC_SLOP_SEC = 120
@@ -1483,7 +1485,7 @@ class Subscription(db.Model):
   trunk = db.ReferenceProperty(TrunkModel, required=True)
   user = db.UserProperty(auto_current_user_add=True, required=True)
   recursive = db.BooleanProperty(default=False, required=True)
-  method = db.StringProperty(default=METH_ONCEADAY, required=True)
+  method = db.StringProperty(default=METH_DEFAULT, required=True)
 
   @classmethod
   def notifyChange(cls, trunk):

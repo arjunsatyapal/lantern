@@ -16,6 +16,7 @@
 
 # Python imports
 import logging
+import datetime
 
 # AppEngine imports
 from google.appengine.ext import db
@@ -67,6 +68,44 @@ def sendChanges(user, result):
                  to=user.email(),
                  subject="Recent changes to the Lantern pages",
                  body="".join(body))
+
+
+def setSubscription(user, trunk, status):
+  """Update subscription status for the <user, trunk> pair.
+
+  Args:
+    user: the user who subscribes to or unsubscribes from the page
+    trunk: the trunk object that represents the page
+    status: 0 for unsubscribe, 1 for subscribe
+  """
+  query = (models.Subscription.all().
+           filter('user =', user).
+           filter('trunk =', trunk))
+  if query.count(1):
+    subscription = query[0]
+  else:
+    subscription = models.Subscription(user=user, trunk=trunk)
+  if status:
+    subscription.method = subscription.METH_DEFAULT
+  else:
+    subscription.method = subscription.METH_MEH
+  subscription.put()
+
+  if status == 0:
+    return
+
+  # Create initial observation point for new pages being watched.
+  now = datetime.datetime.utcnow()
+  watched = set([w.trunk for w in watchedPages(user)])
+  existing = set([c.trunk for c in (models.ChangesSeen.all().
+                                    filter('user =', user))])
+  if existing:
+    watched -= existing
+  for trunk in watched:
+    doc = db.get(trunk.head)
+    models.ChangesSeen(trunk=trunk, user=user, doc=doc,
+                       timestamp=now).put()
+
 
 def notifyUser(user):
   """Notify changes to a single user.
