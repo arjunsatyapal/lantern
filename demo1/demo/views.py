@@ -757,38 +757,6 @@ def view_doc(request):
   if next_url:
     next_url = '/view?' + urllib.urlencode(next_url)
 
-  if not use_history:
-    link_to_prev = (
-        '<a href='
-        '"/view?trunk_id=%s&doc_id=%s&absolute=True&use_history=True">'
-        'Show as it was last time</a>' % (trunk.key(), prev_doc.key())
-        )
-  else:
-    link_to_prev =  (
-        '<a href="/view?trunk_id=%s">Show latest</a>' % trunk.key())
-
-  dup_params = [
-      ('trunk_id', trunk.key()),
-      ('doc_id', doc.key()),
-      ]
-  if parent:
-    dup_params.extend([
-        ('parent_trunk', parent.trunk_ref.key()),
-        ('parent_id', parent.key())
-        ])
-
-  menu_items = [
-    '<a href="/edit">Create New</a>',
-    '<a href="/edit?trunk_id=%s&doc_id=%s">Edit this page</a>' %
-    (trunk.key(), doc.key()),
-    '<a href="/duplicate?%s">Duplicate</a>' % urllib.urlencode(dup_params),
-    link_to_prev,
-    '<a href="/history?trunk_id=%s">History</a>' % (trunk.key()),
-    '<a id="subscribed-p"></a>',
-    ]
-
-  main_menu = ' | '.join(menu_items)
-
   title_items = [
     constants.DEFAULT_TITLE,
     '<div id="docProgressContainer">',
@@ -798,16 +766,22 @@ def view_doc(request):
 
   annotation = library.get_doc_annotation(
       doc, users.get_current_user(), doc_contents=doc_contents)
-  return respond(request, title, "view.html",
-                {'doc': doc,
-                'doc_score': doc_score,
-                'doc_contents': doc_contents,
-                'traversed_path': traversed_path,
-                'annotation': annotation,
-                'next': next_url,
-                'prev': prev_url,
-                'mainmenu': main_menu
-                })
+  params = {'doc': doc,
+            'doc_score': doc_score,
+            'doc_contents': doc_contents,
+            'traversed_path': traversed_path,
+            'annotation': annotation,
+            'next': next_url,
+            'prev': prev_url,
+            'mainmenu': 1,
+            'doc_id': "%s" % doc.key(),
+            'trunk_id': "%s" % trunk.key(),
+            }
+  if parent:
+    params['parent_id'] = "%s" % parent.key();
+    params['parent_trunk_id'] = "%s" % parent.trunk_ref.key();
+
+  return respond(request, title, "view.html", params);
 
 
 def history(request):
@@ -1396,7 +1370,7 @@ def get_subscription(request):
   This is called to update the Subscribed? link in the top menu of the
   view page lazily.  The POST data consists of 'trunk_id'; the service
   is expected to return the subscription status as 'status' in the JSON
-  object it returns.
+  object it returns (1 for subscribed, 0 for not).
   """
   errors = ''
   status = 'Subscribed?'
@@ -1404,13 +1378,38 @@ def get_subscription(request):
     data = simplejson.loads(request.POST.get('data'))
     trunk = db.get(data.get('trunk_id'))
     if notify.isPageWatched(request.user, trunk):
-      status = 'Subscribed!'
+      status = 1
     else:
-      status = 'Not Subscribed'
+      status = 0
   except Exception, e:
     errors = str(e)
   return HttpResponse(simplejson.dumps({
       'status': status,
+      'errors': errors,
+      }))
+
+
+@login_required
+@post_required
+@xsrf_required
+def update_subscription(request):
+  """Subscribe to/Unsubscribe from the given page
+
+  The POST data consists of 'trunk_id' and 'status' (0 for unsubscribe,
+  1 for subscribe), and sets the subscription status for the page for
+  the current user.
+  """
+  result = -1
+  errors = ''
+  try:
+    data = simplejson.loads(request.POST.get('data'))
+    trunk = db.get(data.get('trunk_id'))
+    status = data.get('status')
+    result = notify.setSubscription(request.user, trunk, status)
+  except Exception, e:
+    errors = str(e)
+  return HttpResponse(simplejson.dumps({
+      'status': result,
       'errors': errors,
       }))
 

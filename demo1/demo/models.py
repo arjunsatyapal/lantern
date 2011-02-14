@@ -1473,6 +1473,8 @@ class Subscription(db.Model):
   METH_ONCEADAY = 'onceaday'    # aggregated into one message per day
   METH_MEH = 'meh'              # do not bother me
 
+  METH_DEFAULT = METH_ONCEADAY
+
   # Changes to the same trunk within this number of seconds
   # are collapsed into a single notification.
   ASYNC_SLOP_SEC = 120
@@ -1483,7 +1485,7 @@ class Subscription(db.Model):
   trunk = db.ReferenceProperty(TrunkModel, required=True)
   user = db.UserProperty(auto_current_user_add=True, required=True)
   recursive = db.BooleanProperty(default=False, required=True)
-  method = db.StringProperty(default=METH_ONCEADAY, required=True)
+  method = db.StringProperty(default=METH_DEFAULT, required=True)
 
   @classmethod
   def notifyChange(cls, trunk):
@@ -1510,13 +1512,27 @@ class Subscription(db.Model):
 
 
 class SubscriptionNotification(db.Model):
-  """List of trunk changes"""
+  """List of trunk changes
+
+  Whenever the tip of the trunk changes, a record of this type is
+  inserted to the database.  This is matched against Subscription
+  and ChangesSeen (see below) to determine the users that need to
+  be notified.
+  """
   trunk = db.ReferenceProperty(TrunkModel, required=True)
   timestamp = db.DateTimeProperty(auto_now=True, required=True)
 
 
 class ChangesSeen(db.Model):
-  """Records what document was seen at the tip of trunk.
+  """Records what document was seen at the tip of trunk by the user.
+
+  For each user who subscribes to changes to a trunk, this keeps track
+  of the last version of the trunk and the time of that observation (i.e.
+  the time a change notification was sent out to the user).  Together
+  with SubscriptionNotification (see above), the system can tell what
+  changes to which trunks are still not notified to what user.  When a
+  notification is sent out to the user, the corresponding record is
+  updated.
 
   Attributes:
     trunk: the trunk

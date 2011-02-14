@@ -23,7 +23,6 @@
 
 import base64
 import cgi
-import datetime
 import logging
 import os
 import re
@@ -1393,22 +1392,4 @@ def auto_subscribe(user, trunk):
     user: the user who edited this page
     trunk: the trunk object that represents the page
   """
-  query = (models.Subscription.all().
-           filter('user =', user).
-           filter('trunk =', trunk))
-  if query.count(1):
-    return
-  subscription = models.Subscription(user=user, trunk=trunk)
-  subscription.put()
-
-  # Create initial observation point for new pages being watched.
-  now = datetime.datetime.utcnow()
-  watched = set([w.trunk for w in notify.watchedPages(user)])
-  existing = set([c.trunk for c in (models.ChangesSeen.all().
-                                    filter('user =', user))])
-  if existing:
-    watched -= existing
-  for trunk in watched:
-    doc = db.get(trunk.head)
-    models.ChangesSeen(trunk=trunk, user=user, doc=doc,
-                       timestamp=now).put()
+  return notify.setSubscription(user, trunk, 1)

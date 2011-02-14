@@ -18,6 +18,7 @@ limitations under the License.
         src="http://ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js">
 </script>
 <script>
+goog.require('goog.ui.Toolbar');
 goog.require('goog.net.XhrIo');
 goog.require('lantern.wwedit.NotepadManager');
 goog.require('lantern.subscription.PageStatus');
@@ -204,6 +205,47 @@ initScores();
 {% block end_script %}
 <script type="text/javascript"><!--
 
+var subscriptionLink; // forward...
+
+if (goog.dom.getElement('mainmenu')) {
+  var initMenu = function (trunk_id, doc_id, parent_trunk_id, parent_id) {
+    var it;
+    var mainmenu = new goog.ui.Toolbar();
+    mainmenu.decorate(goog.dom.getElement('mainmenu'));
+
+    it = goog.dom.getElement('create-new-document');
+    goog.events.listen(it, goog.events.EventType.CLICK,
+	function (e) { document.location.href = '/edit'; });
+
+    it = goog.dom.getElement('edit-this-document');
+    goog.events.listen(it, goog.events.EventType.CLICK,
+	function (e) {
+          document.location.href = '/edit?trunk_id=' + trunk_id + '&doc_id=' + doc_id; });
+
+    it = goog.dom.getElement('duplicate-this-document');
+    goog.events.listen(it, goog.events.EventType.CLICK,
+	function (e) {
+	  var url = '/duplicate?trunk_id=' + trunk_id + '&doc_id=' + doc_id;
+	  if (parent_trunk_id != '' && parent_id != '') {
+	    url += '&parent_trunk=' + parent_trunk_id;
+	    url += '&parent_id=' + parent_id;
+	  }
+          document.location.href = url; });
+
+    it = goog.dom.getElement('document-history');
+    goog.events.listen(it, goog.events.EventType.CLICK,
+	function (e) {
+          document.location.href = '/history?trunk_id=' + trunk_id; });
+
+    it = goog.dom.getElement('toggle-subscribed');
+    goog.events.listen(it, goog.events.EventType.CLICK,
+	function (e) {
+          subscriptionLink.toggleSubscription();
+        });
+  };
+  initMenu('{{ trunk_id }}', '{{ doc_id }}', '{{ parent_trunk_id }}', '{{ parent_id }}');
+}
+
 lantern.comm.LanternChannelFactory.initialize(global_score == 100);
 
 var notepadMgr = new lantern.wwedit.NotepadManager();
@@ -211,8 +253,8 @@ var noteMgr = new lantern.notes.NoteManager(
     'notestrigger',
     '{{doc.trunk_ref|get_key}}',
     '{{doc|get_key}}');
-var subscriptionLink = new lantern.subscription.PageStatus(
-    'subscribed-p',
+subscriptionLink = new lantern.subscription.PageStatus(
+    'subscribed-label',
     '{{doc.trunk_ref|get_key}}');
 goog.events.listenOnce(window, 'unload', function(e) {
   noteMgr.dispose();
