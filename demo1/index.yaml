@@ -17,6 +17,12 @@ indexes:
   - name: timestamp
     direction: desc
 
+- kind: Classroom
+  properties:
+  - name: user
+  - name: start_date
+    direction: desc
+
 - kind: DocLinkModel
   properties:
   - name: doc_ref
@@ -136,12 +142,6 @@ indexes:
   properties:
   - name: trunk
   - name: timestamp
-
-- kind: SubscriptionNotification
-  properties:
-  - name: trunk
-  - name: timestamp
-    direction: desc
 
 - kind: TrunkRevisionModel
   properties:

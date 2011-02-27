@@ -10,6 +10,13 @@ indexes:
 # automatically uploaded to the admin console when you next deploy
 # your application using appcfg.py.
 
+- kind: ChangesSeen
+  properties:
+  - name: trunk
+  - name: user
+  - name: timestamp
+    direction: desc
+
 - kind: Classroom
   properties:
   - name: user
@@ -119,6 +126,22 @@ indexes:
   - name: session_id
   - name: time_stamp
     direction: desc
+
+- kind: Subscription
+  properties:
+  - name: trunk
+  - name: user
+  - name: method
+
+- kind: Subscription
+  properties:
+  - name: user
+  - name: method
+
+- kind: SubscriptionNotification
+  properties:
+  - name: trunk
+  - name: timestamp
 
 - kind: TrunkRevisionModel
   properties:
