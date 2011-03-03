@@ -504,25 +504,26 @@ class BaseContentModel(BaseModel):
     """Fallback implementation for identifying this object to the end user"""
     return "%s" % id(self)
 
-  def metainfo(self):
+  def metainfo(self, full=0):
     """A list of (label, string) tuples to describe the document
 
     Subclasses can add their own metainformation by overriding
     myMetainfo() method.
     """
-    return ([(self.__class__.__name__, self.ident()),
-             ('Creator', self.creator),
-             ('Created', self.created)] +
-            self.myMetainfo())
+    if full:
+      return ([('Creator', self.creator),
+               ('Created', self.created)] +
+              self.myMetainfo())
+    return (self.myMetainfo())
 
-  def metainfoOneline(self):
+  def metainfoOneline(self, full=0):
     """self.metainfo() in a one-line-per-item format, used in UI."""
-    return ['%s: %s' % elem for elem in self.metainfo()]
+    return ['%s: %s' % elem for elem in self.metainfo(full)]
 
-  def metainfoHtml(self):
+  def metainfoHtml(self, full=0):
     """self.metainfoOneline() in HTML format, used in UI"""
     return "\n".join(["<div>%s</div>" %
-                      elem for elem in self.metainfoOneline()])
+                      elem for elem in self.metainfoOneline(full)])
 
   def myMetainfo(self):
     """Subclass specific enhancement to self.metainfo(), to be overriden."""
@@ -541,11 +542,15 @@ class BaseContentModel(BaseModel):
         # Should not happen but wth...
         return ""
       return ('<div class="diff_delete">%s%s</div>' %
-              (one.metainfoHtml(), one.asText()))
+              (one.metainfoHtml(full=1), one.asText()))
     elif one is None:
       return ('<div class="diff_insert">%s%s</div>' %
-              (two.metainfoHtml(), two.asText()))
+              (two.metainfoHtml(full=1), two.asText()))
 
+    onetext = "\n".join(one.metainfoOneline()) + one.asText()
+    twotext = "\n".join(two.metainfoOneline()) + two.asText()
+    if onetext == twotext:
+      return ""
     differ = difflib.HtmlDiff()
     return differ.make_table(one.metainfoOneline() + one.asText().split("\n"),
                              two.metainfoOneline() + two.asText().split("\n"),
@@ -815,6 +820,13 @@ class DocModel(BaseContentModel):
         skip_until = None
     return None
 
+  def metainfo(self, full=0):
+    # As DocModel is the toplevel, we ignore "full=0" and always
+    # give the creator information
+    return ([('Creator', self.creator),
+             ('Created', self.created)] +
+            self.myMetainfo())
+
   def myMetainfo(self):
     return [('Title', self.title)]
 
@@ -825,10 +837,10 @@ class DocModel(BaseContentModel):
         # Should not happen but wth...
         return ""
       return ('<div class="diff_delete">%s%s</div>' %
-              (one.metainfoHtml(), one.asText()))
+              (one.metainfoHtml(full=1), one.asText()))
     elif one is None:
       return ('<div class="diff_insert">%s%s</div>' %
-              (two.metainfoHtml(), two.asText()))
+              (two.metainfoHtml(full=1), two.asText()))
 
     # Both are DocModel with content[]
     oneContent = one.contentAsComparable()
@@ -850,11 +862,14 @@ class DocModel(BaseContentModel):
 
     result = []
     differ = difflib.HtmlDiff()
-    result.append(differ.make_table(one.metainfoOneline(),
-                                    two.metainfoOneline(),
-                                    fromdesc="Previous",
-                                    todesc="This Version",
-                                    context=context))
+    onetext = "\n".join(one.metainfoOneline())
+    twotext = "\n".join(two.metainfoOneline())
+    if onetext != twotext:
+      result.append(differ.make_table(one.metainfoOneline(),
+                                      two.metainfoOneline(),
+                                      fromdesc="Previous",
+                                      todesc="This Version",
+                                      context=context))
 
     for (tag, i1, i2, j1, j2) in oplist:
       if tag == 'delete':
@@ -1011,7 +1026,7 @@ class RichTextModel(BaseContentModel):
        }
 
   def asText(self):
-    return super(self.__class__, self).asText() + "\n" + self.data
+    return self.data
 
 
 class DocLinkModel(BaseContentModel):
@@ -1205,6 +1220,8 @@ class NotePadModel(BaseContentModel):
   def notepad(self):
     return str(self.key())
 
+  def asText(self):
+    return "NotePad"
 
 class WidgetModel(BaseContentModel):
   """Link to widget module.
