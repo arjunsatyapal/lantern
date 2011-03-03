@@ -43,6 +43,7 @@ from google.appengine.api import users
 
 # Local imports
 import constants
+import htmlfolder
 
 ### GQL query cache ###
 
@@ -1026,7 +1027,8 @@ class RichTextModel(BaseContentModel):
        }
 
   def asText(self):
-    return self.data
+    data = self.data.decode('utf-8')
+    return super(self.__class__, self).asText() + "\n" + htmlfolder.htmlfold(data)
 
 
 class DocLinkModel(BaseContentModel):
