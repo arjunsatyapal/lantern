@@ -15,7 +15,7 @@
 """Fold part of HTML document source into reasonable length"""
 
 import HTMLParser
-import htmlentitydefs
+from htmlentitydefs import codepoint2name
 import re
 
 class HTMLFolder(HTMLParser.HTMLParser):
@@ -23,44 +23,44 @@ class HTMLFolder(HTMLParser.HTMLParser):
   # more predictable and stable result.  Match the payload with this
   # and replace all hits with ".\n"
   squash_eos_regsub = re.compile('\\.\s+').sub
-  default_limit = 70
+  DEFAULT_LIMIT = 70
 
   def __init__(self, limit=0):
-    if limit == 0:
-      limit = self.default_limit
     HTMLParser.HTMLParser.__init__(self)
-    self.limit = limit
-    self.buffer_ = ""
-    self.result_ = ""
-    self.no_fold_ = 0
+    self._limit = limit or HTMLFolder.DEFAULT_LIMIT
+    self._buffer = []
+    self._buffer_length = 0
+    self._result = []
+    self._no_fold = 0
 
   def quote_entity(self, s):
     """Quote HTML entity name, for use in text and attribute values."""
-    d = htmlentitydefs.codepoint2name
     r = []
     for c in s:
-      if ord(c) in d:
-        r.append("&%s;" % d[ord(c)])
+      if ord(c) in codepoint2name:
+        r.append("&%s;" % codepoint2name[ord(c)])
       else:
         r.append(c)
     return "".join(r)
 
   def flush(self):
     """An output line is done"""
-    self.result_ += self.buffer_
-    self.buffer_ = ""
+    self._result.append("".join(self._buffer))
+    self._buffer = []
+    self._buffer_length = 0
 
   def out(self, s):
     """output string s; no folding tricks allowed."""
-    self.buffer_ += s
+    self._buffer.append(s)
+    self._buffer_length += len(s)
 
   def out_fold(self, s):
     """output string s.
 
     This is allowed to insert a LF after it if the line gets too long.
     """
-    self.buffer_ += s
-    if self.limit < len(self.buffer_):
+    self.out(s)
+    if self._limit < self._buffer_length:
       self.do_flush_line()
 
   def out_continue(self, s):
@@ -68,13 +68,13 @@ class HTMLFolder(HTMLParser.HTMLParser):
 
     This is allowed to insert a LF after the string if the line gets too long.
     """
-    if self.limit < len(self.buffer_) + len(s) + 1:
+    if self._limit < self._buffer_length + len(s) + 1:
       self.do_flush_line()
       self.out(s)
-    elif len(self.buffer_) == 0:
-      self.buffer_ = s
+    elif self._buffer_length == 0:
+      self.out(s)
     else:
-      self.buffer_ += " %s" % s
+      self.out(" %s" % s)
 
   def do_flush_line(self):
     """Insert a LF."""
@@ -83,8 +83,15 @@ class HTMLFolder(HTMLParser.HTMLParser):
 
   def flush_line(self):
     """Insert a LF if the line is too long."""
-    if self.limit < len(self.buffer_):
+    if self._limit <= self._buffer_length:
       self.do_flush_line()
+
+  def flush_head(self):
+    """Send all but the last incomplete line to the result"""
+    if 0 < len(self._buffer):
+      self._result.extend(self._buffer[:-1])
+      self._buffer = [self._buffer[-1]]
+      self._buffer_length = len(self._buffer[0])
 
   def do_lines(self, data):
     """Common helper to handle the body text and comment that can be wrapped
@@ -96,17 +103,17 @@ class HTMLFolder(HTMLParser.HTMLParser):
       if is_first_line == 0:
         self.do_flush_line()
       line = self.quote_entity(line)
-      current_length = len(self.buffer_)
+      current_length = self._buffer_length
       line_length = len(line)
-      while self.limit < current_length + line_length:
-        prefixlen = self.limit - current_length
-        if prefixlen < 0:
+      while self._limit < current_length + line_length:
+        prefix_length = self._limit - current_length
+        if prefix_length < 0:
           self.do_flush_line()
-          prefixlen, current_length = self.limit, 0
+          prefix_length, current_length = self._limit, 0
 
         # Try to find cut point from earlier part to make the
         # result fit within the limit
-        ix = line.rfind(" ", 0, prefixlen)
+        ix = line.rfind(" ", 0, prefix_length)
         if ix < 0 and current_length != 0:
           # Otherwise give up and cut at the first cut-point
           ix = line.find(" ")
@@ -118,7 +125,7 @@ class HTMLFolder(HTMLParser.HTMLParser):
         self.do_flush_line()
         # Start the next line while eating the SP
         line = line[ix+1:]
-        current_length = len(self.buffer_)
+        current_length = self._buffer_length
         line_length = len(line)
       self.out(line)
       is_first_line = 0
@@ -126,12 +133,12 @@ class HTMLFolder(HTMLParser.HTMLParser):
   def close(self):
     """Finish processing; return the wrapped text"""
     self.flush()
-    result = self.result_
+    result = "".join(self._result)
     HTMLParser.HTMLParser.close(self)
     return result
 
   def handle_starttag(self, tag, attrs):
-    if tag in ('p', 'div') and self.buffer_ != "":
+    if tag in ('p', 'div') and 0 < self._buffer_length:
       self.do_flush_line()
     self.out_fold("<%s" % tag)
     for (key, value) in attrs:
@@ -139,7 +146,7 @@ class HTMLFolder(HTMLParser.HTMLParser):
     self.flush_line()
     self.out(">")
     if tag == 'pre':
-      self.no_fold_ = 1
+      self._no_fold = 1
 
   def handle_entityref(self, name):
     self.out("&%s;" % name)
@@ -151,11 +158,12 @@ class HTMLFolder(HTMLParser.HTMLParser):
     self.out_fold("</%s" % tag)
     self.out(">")
     if tag == 'pre':
-      self.no_fold_ = 0
+      self._no_fold = 0
 
   def handle_data(self, data):
-    if self.no_fold_ == 1:
+    if self._no_fold == 1:
       self.out(data)
+      self.flush_head()
     else:
       self.do_lines(data)
 
@@ -166,12 +174,17 @@ class HTMLFolder(HTMLParser.HTMLParser):
     self.out("-->")
 
 
-# Helper
-def htmlfold(s, limit=0):
+def htmlfold(s, line_width=0):
+  """Line-fold HTML document to fit within the line-width
+
+  Args:
+    s: input string
+    line_width: number of columns to fold to (defaults to %s)
+  """ % HTMLFolder.DEFAULT_LIMIT
   try:
-    pp = HTMLFolder(limit)
-    pp.feed(s)
-    return pp.close()
+    folder = HTMLFolder(line_width)
+    folder.feed(s)
+    return folder.close()
   except HMLParser.HTMLParseError:
     return s
 
